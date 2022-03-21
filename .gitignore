@@ -1,5 +1,23 @@
 Merlin*.dat
 *.jpg
 *.png
+*.ai
+*.tmp
 Test_data
 FSC.py
+2D_Gaussian_Fit.ipynb
+Dask_examples.ipynb
+dask-profile.html
+FIB-SEM Dask Array Dev.ipynb
+FIB-SEM Registration Dev.ipynb
+FIB-SEM_Noise_Analysis.ipynb
+FIB-SEM_resolution_J6_03112020_Smoothing_Noise_Richardson_Lucy_EM.ipynb
+pysift.py
+Read_Analyze_registrations_LID556.ipynb
+Read_Analyze_registrations_Shirish.ipynb
+Read_Analyze_registrations_v0.ipynb
+Read_ZRDs.ipynb
+.ipynb_checkpoints
+__pycache__
+dask-worker-space
+~*.*
