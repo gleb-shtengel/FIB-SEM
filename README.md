@@ -2,7 +2,23 @@
 
 ## "Register_FIB-SEM_stack_DASK_v0.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
 
-## "FIB-SEM_Noise_Analysis.ipynb" - Python Notebook for noise analysis
+In order to run the Python Notebook code, first, install basic Anaconda:
+https://www.anaconda.com/products/individual
+This notebook uses OpenCV implementation of SIFT. SIFT is part of standard OpenCV releases for version 3.4.1 or earlier. If you have newer version of OpenCV-python installed, SIFT will most likely be not part of it (because of patent issues), and the Python command sift = cv2.xfeatures2d.SIFT_create() will generate error. In this case replace it with a version supporting SIFT using these commands (in anaconda command window):
+
+Uninstall the OpenCV:
+>pip uninstall opencv-python
+Then install the contrib version of OpenCV:
+>pip install opencv-contrib-python
+
+You will also need to have these packages installed:
+-	mrcfile
+-	skimage
+-	dask
+-	pickle
+-	webbrowser
+-	IPython
+
 
 ## Class FIBSEM
 The FIB-SEM data stored during the imaging into binary “.dat” files that contain the header (first 1024 bytes) and the FIB-SEM signal, typically from two detectors.
