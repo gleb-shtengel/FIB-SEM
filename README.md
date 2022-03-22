@@ -20,15 +20,20 @@ You will also need to have these packages installed:
 -	IPython
 
 
-## Class FIBSEM
+## Class FIBSEM_frame
 The FIB-SEM data stored during the imaging into binary “.dat” files that contain the header (first 1024 bytes) and the FIB-SEM signal, typically from two detectors.
 The class FIBSEM_frame initializes an object by reading a FIB-SEM “.dat” file and creating the object with methods performing access to the header information and to the data:
 __init__(filename.dat) reads the filename.dat file and unpacks the header and image information.
 Example: 
+
 file_name_v8 = 'Merlin-6257_20-02-16_172032_0-0-0.dat'
+
 data_dir_v8 = 'F:\FIB-SEM_SIFT\LID494_ROI5_RawData'
+
 fname_v8 = os.path.join(data_dir_v8,file_name_v8)
+
 frame_v8 = FIBSEM_frame(fname_v8)
+
 The last line creates the object frame_v8 and we can then use that object with following methods.
 
 print_header() prints the information encoded into the first 1024 bytes of the .dat file.
