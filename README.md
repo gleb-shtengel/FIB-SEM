@@ -1,6 +1,8 @@
 # This is a repository for FIB-SEM data processing
 
-## "Register_FIB-SEM_stack_DASK_v0.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
+## "Register_FIB-SEM_stack_DASK_v1.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
+
+## "Evaluate_FIB-SEM_stack_registration.ipynb" - Python Notebook for evaluates FIB-SEM stack registration (works with stacks saved into MRC files)
 
 In order to run the Python Notebook code, first, install basic Anaconda:
 https://www.anaconda.com/products/individual
@@ -14,39 +16,203 @@ Then install the contrib version of OpenCV:
 You will also need to have these packages installed:
 -	mrcfile
 -	skimage
--	dask
+-	DASK
 -	pickle
 -	webbrowser
 -	IPython
+-   cupy (you will need to have CUDA toolkit installed first)
+
+## General Help Functions
+    get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_res=False):
+        Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
+    radial_profile(data, center):
+        Calculates radially average profile of the 2D array (used for FRC and auto-correlation)
+
+## Single Frame Image Processing Functions
+    Single_Image_SNR(img, **kwargs):
+        Estimates SNR based on a single image.
+        Calculates SNR of a single image base on auto-correlation analysis after [1].   
+        [1] J. T. L. Thong et al, Single-image signal-to-noise ratio estimation. Scanning, 328–336 (2001).
+    Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
+        Analyses the noise statistics in the selected ROI's of the EM data
+    Single_Image_Noise_Statistics(img, **kwargs):
+        Analyses the noise statistics of the EM data image.
+
+## class FIBSEM_frame:
+    A class representing single FIB-SEM data frame. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com.
+    Contains the info/settings on a single FIB-SEM data frame and the procedures that can be performed on it.
+
+    Attributes (only some more important are listed here)
+    ----------
+    fname : str
+        filename of the individual data frame
+    header : str
+        1024 bytes - header
+    FileVersion : int
+        file version number
+    ChanNum : int
+        Number of channels
+    EightBit : int
+        8-bit data switch: 0 for 16-bit data, 1 for 8-bit data
+    ScalingS : 2D array of floats
+        scaling parameters allowing to convert I16 data into actual electron counts 
+    Sample_ID : str
+        Sample_ID
+    Notes : str
+        Experiment notes
+    DetA : str
+        Detector A name
+    DetB : str
+        Detector B name ('None' if there is no Detector B)
+    XResolution : int
+        number of pixels - frame size in horisontal direction
+    YResolution : int
+        number of pixels - frame size in vertical direction
+
+    Methods
+    -------
+    print_header()
+        Prints a formatted content of the file header
+    display_images()
+        Display auto-scaled detector images without saving the figure into the file.
+    save_images_jpeg(**kwargs)
+        Display auto-scaled detector images and save the figure into JPEG file (s).
+    save_images_tif(images_to_save = 'Both')
+        Save the detector images into TIF file (s).
+    get_image_min_max(image_name = 'ImageA', thr_min = 1.0e-4, thr_max = 1.0e-3, nbins=256, disp_res = False)
+        Calculates the data range of the EM data.
+    RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
+        Convert the Image A into 8-bit array
+    RawImageB_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
+            Convert the Image B into 8-bit array
+    save_snapshot(display = True, dpi=300, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256):
+        Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
+    analyze_noise_ROIs(**kwargs):
+        Analyses the noise statistics in the selected ROI's of the EM data.
+    analyze_noise_statistics(**kwargs):
+        Analyses the noise statistics of the EM data image.
+    analyze_crosscor_SNR(image_name = 'RawImageA', **kwargs):
+        Estimates SNR using auto-correlation analysis of a single image.
+    show_eval_box(**kwargs):
+        Show the box used for evaluating the noise
 
 
-## Class FIBSEM_frame
-The FIB-SEM data stored during the imaging into binary “.dat” files that contain the header (first 1024 bytes) and the FIB-SEM signal, typically from two detectors.
-The class FIBSEM_frame initializes an object by reading a FIB-SEM “.dat” file and creating the object with methods performing access to the header information and to the data:
-__init__(filename.dat) reads the filename.dat file and unpacks the header and image information.
-Example: 
 
-file_name_v8 = 'Merlin-6257_20-02-16_172032_0-0-0.dat'
+## class FIBSEM_dataset: 
+    A class representing a FIB-SEM data set. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com.
+    Contains the info/settings on the FIB-SEM dataset and the procedures that can be performed on it.
 
-data_dir_v8 = 'F:\FIB-SEM_SIFT\LID494_ROI5_RawData'
+    Attributes
+    ----------
+    fls : array of str
+        filenames for the individual data frames in the set
+    data_dir : str
+        data direcory (path)
+    Sample_ID : str
+            Sample ID
+    ftype : int
+        file type (0 - Shan Xu's .dat, 1 - tif)
+    fnm_reg : str
+        filename for the final registed dataset
+    use_DASK : bolean
+        use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+    threshold_min : float
+        CDF threshold for determining the minimum data value
+    threshold_max : float
+        CDF threshold for determining the maximum data value
+    nbins : int
+        number of histogram bins for building the PDF and CDF
+    sliding_minmax : bolean
+        if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
+        if False - same data_min_glob and data_max_glob will be used for all files
+    TransformType : object reference
+        Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
+        Choose from the following options:
+            ShiftTransform - only x-shift and y-shift
+            XScaleShiftTransform  -  x-scale, x-shift, y-shift
+            ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
+            AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
+            RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
+    l2_matrix : 2D float array
+        matrix of regularization (shrinkage) parameters
+    targ_vector = 1D float array
+        target vector for regularization
+    solver : str
+        Solver used for SIFT ('RANSAC' or 'LinReg')
+    drmax : float
+        In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
+        In the case of 'LinReg' - outlier threshold for iterative regression
+    max_iter : int
+        Max number of iterations in the iterative procedure above (RANSAC or LinReg)
+    BFMatcher : bolean
+        If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    save_matches : bolean
+        If True, matches will be saved into individual files
+    kp_max_num : int
+        Max number of key-points to be matched.
+        Key-points in every frame are indexed (in descending order) by the strength of the response.
+        Only kp_max_num is kept for further processing.
+        Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+    save_res_png  : bolean
+        Save PNG images of the intermediate processing statistics and final registration quality check
+    save_asI8 : bolean
+        If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
+    zbin_2x : bolean
+        If True, the data will be binned 2x in z-direction (z-milling direction) when saving the final result.
+    preserve_scales : bolean
+        If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
+    fit_params : list
+        Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
+        Other options are:
+            ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
+            ['PF', 2]  - use polynomial fit (in this case of order 2)
+    int_order : int
+        The order of interpolation (when transforming the data).
+            The order has to be in the range 0-5:
+                0: Nearest-neighbor
+                1: Bi-linear (default)
+                2: Bi-quadratic
+                3: Bi-cubic
+                4: Bi-quartic
+                5: Bi-quintic
+    subtract_linear_fit : [boolean, bolean]
+        List of two Boolean values for two directions: X- and Y-.
+        If True, the linear slopes along X- and Y- directions (respectively)
+        will be subtracted from the cumulative shifts.
+        This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
+    pad_edges : bolean
+        If True, the data will be padded before transformation to avoid clipping.
+    ImgB_fraction : float
+            fractional ratio of Image B to be used for constructing the fuksed image:
+            ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
+    evaluation_box : list of 4 int
+            evaluation_box = [left, width, top, height] boundaries of the box used for evaluating the image registration.
+            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
 
-fname_v8 = os.path.join(data_dir_v8,file_name_v8)
-
-frame_v8 = FIBSEM_frame(fname_v8)
-
-The last line creates the object frame_v8 and we can then use that object with following methods.
-
-print_header() prints the information encoded into the first 1024 bytes of the .dat file.
-
-save_snapshot(self, display , dpi, nbins, thr_min, thr_max) creates a snapshot of the frame as shown below, which includes the detector images and some information from the header.
-
-display_images() displays auto-scaled detector images within a python notebook without saving the figure into the file.
-
-save_images_jpeg(invert=False, images_to_save = 'Both') saves autoscaled detector images as a figure in JPG file, (replacing the “.dat” extension with ‘.jpeg’). If the parameter invert is set to False (default), the images will not be inverted – and membranes will be “white”. The parameter images_to_save can be set to 'Both' (default), 'A', or 'B'.
-
-save_images(images_to_save = 'Both') saves the images captured by Detector A and Detector B individually as .tif files and adds the detector names (extracted from the FIB-SEM header) to the filenames. The parameter images_to_save can be set to 'Both' (default), 'A', or 'B'.
-
-get_image_min_max(image_name = 'ImageA', thr_min = 1.0e-4, thr_max = 1.0e-3, nbins=256, disp_res = False) calculates histogram of pixel intensities of a specified image (options are 'ImageA', 'ImageB', 'RawImageA', 'RawImageB',  default is 'ImageA') with number of bins determined by parameter nbins (default = 256) and normalizes it to get the probability distribution function (PDF), from which a cumulative distribution function (CDF) is calculated. Then given the thr_min, thr_max parameters, the minimum and maximum values for the image are found by finding the intensities at which CDF= thr_min and (1- thr_max), respectively.
-
-RawImageA_8bit_thresholds(thr_min, thr_max, data_min, data_max, nbins) and RawImageB_8bit_thresholds (thr_min, thr_max, data_min, data_max, nbins) will first check if the image is already in 8-bit form, if not, it will convert the image to 8-bit form using the minimum (data_min) and maximum(data_max), if those are given, and the thresholds (using the same procedure as explained above), if the data_min and data_max are not provided (or are equal – default values are set to -1 for each).
+    Methods
+    -------
+    SIFT_evaluation(eval_fls = [], **kwargs):
+        Evaluate SIFT settings and perfromance of few test frames (eval_fls).
+    convert_raw_data_to_tif_files(sDASK_client = '', **kwargs):
+        Convert binary ".dat" files into ".tif" files
+    calc_data_range(DASK_client, **kwargs):
+        Calculate Min and Max range for I8 conversion of the data (open CV SIFT requires I8)
+    extract_keypoints(DASK_client, **kwargs):
+        Extract Key-Points and Descriptors
+    determine_transformations(DASK_client, **kwargs):
+        Determine transformation matrices for sequential frame pairs
+    process_transformation_matrix(**kwargs):
+        Calculate cumulative transformation matrix
+    save_parameters(**kwargs):
+        Save transformation attributes and parameters (including transformation matrices)
+    check_for_nomatch_frames(thr_npt, **kwargs):
+        Check for frames with low number of Key-Point matches,m exclude them and re-calculate the cumulative transformation matrix
+    transform_and_save(**kwargs):
+        Transform the frames using the cumulative transformation matrix and save the data set into .mrc file
+    show_eval_box(**kwargs):
+        Show the box used for evaluating the registration quality
+    estimate_SNRs(**kwargs):
+        Estimate SNRs in Image A and Image B based on single-image SNR calculation.
+    def evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs):
+        Calculate NCC and SNR vs Image B fraction over a set of frames.
 

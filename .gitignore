@@ -6,11 +6,18 @@ Merlin*.dat
 Test_data
 FSC.py
 2D_Gaussian_Fit.ipynb
+Bacground_level_subrtraction.ipynb
 Dask_examples.ipynb
 dask-profile.html
 FIB-SEM Dask Array Dev.ipynb
 FIB-SEM Registration Dev.ipynb
 FIB-SEM_Noise_Analysis.ipynb
+FIB-SEM_Noise_Analysis_new.ipynb
+Register_FIB-SEM_stack_DASK_v0.ipynb
+Register_FIB-SEM_stack_DASK_v1_HeLa3.ipynb
+Evaluate_registrations_HeLa3.ipynb
+Read_Analyze_registrations.ipynb
+MRC_stack_analysis.ipynb
 FIB-SEM_resolution_J6_03112020_Smoothing_Noise_Richardson_Lucy_EM.ipynb
 pysift.py
 Read_Analyze_registrations_LID556.ipynb
