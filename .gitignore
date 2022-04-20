@@ -3,6 +3,7 @@ Merlin*.dat
 *.png
 *.ai
 *.tmp
+*.doc
 Test_data
 FSC.py
 2D_Gaussian_Fit.ipynb
