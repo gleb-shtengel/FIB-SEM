@@ -1038,8 +1038,8 @@ def analyze_mrc_stack(mrc_filename, **kwargs):
     reg_summary : PD data frame
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
-    save_res_png  = kwargs.get("save_res_png ", True )
-    save_filename = kwargs.get("save_filename ", mrc_filename )
+    save_res_png  = kwargs.get("save_res_png", True )
+    save_filename = kwargs.get("save_filename", mrc_filename )
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
    
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
@@ -1157,11 +1157,15 @@ def evaluate_registration_two_frames(params_mrc):
     image_nsad, image_ncc, image_mi   : float, float, float
 
     '''
-    mrc_filename, fr, evals = params_mrc
+    mrc_filename, fr, invert_data, evals = params_mrc
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     xi_eval, xa_eval, yi_eval, ya_eval = evals
-    prev_frame = mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
-    curr_frame = mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
+    if invert_data:
+        prev_frame = -1.0 * mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
+        curr_frame = -1.0 * mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
+    else:
+        prev_frame = mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
+        curr_frame = mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
     fr_mean = curr_frame/2.0 + prev_frame/2.0
     image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
     image_ncc = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
@@ -1198,7 +1202,12 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", mrc_filename )
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+    start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+    stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+
     use_DASK = kwargs.get("use_DASK", False)
+    invert_data =  kwargs.get("invert_data", False)
    
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
@@ -1215,8 +1224,6 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     else:
         ya_eval = ny
     
-    evals = [xi_eval, xa_eval, yi_eval, ya_eval]
-
     frames_default = np.arange(nz-1)+1
     frames = np.array(kwargs.get("frames", frames_default))
     nf = len(frames)
@@ -1224,7 +1231,29 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         frames = frames+1
     print('Will analyze regstrations in {:d} frames'.format(len(frames)))
     print('Will save the data into '+os.path.splitext(save_filename)[0] + '_RegistrationQuality.csv')
-    params_mrc_mult = [[mrc_filename, fr, evals] for fr in frames]
+    if sliding_evaluation_box:
+        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+    else:
+        dx_eval = 0
+        dy_eval = 0
+    
+    params_mrc_mult = []
+    for j, fr in enumerate(frames):
+        if sliding_evaluation_box:
+            xi_eval = start_evaluation_box[2] + dx_eval*j//nf
+            yi_eval = start_evaluation_box[0] + dy_eval*j//nf
+            if start_evaluation_box[3] > 0:
+                xa_eval = xi_eval + start_evaluation_box[3]
+            else:
+                xa_eval = nx
+            if start_evaluation_box[1] > 0:
+                ya_eval = yi_eval + start_evaluation_box[1]
+            else:
+                ya_eval = ny
+            evals = [xi_eval, xa_eval, yi_eval, ya_eval]
+        params_mrc_mult.append([mrc_filename, fr, invert_data, evals])
+    #params_mrc_mult = [[mrc_filename, fr, evals] for fr in frames]
         
     if use_DASK:
         mrc_obj.close()
@@ -1334,9 +1363,13 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
         [nz//10,  nz//2, nz//10*9] where nz is number of frames in mrc stack
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
-    save_res_png  = kwargs.get("save_res_png ", True )
-    save_filename = kwargs.get("save_filename ", mrc_filename )
+    save_res_png  = kwargs.get("save_res_png", True )
+    save_filename = kwargs.get("save_filename", mrc_filename )
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+    start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+    stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+    invert_data =  kwargs.get("invert_data", False)
     ax = kwargs.get("ax", '')
     plot_internal = (ax == '')
 
@@ -1344,7 +1377,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     header = mrc.header
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
 
-    frame_inds = kwargs.get("frame_inds ", [nz//10,  nz//2, nz//10*9] )
+    frame_inds = kwargs.get("frame_inds", [nz//10,  nz//2, nz//10*9] )
     
     xi_eval = evaluation_box[2]
     if evaluation_box[3] > 0:
@@ -1357,12 +1390,35 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     else:
         ya_eval = ny
 
+    if sliding_evaluation_box:
+        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+    else:
+        dx_eval = 0
+        dy_eval = 0
+
     for fr_ind in frame_inds: 
         eval_frame = mrc.data[fr_ind, :, :].astype(float64)
+
+        if sliding_evaluation_box:
+            xi_eval = start_evaluation_box[2] + dx_eval*fr_ind//nz
+            yi_eval = start_evaluation_box[0] + dy_eval*fr_ind//nz
+            if start_evaluation_box[3] > 0:
+                xa_eval = xi_eval + start_evaluation_box[3]
+            else:
+                xa_eval = nx
+            if start_evaluation_box[1] > 0:
+                ya_eval = yi_eval + start_evaluation_box[1]
+            else:
+                ya_eval = ny
+
         if plot_internal:
             fig, ax = subplots(1,1, figsize = (10.0, 11.0*ny/nx))
         dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
-        ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
+        if invert_data:
+            ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
+        else:
+            ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
         ax.grid(True, color = "cyan")
         ax.set_title(Sample_ID + ' '+mrc_filename +',  frame={:d}'.format(fr_ind))
         rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
@@ -1877,7 +1933,7 @@ class FIBSEM_frame:
             n_elements = self.ChanNum * self.XResolution * self.YResolution
             fid.seek(1024, 0)
             if self.EightBit==1:
-                dt = np.dtype(np.int8)
+                dt = np.dtype(np.uint8)
                 dt = dt.newbyteorder('>')
                 if self.use_dask_arrays:
                     Raw = da.from_array(np.frombuffer(fid.read(n_elements), dtype=dt))
@@ -1899,11 +1955,14 @@ class FIBSEM_frame:
             #data = np.asarray(datab).reshape(self.YResolution,self.XResolution,ChanNum)
             if self.EightBit == 1:
                 if self.AI1 == 1:
-                    self.RawImageA = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(int16)
-                    if self.AI2 ==2:
-                        self.RawImageB = (Raw[:,:,1].astype(float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(int16)
-                elif self.AI2 ==2:
-                    self.RawImageB = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(int16)
+                    self.RawImageA = Raw[:,:,0]
+                    self.ImageA = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(int32)
+                    if self.AI2 == 1:
+                        self.RawImageB = Raw[:,:,1]
+                        self.ImageB = (Raw[:,:,1].astype(float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(int32)
+                elif self.AI2 == 1:
+                    self.RawImageB = Raw[:,:,0]
+                    self.ImageB = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(int32)
             else:
                 if self.FileVersion == 1 or self.FileVersion == 2 or self.FileVersion == 3 or self.FileVersion == 4 or self.FileVersion == 5 or self.FileVersion == 6:
                     if self.AI1 == 1:
@@ -2721,7 +2780,7 @@ class FIBSEM_frame:
         nbins_disp = kwargs.get("nbins_disp", 256)
         thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])    
         invert_data =  kwargs.get("invert_data", False)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
 
         if image_name == 'RawImageA':
             img = self.RawImageA
@@ -3938,7 +3997,7 @@ def build_filename(fname, **kwargs):
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
     kp_max_num = kwargs.get("kp_max_num", -1)
-    save_res_png  = kwargs.get("save_res_png ", True)
+    save_res_png  = kwargs.get("save_res_png", True)
 
     save_asI8 =  kwargs.get("save_asI8", False) 
     zbin_2x =  kwargs.get("zbin_2x", True)                  # If true, the data will be converted to I8 using global MIN and MAX values determined in the Step 1
@@ -4044,13 +4103,13 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     kp_max_num = kwargs.get("kp_max_num", -1)
-    save_res_png  = kwargs.get("save_res_png ", True)
+    save_res_png  = kwargs.get("save_res_png", True)
 
     preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
-    #print("subtract_linear_fit: ", subtract_linear_fit)
+    #print("subtract_linear_fit:", subtract_linear_fit)
     pad_edges =  kwargs.get("pad_edges", True)
 
     tr_matr_cum = transformation_matrix.copy()   
@@ -4291,7 +4350,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     kp_max_num = kwargs.get("kp_max_num", -1)
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    save_res_png  = kwargs.get("save_res_png ", True)
+    save_res_png  = kwargs.get("save_res_png", True)
 
     frame = FIBSEM_frame(fs[0], ftype=ftype)
     if ftype == 0:
@@ -4443,7 +4502,7 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
     threshold_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     sliding_minmax = kwargs.get("sliding_minmax", True)
-    save_res_png  = kwargs.get("save_res_png ", True)
+    save_res_png  = kwargs.get("save_res_png", True)
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     if EightBit == 1:
@@ -4518,7 +4577,7 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     Sample_ID = kwargs.get("Sample_ID", '')
     pad_edges =  kwargs.get("pad_edges", True)
-    save_res_png  = kwargs.get("save_res_png ", True)
+    save_res_png  = kwargs.get("save_res_png", True)
     save_asI8 =  kwargs.get("save_asI8", False)
     dtp = kwargs.get("dtp", int16)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -4796,7 +4855,7 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     Sample_ID = kwargs.get("Sample_ID", '')
     pad_edges =  kwargs.get("pad_edges", True)
-    save_res_png  = kwargs.get("save_res_png ", True)
+    save_res_png  = kwargs.get("save_res_png", True)
     save_asI8 =  kwargs.get("save_asI8", False)
     dtp = kwargs.get("dtp", int16)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -5330,7 +5389,7 @@ class FIBSEM_dataset:
         self.BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
         self.save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
         self.kp_max_num = kwargs.get("kp_max_num", -1)
-        self.save_res_png  = kwargs.get("save_res_png ", True)
+        self.save_res_png  = kwargs.get("save_res_png", True)
 
         self.save_asI8 =  kwargs.get("save_asI8", False) 
         self.zbin_2x =  kwargs.get("zbin_2x", True)                 # If true, the data will be converted to I8 using global MIN and MAX values determined in the Step 1
@@ -5448,7 +5507,7 @@ class FIBSEM_dataset:
         kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         save_matches = kwargs.get("save_matches", self.save_matches)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png)
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts = SIFT_evaluation_dataset(eval_fls,
@@ -5570,7 +5629,7 @@ class FIBSEM_dataset:
         threshold_max = kwargs.get("threshold_max", self.threshold_max)
         nbins = kwargs.get("nbins", self.nbins)
         sliding_minmax = kwargs.get("sliding_minmax", self.sliding_minmax)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         fit_params = kwargs.get("fit_params", self.fit_params)
         self.data_minmax = calc_data_range_dataset(self.fls, DASK_client,
                                 use_DASK = use_DASK,
@@ -5735,7 +5794,7 @@ class FIBSEM_dataset:
             kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
             BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
             save_matches = kwargs.get("save_matches", self.save_matches)
-            save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+            save_res_png  = kwargs.get("save_res_png", self.save_res_png )
             dt_kwargs = {'ftype' : ftype,
                             'TransformType' : TransformType,
                             'l2_matrix' : l2_matrix,
@@ -5843,7 +5902,7 @@ class FIBSEM_dataset:
             BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
             save_matches = kwargs.get("save_matches", self.save_matches)
             kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
-            save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+            save_res_png  = kwargs.get("save_res_png", self.save_res_png )
             preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
             fit_params =  kwargs.get("fit_params", self.fit_params)
             subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
@@ -5983,7 +6042,7 @@ class FIBSEM_dataset:
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         save_matches = kwargs.get("save_matches", self.save_matches)
         kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
         subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
@@ -6106,7 +6165,7 @@ class FIBSEM_dataset:
             ImgB_fraction = 0.0
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         save_asI8 =  kwargs.get("save_asI8", self.save_asI8)
         dtp = kwargs.get("dtp", self.dtp)
         TransformType = kwargs.get("TransformType", self.TransformType)
@@ -6253,7 +6312,7 @@ class FIBSEM_dataset:
             ImgB_fraction = 0.0
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         save_asI8 =  kwargs.get("save_asI8", self.save_asI8)
         dtp = kwargs.get("dtp", self.dtp)
         TransformType = kwargs.get("TransformType", self.TransformType)
@@ -6370,7 +6429,7 @@ class FIBSEM_dataset:
         perfrom_transformation =  kwargs.get("perfrom_transformation", True) and hasattr(self, 'tr_matr_cum_residual')
         invert_data =  kwargs.get("invert_data", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
 
         fls = self.fls
         nfrs = len(fls)
@@ -6491,7 +6550,7 @@ class FIBSEM_dataset:
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         int_order = kwargs.get("int_order", self.int_order) 
         invert_data =  kwargs.get("invert_data", False)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
 
         fls = self.fls
         nfrs = len(fls)
@@ -6651,7 +6710,7 @@ class FIBSEM_dataset:
         data_dir = kwargs.get("data_dir", self.data_dir)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
-        save_res_png  = kwargs.get("save_res_png ", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         nbr = len(ImgB_fractions)
 
