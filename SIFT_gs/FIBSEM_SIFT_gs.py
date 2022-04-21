@@ -6530,10 +6530,11 @@ class FIBSEM_dataset:
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
             data direcory (path)
-        
         Sample_ID : str
             Sample ID
-        
+        ImgB_fraction : float
+            Optional fractional weight of Image B to use for constructing the fused image: FusedImage = ImageA*(1.0-ImgB_fraction) + ImageB*ImgB_fraction
+            If not provided, the value determined from rSNR ratios will be used.
         invert_data : boolean
             If True - the data is inverted
         save_res_png  : boolean
@@ -6551,6 +6552,7 @@ class FIBSEM_dataset:
         int_order = kwargs.get("int_order", self.int_order) 
         invert_data =  kwargs.get("invert_data", False)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
+        ImgB_fraction = kwargs.get("ImgB_fraction", 0.00 )
 
         fls = self.fls
         nfrs = len(fls)
@@ -6624,6 +6626,8 @@ class FIBSEM_dataset:
             ImgB_fraction_xSNR = np.mean(np.array(xSNRBs)/(np.array(xSNRAs) + np.array(xSNRBs)))
             ImgB_fraction_ySNR = np.mean(np.array(ySNRBs)/(np.array(ySNRAs) + np.array(ySNRBs)))
             ImgB_fraction_rSNR = np.mean(np.array(rSNRBs)/(np.array(rSNRAs) + np.array(rSNRBs)))
+            if ImgB_fraction < 1e-9:
+                ImgB_fraction = ImgB_fraction_rSNR
             ax.text(0.1, 0.5, 'ImgB fraction (x-SNR) = {:.4f}'.format(ImgB_fraction_xSNR), color='r', transform=ax.transAxes)
             ax.text(0.1, 0.42, 'ImgB fraction (y-SNR) = {:.4f}'.format(ImgB_fraction_ySNR), color='b', transform=ax.transAxes)
             ax.text(0.1, 0.34, 'ImgB fraction (r-SNR) = {:.4f}'.format(ImgB_fraction_rSNR), color='g', transform=ax.transAxes)
@@ -6649,8 +6653,9 @@ class FIBSEM_dataset:
 
                 frame_imgA_eval = frame_imgA[yi_eval:ya_eval, xi_eval:xa_eval]
                 frame_imgB_eval = frame_imgB[yi_eval:ya_eval, xi_eval:xa_eval]
-                frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction_rSNR) + frame_imgB_eval * ImgB_fraction_rSNR
-                ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval, save_res_png=False, img_label='Fused, ImB_fr={:.4f}, frame={:d}'.format(ImgB_fraction_rSNR, j))
+
+                frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction) + frame_imgB_eval * ImgB_fraction
+                ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval, save_res_png=False, img_label='Fused, ImB_fr={:.4f}, frame={:d}'.format(ImgB_fraction, j))
                 xSNRFs.append(ImageF_xSNR)
                 ySNRFs.append(ImageF_ySNR)
                 rSNRFs.append(ImageF_rSNR)
