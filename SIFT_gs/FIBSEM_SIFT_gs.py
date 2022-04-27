@@ -28,6 +28,18 @@ try:
 except:
     import tifffile as tiff
 from scipy.signal import savgol_filter
+from scipy import ndimage
+from scipy.signal import convolve2d
+from scipy.ndimage import gaussian_filter
+
+from sklearn.linear_model import (LinearRegression,
+    TheilSenRegressor,
+    RANSACRegressor,
+    HuberRegressor)
+from sklearn.metrics import mean_squared_error
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import make_pipeline
+
 
 import dask
 import dask.array as da
@@ -41,10 +53,11 @@ import pickle
 import webbrowser
 from IPython.display import IFrame
 
-from scipy import ndimage
-from scipy.signal import convolve2d
-from scipy.ndimage import gaussian_filter
 EPS = np.finfo(float).eps
+
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 
 
 
@@ -135,8 +148,6 @@ def get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_re
         axs[1].legend(loc='center', fontsize=fsz)
         axs[1].set_title('Data Min and max with thr_min={:.0e},  thr_max={:.0e}'.format(thr_min, thr_max), fontsize = fsz)
     return np.array((data_min, data_max))
-
-
 
 
 def radial_profile(data, center):
@@ -841,7 +852,6 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         axs[3].plot([range_analysis[1], range_analysis[1]],[ylim3[0]-1000, ylim3[1]], color='red', linestyle='dashed', label=lbl_high)
         axs[3].legend(loc='upper center', fontsize=fs+1)
         axs[3].set_ylim(ylim3)
-
     
     PSNR = (I_peak-I0)/np.sqrt(Var_peak)
     PSNR_header = (I_peak-DarkCount)/np.sqrt(Var_peak)
@@ -869,6 +879,131 @@ def Single_Image_Noise_Statistics(img, **kwargs):
             fig.savefig(res_fname, dpi=300)
             print('results saved into the file: '+res_fname)
     return mean_vals, var_vals, I0, PSNR, DSNR, popt, result
+
+
+def Perform_2D_fit(img, estimator, **kwargs):
+    '''
+    Bin the image and then perform 2D polynomial (currently only 2D parabolic) fit on the binned image.
+    ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
+    
+    Parameters
+    ----------
+    img : 2D array
+        original image
+    estimator : RANSACRegressor,
+                LinearRegression,
+                TheilSenRegressor,
+                HuberRegressor
+    kwargs:
+    bins : int
+        binsize for image binning. If not provided, bins=10
+    calc_corr : bolean
+        If True - the full image correction is calculated
+    ignore_Y  : bolean
+        If True - the parabolic fit to only X is perfromed
+    disp_res : boolean
+        (default is False) - to plot/ display the results
+    save_res_png : boolean
+        save the analysis output into a PNG file (default is False)
+    res_fname : string
+        filename for the sesult image ('2D_Parabolic_Fit.png')
+    label : string
+        optional image label
+    dpi : int
+
+    Returns:
+    intercept, coefs, mse, img_full_correction
+    '''
+    ysz, xsz = img.shape
+    calc_corr = kwargs.get("calc_corr", False)
+    ignore_Y = kwargs.get("ignore_Y", False)
+    lbl = kwargs.get("label", '')
+    Xsect = kwargs.get("Xsect", xsz//2)
+    Ysect = kwargs.get("Ysect", ysz//2)
+    disp_res = kwargs.get("disp_res", True)
+    bins = kwargs.get("bins", 10) #bins = 10
+    save_res_png = kwargs.get("save_res_png", False)
+    res_fname = kwargs.get("res_fname", '2D_Parabolic_Fit.png')
+    dpi = kwargs.get("dpi", 300)
+    
+    img_binned = img.astype(float).reshape(ysz//bins, bins, xsz//bins, bins).sum(3).sum(1)/bins/bins
+    vmin, vmax = get_min_max_thresholds(img_binned)
+    yszb, xszb = img_binned.shape
+    yb, xb = np.indices(img_binned.shape)
+    img_1D = img_binned.ravel()
+    xb_1d = xb.ravel()
+    yb_1d = yb.ravel()
+    X = np.vstack((xb_1d, yb_1d)).T
+    
+    ysz, xsz = img.shape
+    yf, xf = np.indices(img.shape)
+    xf_1d = xf.ravel()/bins
+    yf_1d = yf.ravel()/bins
+    Xf = np.vstack((xf_1d, yf_1d)).T
+    
+    model = make_pipeline(PolynomialFeatures(2), estimator)
+    model.fit(X, img_1D)
+    if hasattr(model[-1], 'estimator_'):
+        if ignore_Y:
+            model[-1].estimator_.coef_[2]=0.0
+            model[-1].estimator_.coef_[4]=0.0
+            model[-1].estimator_.coef_[5]=0.0
+        coefs = model[-1].estimator_.coef_
+        intercept = model[-1].estimator_.intercept_
+    else:
+        if ignore_Y:
+            model[-1].coef_[2]=0.0
+            model[-1].coef_[4]=0.0
+            model[-1].coef_[5]=0.0
+        coefs = model[-1].coef_
+        intercept = model[-1].intercept_
+    img_fit_1d = model.predict(X)
+    scr = model.score(X, img_1D)
+    mse = mean_squared_error(img_fit_1d, img_1D)
+    img_fit = img_fit_1d.reshape(yszb, xszb)
+    if calc_corr:
+        img_full_correction = np.mean(img_fit_1d) / model.predict(Xf).reshape(ysz, xsz)
+    else:
+        img_full_correction = img * 0.0
+        
+    if disp_res:
+        print('Estimator coefficients ( 1  x  y  x^2  x*y  y^2): ', coefs)
+        print('Estimator intercept: ', intercept)
+        
+        fig, axs = subplots(2,2, figsize = (12, 8))
+        axs[0, 0].imshow(img_binned, cmap='Greys', vmin=vmin, vmax=vmax)
+        axs[0, 0].grid(True)
+        axs[0, 0].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
+        axs[0, 0].plot([0, xszb], [Ysect//bins, Ysect//bins], 'cyan', linewidth = 0.5)
+        axs[0, 0].set_xlim((0, xszb))
+        axs[0, 0].set_ylim((yszb, 0))
+        axs[0, 0].set_title('{:d}-x Binned Original Image'.format(bins))
+  
+        axs[0, 1].imshow(img_fit, cmap='Greys', vmin=vmin, vmax=vmax)
+        axs[0, 1].grid(True)
+        axs[0, 1].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
+        axs[0, 1].plot([0, xszb], [Ysect//bins, Ysect//bins], 'cyan', linewidth = 0.5)
+        axs[0, 1].set_xlim((0, xszb))
+        axs[0, 1].set_ylim((yszb,0))
+        axs[0, 1].set_title('{:d}-x Binned Fit Image: '.format(bins) + lbl)
+
+        axs[1, 0].plot(img[Ysect, :],'b', label = 'Raw Image A', linewidth =0.5)
+        axs[1, 0].plot(xb[0,:]*bins, img_binned[Ysect//bins, :],'cyan', label = 'Binned Orig Image A')
+        axs[1, 0].plot(xb[0,:]*bins, img_fit[Ysect//bins, :], 'yellow', linewidth=4, linestyle='--', label = 'Fit: '+lbl)
+        axs[1, 0].legend()
+        axs[1, 0].grid(True)
+        axs[1, 0].set_xlabel('X-coordinate')
+
+        axs[1, 1].plot(img[:, Xsect],'g', label = 'Raw Image A', linewidth =0.5)
+        axs[1, 1].plot(yb[:, 0]*bins, img_binned[:, Xsect//bins],'lime', label = 'Binned Orig Image A')
+        axs[1, 1].plot(yb[:, 0]*bins, img_fit[:, Xsect//bins], 'yellow', linewidth=4, linestyle='--', label = 'Fit: '+lbl)
+        axs[1, 1].legend()
+        axs[1, 1].grid(True)
+        axs[1, 1].set_xlabel('Y-coordinate')
+        if save_res_png:
+            fig.savefig(res_fname, dpi=dpi)
+            print('results saved into the file: '+res_fname)
+    return intercept, coefs, mse, img_full_correction
 
 
 

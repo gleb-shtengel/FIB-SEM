@@ -22,11 +22,13 @@ You will also need to have these packages installed:
 -	IPython
 -   cupy (you will need to have CUDA toolkit installed first)
 
+
 ## General Help Functions
     get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_res=False):
         Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
     radial_profile(data, center):
         Calculates radially average profile of the 2D array (used for FRC and auto-correlation)
+
 
 ## Single Frame Image Processing Functions
     Single_Image_SNR(img, **kwargs):
@@ -37,6 +39,9 @@ You will also need to have these packages installed:
         Analyses the noise statistics in the selected ROI's of the EM data
     Single_Image_Noise_Statistics(img, **kwargs):
         Analyses the noise statistics of the EM data image.
+    Perform_2D_fit(img, estimator, **kwargs):
+        Bin the image and then perform 2D polynomial (currently only 2D parabolic) fit on the binned image.
+
 
 ## class FIBSEM_frame:
     A class representing single FIB-SEM data frame. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com.
@@ -84,7 +89,7 @@ You will also need to have these packages installed:
     RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
         Convert the Image A into 8-bit array
     RawImageB_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
-            Convert the Image B into 8-bit array
+        Convert the Image B into 8-bit array
     save_snapshot(display = True, dpi=300, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256):
         Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
     analyze_noise_ROIs(**kwargs):
@@ -95,7 +100,10 @@ You will also need to have these packages installed:
         Estimates SNR using auto-correlation analysis of a single image.
     show_eval_box(**kwargs):
         Show the box used for evaluating the noise
-
+    determine_field_fattening_parameters(image_name = 'ImageA', **kwargs):
+        Perfrom 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
+    flatten_image(image_name = 'ImageA', **kwargs):
+        Flatten the image
 
 
 ## class FIBSEM_dataset: 
