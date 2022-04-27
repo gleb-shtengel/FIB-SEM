@@ -1756,12 +1756,15 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
 
 
 
+#######################################
+#    class FIBSEM_frame
+#######################################
+
 class FIBSEM_frame:
     """
     A class representing single FIB-SEM data frame.
     ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
     Contains the info/settings on a single FIB-SEM data frame and the procedures that can be performed on it.
-
 
     Attributes (only some more important are listed here)
     ----------
@@ -1790,7 +1793,6 @@ class FIBSEM_frame:
     YResolution : int
         number of pixels - frame size in vertical direction
 
-   
     Methods
     -------
     print_header()
@@ -1823,11 +1825,17 @@ class FIBSEM_frame:
     analyze_noise_statistics(**kwargs):
         Analyses the noise statistics of the EM data image. (Calls Single_Image_Noise_Statistics(img, **kwargs):)
 
-    analyze_crosscor_SNR(image_name = 'RawImageA', **kwargs):
+    analyze_crosscor_SNR(**kwargs):
         Estimates SNR using auto-correlation analysis of a single image. (Calls Single_Image_SNR(img, **kwargs):)
 
     show_eval_box(**kwargs):
         Show the box used for evaluating the noise
+
+    determine_field_fattening_parameters(**kwargs):
+        Perfrom 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
+
+    flatten_image(**kwargs):
+        Flatten the image
     """
 
     def __init__(self, fname, **kwargs):   
@@ -1853,7 +1861,6 @@ class FIBSEM_frame:
                         self.EightBit = 0
                 except:
                     self.EightBit = int(type(self.RawImageA[0,0])==np.uint8)
-
             except:
                 self.header = ''
                 self.EightBit = self.EightBit = int(type(self.RawImageA[0,0])==np.uint8)
@@ -1896,7 +1903,6 @@ class FIBSEM_frame:
             if self.FileVersion == 1 or self.FileVersion == 2 or self.FileVersion == 3:
                 self.Oversampling = unpack('>B',self.header[108:109])[0]               # self.AI oversampling     
                 self.AIDelay = unpack('>h',self.header[109:111])[0]                    # self.AI delay (# of samples)
-
             else:
                 self.Oversampling = unpack('>H',self.header[108:110])[0]
 
@@ -1987,7 +1993,6 @@ class FIBSEM_frame:
                 self.GunVac = unpack('>f',self.header[502:506])[0]                      # E-gun vacuum
                 self.SEMShiftX = unpack('>f',self.header[510:514])[0]                   # SEM beam shift X
                 self.SEMShiftY = unpack('>f',self.header[514:518])[0]                   # SEM beam shift Y
-
                 self.SEMStiX = unpack('>f',self.header[518:522])[0]                     # SEM stigmation X
                 self.SEMStiY = unpack('>f',self.header[522:526])[0]                     # SEM stigmation Y
                 self.SEMAlnX = unpack('>f',self.header[526:530])[0]                     # SEM aperture alignment X
@@ -2291,7 +2296,6 @@ class FIBSEM_frame:
                 print('BeamDump2I=', self.BeamDump2I)
                 print('MillingI=', self.MillingI)
             print('SEMSpecimenI=', self.SEMSpecimenI)   
-
             print('FileLength=', self.FileLength)
     
     def display_images(self):
@@ -2356,7 +2360,6 @@ class FIBSEM_frame:
         images_to_save : str
             Images to save. options are: 'A', 'B', or 'Both' (default).
         
-        
         '''
         if self.ftype == 0:
             if images_to_save == 'Both' or images_to_save == 'A':
@@ -2407,7 +2410,6 @@ class FIBSEM_frame:
             im = self.RawImageB
         return get_min_max_thresholds(im, thr_min=thr_min, thr_max=thr_max, nbins=nbins, disp_res=disp_res)
 
-    
     def RawImageA_8bit_thresholds(self, thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
         '''
         Convert the Image A into 8-bit array
@@ -2443,7 +2445,6 @@ class FIBSEM_frame:
             dt = ((np.clip(self.RawImageA, data_min, data_max) - data_min)/(data_max-data_min)*255.0).astype(np.uint8)
         return dt, data_min, data_max
 
-    
     def RawImageB_8bit_thresholds(self, thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
         '''
         Convert the Image B into 8-bit array
@@ -2583,7 +2584,6 @@ class FIBSEM_frame:
         if display == False:
             plt.close(fig)
     
-
     def analyze_noise_ROIs(self, Noise_ROIs, Hist_ROI, **kwargs):
         '''
         Analyses the noise statistics in the selected ROI's of the EM data.
@@ -2687,7 +2687,6 @@ class FIBSEM_frame:
 
         return mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR
 
-
     def analyze_noise_statistics(self, **kwargs):
         '''
         Analyses the noise statistics of the EM data image.
@@ -2717,9 +2716,9 @@ class FIBSEM_frame:
 
         Parameters
         ----------
-            img : 2d array
-
             kwargs:
+            image_name : str
+                Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
             evaluation_box : list of 4 int
                 evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
                 if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -2755,7 +2754,6 @@ class FIBSEM_frame:
             I0 is zero intercept (should be close to DarkCount)
             PSNR and DSNR are Peak and Dynamic SNR's (Step 8)
         '''
-
         image_name = kwargs.get("image_name", 'RawImageA')
 
         if image_name == 'RawImageA':
@@ -2804,7 +2802,7 @@ class FIBSEM_frame:
         return mean_vals, var_vals, I0, PSNR, DSNR, popt, result
     
 
-    def analyze_crosscor_SNR(self, image_name = 'RawImageA', **kwargs):
+    def analyze_crosscor_SNR(self, **kwargs):
         '''
         Estimates SNR using auto-correlation analysis of a single image.
         ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
@@ -2814,10 +2812,9 @@ class FIBSEM_frame:
         
         Parameters
         ---------
+        kwargs:
         image_name : str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
-         
-        kwargs:
         edge_fraction : float
             fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
         disp_res : boolean
@@ -2841,6 +2838,7 @@ class FIBSEM_frame:
         
         [1] J. T. L. Thong et al, Single-image signal-tonoise ratio estimation. Scanning, 328–336 (2001).
         '''
+        image_name = kwargs.get("image_name", 'RawImageA')
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         edge_fraction = kwargs.get("edge_fraction", 0.10)
         disp_res = kwargs.get("disp_res", True)
@@ -2881,13 +2879,12 @@ class FIBSEM_frame:
         else:
             ya_eval = ya
 
-
         xSNR, ySNR, rSNR= Single_Image_SNR(img[yi_eval:ya_eval, xi_eval:xa_eval], **SNR_kwargs)
 
         return xSNR, ySNR, rSNR
 
 
-    def show_eval_box(self, image_name = 'RawImageA', **kwargs):
+    def show_eval_box(self, **kwargs):
         '''
         Show the box used for noise analysis.
         ©G.Shtengel, 04/2021. gleb.shtengel@gmail.com
@@ -2908,6 +2905,7 @@ class FIBSEM_frame:
         save_res_png  : boolean
             Save PNG image of the frame overlaid with with evaluation box
         '''
+        image_name = kwargs.get("image_name", 'RawImageA')
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0]) 
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
@@ -2953,7 +2951,124 @@ class FIBSEM_frame:
             fig.savefig(os.path.splitext(self.fname+'_evaluation_box.png', dpi=300))
 
 
+    def determine_field_fattening_parameters(self, **kwargs):
+        '''
+        Perfrom 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
+        
+        Parameters
+        ----------
+        kwargs:
+        image_name : str
+            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
+        estimator : RANSACRegressor(),
+                    LinearRegression(),
+                    TheilSenRegressor(),
+                    HuberRegressor()
+        bins : int
+            binsize for image binning. If not provided, bins=10
+        calc_corr : bolean
+            If True - the full image correction is calculated
+        ignore_Y  : bolean
+            If True - the parabolic fit to only X is perfromed
+        disp_res : boolean
+            (default is False) - to plot/ display the results
+        save_res_png : boolean
+            save the analysis output into a PNG file (default is False)
+        res_fname : string
+            filename for the sesult image ('2D_Parabolic_Fit.png')
+        label : string
+            optional image label
+        dpi : int
 
+        Returns:
+        intercept, coefs, mse, img_full_correction
+        '''
+        image_name = kwargs.get("image_name", 'RawImageA')
+        estimator = kwargs.get("estimator", LinearRegression())
+        del kwargs["estimator"]
+        evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0]) 
+        calc_corr = kwargs.get("calc_corr", False)
+        ignore_Y = kwargs.get("ignore_Y", False)
+        lbl = kwargs.get("label", '')
+        disp_res = kwargs.get("disp_res", True)
+        bins = kwargs.get("bins", 10) #bins = 10
+        save_res_png = kwargs.get("save_res_png", False)
+        res_fname = kwargs.get("res_fname", '2D_Parabolic_Fit.png')
+        dpi = kwargs.get("dpi", 300)
+
+        if image_name == 'RawImageA':
+            img = self.RawImageA - self.Scaling[1,0]
+        if image_name == 'RawImageB':
+            img = self.RawImageB - self.Scaling[1,1]
+        if image_name == 'ImageA':
+            img = self.ImageA
+        if image_name == 'ImageB':
+            img = self.ImageB
+
+        ysz, xsz = img.shape
+        Xsect = kwargs.get("Xsect", xsz//2)
+        Ysect = kwargs.get("Ysect", ysz//2)
+
+        intercept, coefs, mse, img_full_correction = Perform_2D_fit(img, estimator, **kwargs)
+        if calc_corr:
+            self.image_correction_source = image_name
+            self.img_full_correction = img_full_correction
+        self.intercept = intercept
+        self.coefs = coefs
+        return intercept, coefs, mse, img_full_correction
+
+        
+    def flatten_image(self, **kwargs):
+        '''
+        Flatten the image. Imah=ge flattening parameters must be determined (determine_field_fattening_parameters)
+
+        Parameters
+        ----------
+        kwargs:
+        image_name : str
+
+        Returns:
+        flattened_image : 2D array
+        '''
+        image_name = kwargs.get("image_name", 'RawImageA')
+
+        if hasattr(self, 'image_correction_source') and hasattr(self, 'img_full_correction'):
+            if image_name == self.image_correction_source:
+                if image_name == 'RawImageA':
+                    flattened_image = (self.RawImageA - self.Scaling[1,0])*self.img_full_correction + self.Scaling[1,0]
+                if image_name == 'RawImageB':
+                    flattened_image = (self.RawImageB - self.Scaling[1,1])*self.img_full_correction + self.Scaling[1,1]
+                if image_name == 'ImageA':
+                    flattened_image = self.ImageA*self.img_full_correction
+                if image_name == 'ImageB':
+                    flattened_image = self.ImageB*self.img_full_correction
+                flattened=True
+            else:
+                print('Inconsistent Image='+ image_name + ' and Image Correction Source='+self.image_correction_source)
+                print('Image flattening not performed')
+                flattened=False
+        else:
+            print('Image Correction Parameters not Determined')
+            print('execute method determine_field_fattening_parameters()')
+            print('Image flattening not performed')
+            flattened=False
+
+        if not flattened:
+            if image_name == 'RawImageA':
+                flattened_image = self.RawImageA
+            if image_name == 'RawImageB':
+                flattened_image = self.RawImageB
+            if image_name == 'ImageA':
+                flattened_image = self.ImageA
+            if image_name == 'ImageB':
+                flattened_image = self.ImageB
+
+        return flattened_image
+
+
+###################################################
+#   Helper functions for FIBSEM_dataset class
+###################################################
 def determine_regularized_affine_transform(src_pts, dst_pts, l2_matrix = None, targ_vector = None):
     """
     Estimate N-D affine transformation with regularization from a set of corresponding points.
