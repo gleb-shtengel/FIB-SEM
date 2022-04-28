@@ -6550,10 +6550,8 @@ class FIBSEM_dataset:
         reg_summary : pandas DataFrame
             reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
         '''
-
         if f(frame_inds == np.array((-1))).all():
             frame_inds = np.arange(len(self.fls))
-
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
@@ -6608,7 +6606,6 @@ class FIBSEM_dataset:
                             'perfrom_transformation' : perfrom_transformation,
                             'invert_data' : invert_data,
                             'disp_res' : disp_res}
-
 
         if perfrom_transformation and hasattr(self, 'tr_matr_cum_residual'):
             reg_summary = transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, frame_inds, self.fls, self.tr_matr_cum_residual, self.data_minmax, self.npts, self.error_abs_mean, **save_kwargs)
@@ -6672,7 +6669,17 @@ class FIBSEM_dataset:
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0]) 
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
-        data_minmax = kwargs.get("data_minmax", self.data_minmax)
+        
+        if "data_minmax" in kwargs.keys():
+            data_minmax = kwargs.get("data_minmax")
+            data_minmax_exists = True
+        else:
+            if hasattr(self, "data_minmax"):
+                data_minmax = self.data_minmax
+                data_minmax_exists = True
+            else:
+                data_minmax_exists = False
+
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         int_order = kwargs.get("int_order", self.int_order) 
@@ -6688,13 +6695,14 @@ class FIBSEM_dataset:
 
         test_frame = FIBSEM_frame(fls[0], ftype=ftype)
         
-        if invert_data:
-            if test_frame.EightBit==0:
-                data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = np.negative(data_minmax)
+        if data_minmax_exists:
+            if invert_data:
+                if test_frame.EightBit==0:
+                    data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = np.negative(data_minmax)
+                else:
+                    data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = [ uint8(255) - x for x in data_minmax]
             else:
-                data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = [ uint8(255) - x for x in data_minmax]
-        else:
-            data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
+                data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
 
 
         if pad_edges and perfrom_transformation:
@@ -6755,7 +6763,12 @@ class FIBSEM_dataset:
                 frame_img_reg = frame_img.copy()
         
             fig, ax = subplots(1,1, figsize = (10.0, 11.0*ysz/xsz))
-            ax.imshow(frame_img_reg, cmap='Greys', vmin=data_min_sliding[j], vmax=data_max_sliding[j])
+            if data_minmax_exists:
+                vmin = data_min_sliding[j]
+                vmax = data_max_sliding[j]
+            else:
+                vmin, vmax = get_min_max_thresholds(frame_img_reg)
+            ax.imshow(frame_img_reg, cmap='Greys', vmin=vmin, vmax=vmax)
             ax.grid(True, color = "cyan")
             ax.set_title(fls[j])
             rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=2.0, edgecolor='yellow',facecolor='none')
@@ -6796,7 +6809,6 @@ class FIBSEM_dataset:
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
-        data_minmax = kwargs.get("data_minmax", self.data_minmax)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         int_order = kwargs.get("int_order", self.int_order) 
