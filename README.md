@@ -24,10 +24,14 @@ You will also need to have these packages installed:
 
 
 ## General Help Functions
-    get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_res=False):
+    get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_res=False)
         Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
-    radial_profile(data, center):
+    radial_profile(data, center)
         Calculates radially average profile of the 2D array (used for FRC and auto-correlation)
+    radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4)
+        Calculates radially average profile of the 2D array (used for FRC) within a select range of angles.
+    smooth(x, window_len=11, window='hanning')
+        smooth the data using a window with requested size.
 
 
 ## Single Frame Image Processing Functions
@@ -35,12 +39,27 @@ You will also need to have these packages installed:
         Estimates SNR based on a single image.
         Calculates SNR of a single image base on auto-correlation analysis after [1].   
         [1] J. T. L. Thong et al, Single-image signal-to-noise ratio estimation. Scanning, 328–336 (2001).
-    Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
+    Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs)
         Analyses the noise statistics in the selected ROI's of the EM data
-    Single_Image_Noise_Statistics(img, **kwargs):
+    Single_Image_Noise_Statistics(img, **kwargs)
         Analyses the noise statistics of the EM data image.
-    Perform_2D_fit(img, estimator, **kwargs):
+    Perform_2D_fit(img, estimator, **kwargs)
         Bin the image and then perform 2D polynomial (currently only 2D parabolic) fit on the binned image.
+
+
+## Two-Frame Image Processing Functions
+    mutual_information_2d(x, y, sigma=1, bin=256, normalized=False)
+        Computes (normalized) mutual information between two 1D variate from a joint histogram.
+    mutual_information_2d_cp(x, y, sigma=1, bin=256, normalized=False)
+        Computes (normalized) mutual information between two 1D variate from a joint histogram using CUPY package.
+    Two_Image_NCC_SNR(img1, img2, **kwargs)
+        Estimates normalized cross-correlation and SNR of two images. After:
+        [1] J. Frank, L. AI-Ali, Signal-to-noise ratio of electron micrographs obtained by cross correlation. Nature 256, 4 (1975).
+        [2] Frank, in: Computer Processing of Electron Microscopic Images. Ed. P.W. Hawkes (Springer, Berlin, 1980).
+        [3] M. Radermacher, T. Ruiz, On cross-correlations, averages and noise in electron microscopy. Acta Crystallogr. Sect. F Struct. Biol. Commun. 75, 12–18 (2019).
+    Two_Image_FSC(img1, img2, **kwargs)
+        Perform Fourier Shell Correlation to determine the image resolution, after [1].
+        [1] M. van Heela, and M. Schatzb, "Fourier shell correlation threshold criteria," Journal of Structural Biology 151, 250-262 (2005)
 
 
 ## class FIBSEM_frame:

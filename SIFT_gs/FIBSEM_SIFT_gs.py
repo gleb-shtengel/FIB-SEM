@@ -150,6 +150,29 @@ def get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_re
     return np.array((data_min, data_max))
 
 
+def argmax2d(X):
+    return np.unravel_index(X.argmax(), X.shape)
+
+def radial_profile_with_angle_exclusion(data, center, astart = 89, afin = 91, symm=True):
+    y, x = np.indices((data.shape))
+    r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
+    r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True)).ravel()
+    r = r.astype(np.int)
+    
+    if symm:
+        ind = np.where(((r_ang < astart) + (r_ang > afin)) & ((r_ang < (astart-180)) + (r_ang > (afin-180))))
+    else:
+        ind = np.where((r_ang < astart) & (r_ang > afin))
+        
+    rr = np.ravel(r)[ind]
+    dd = np.ravel(data)[ind]
+
+    tbin = np.bincount(rr, dd)
+    nr = np.bincount(rr)
+    radialprofile = tbin / nr
+    return radialprofile
+
+
 def radial_profile(data, center):
     '''
     Calculates radially average profile of the 2D array (used for FRC and auto-correlation)
@@ -175,6 +198,108 @@ def radial_profile(data, center):
     return radialprofile
 
 
+def radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4):
+    '''
+    Calculates radially average profile of the 2D array (used for FRC) within a select range of angles.
+    ©G.Shtengel 08/2020 gleb.shtengel@gmail.com
+
+    Parameters:
+    data : 2D array
+    center : list of two ints
+        [xcenter, ycenter]
+
+    astart : float
+        Start angle for radial averaging. Default is 0
+    astop : float
+        Stop angle for radial averaging. Default is 90
+    symm : int
+        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+
+
+    Returns
+        radialprofile : float array
+            limited to x-size//2 of the input data
+    '''
+    y, x = np.indices((data.shape))
+    r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
+    r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True)).ravel()
+    r = r.astype(np.int)
+    
+    if symm>0:
+        ind = np.squeeze(np.array(np.where((r_ang > astart) & (r_ang < astart))))
+        for i in np.arange(symm):
+            ai = astart +360.0/symm*i -180.0
+            aa = astop +360.0/symm*i -180.0
+            ind = np.concatenate((ind, np.squeeze((np.array(np.where((r_ang > ai) & (r_ang < aa)))))), axis=0)
+    else:
+        ind = np.squeeze(np.where((r_ang > astart) & (r_ang < astop)))
+        print(size(ind))
+        
+    rr = np.ravel(r)[ind]
+    dd = np.ravel(data)[ind]
+
+    tbin = np.bincount(rr, dd)
+    nr = np.bincount(rr)
+    radialprofile = tbin / nr
+    return radialprofile
+
+
+def smooth(x, window_len=11, window='hanning'):
+    """smooth the data using a window with requested size.
+    
+    This method is based on the convolution of a scaled window with the signal.
+    The signal is prepared by introducing reflected copies of the signal 
+    (with the window size) in both ends so that transient parts are minimized
+    in the begining and end part of the output signal.
+    
+    input:
+        x: the input signal 
+        window_len: the dimension of the smoothing window; should be an odd integer
+        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
+            flat window will produce a moving average smoothing.
+
+    output:
+        the smoothed signal
+        
+    example:
+
+    t=linspace(-2,2,0.1)
+    x=sin(t)+randn(len(t))*0.1
+    y=smooth(x)
+    
+    see also: 
+    
+    numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
+    scipy.signal.lfilter
+ 
+    TODO: the window parameter could be the window itself if an array instead of a string
+    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
+    """
+
+    if x.ndim != 1:
+        raise ValueError("smooth only accepts 1 dimension arrays.")
+
+    if x.size < window_len:
+        raise ValueError("Input vector needs to be bigger than window size.")
+
+
+    if window_len<3:
+        return x
+
+
+    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
+        raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
+
+
+    s=numpy.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
+    #print(len(s))
+    if window == 'flat': #moving average
+        w=numpy.ones(window_len,'d')
+    else:
+        w=eval('numpy.'+window+'(window_len)')
+
+    y=numpy.convolve(w/w.sum(),s,mode='valid')
+    return y[(window_len//2-1):-(window_len//2)]
 
 
 ################################################
@@ -1144,6 +1269,174 @@ def Two_Image_NCC_SNR(img1, img2, **kwargs):
     
     return NCC, SNR
 
+def Two_Image_FSC(img1, img2, **kwargs):
+    '''
+    Perform Fourier Shell Correlation to determine the image resolution, after [1]. ©G.Shtengel, 10/2019. gleb.shtengel@gmail.com
+    FSC is determined from radially averaged foirier cross-correlation (with optional selection of range of angles for radial averaging).
+    
+    Parameters
+    ---------
+    img1 : 2D array
+    img2 : 2D array
+     
+    kwargs:
+    SNRt : float
+        SNR threshold for determining the resolution bandwidth
+    astart : float
+        Start angle for radial averaging. Default is 0
+    astop : float
+        Stop angle for radial averaging. Default is 90
+    symm : int
+        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+    disp_res : boolean
+        display results (plots) (default is False)
+    ax : axis object (matplotlip)
+        to export the plot
+    save_res_png : bolean
+        save results into PNG file (default is False)
+    res_fname : string
+        filename for the result image ('SNR_result.png')
+    img_labels : [string, string]
+        optional image labels
+    dpi : int
+        dots-per-inch resolution for the output image
+    pixel : float
+        optional pixel size in nm. If not provided, will be ignored.
+        if provided, second axis will be added on top with inverse pixels
+    xrange : [float, float]
+        range of x axis in FSC plot in inverse pixels
+        if not provided [0, 0.5] range will be used
+    
+    Returns FSC_sp_frequencies, FSC_data, x2, T
+        FSC_sp_frequencies : float array 
+            Spatial Frequency (/Nyquist) - for FSC plot
+        FSC_data: float array
+        x2 : float array
+            Spatial Frequency (/Nyquist) - for threshold line plot
+        T : float array
+            threshold line plot
+        FSC_bw : float
+            the value of FSC determined as an intersection of smoothed data threshold
+        
+    [1]. M. van Heela, and M. Schatzb, "Fourier shell correlation threshold criteria," Journal of Structural Biology 151, 250-262 (2005)
+    '''   
+    SNRt = kwargs.get("SNRt", 0.1)
+    astart = kwargs.get("astart", 0.0)
+    astop = kwargs.get("astop", 90.0)
+    symm = kwargs.get("symm", 4)
+    disp_res = kwargs.get("disp_res", False)
+    ax = kwargs.get("ax", '')
+    save_res_png = kwargs.get("save_res_png", False)
+    res_fname = kwargs.get("res_fname", 'FSC_results.png')
+    img_labels = kwargs.get("img_labels", ['Image 1', 'Image 2'])
+    dpi = kwargs.get("dpi", 300)
+    pixel = kwargs.get("pixel", 0.0)
+    xrange = kwargs.get("xrange", [0, 0.5])
+    
+    #Check whether the inputs dimensions match and the images are square
+    if ( np.shape(img1) != np.shape(img2) ) :
+        print('input images must have the same dimensions')
+    if ( np.shape(img1)[0] != np.shape(img1)[1]) :
+        print('input images must be squares')
+    I1 = fftshift(fftn(ifftshift(img1)))  # I1 and I2 store the FFT of the images to be used in the calcuation for the FSC
+    I2 = fftshift(fftn(ifftshift(img2)))
+
+    C_imre = np.multiply(I1,np.conj(I2))
+    C12_ar = abs(np.multiply((I1+I2),np.conj(I1+I2)))
+    y0,x0 = argmax2d(C12_ar)
+    C1 = radial_profile_select_angles(abs(np.multiply(I1,np.conj(I1))), [x0,y0], astart, astop, symm)
+    C2 = radial_profile_select_angles(abs(np.multiply(I2,np.conj(I2))), [x0,y0], astart, astop, symm)
+    C  = radial_profile_select_angles(np.real(C_imre), [x0,y0], astart, astop, symm) + 1j * radial_profile_select_angles(np.imag(C_imre), [x0,y0], astart, astop, symm)
+
+    FSC_data = abs(C)/np.sqrt(abs(np.multiply(C1,C2)))
+    '''
+    T is the SNR threshold calculated accoring to the input SNRt, if nothing is given
+    a default value of 0.1 is used.
+    
+    x2 contains the normalized spatial frequencies
+    '''
+    r = np.arange(1+np.shape(img1)[0])
+    n = 2*np.pi*r
+    n[0] = 1
+    eps = np.finfo(float).eps
+    t1 = np.divide(np.ones(np.shape(n)),n+eps)
+    t2 = SNRt + 2*np.sqrt(SNRt)*t1 + np.divide(np.ones(np.shape(n)),np.sqrt(n))
+    t3 = SNRt + 2*np.sqrt(SNRt)*t1 + 1
+    T = np.divide(t2,t3)
+    #FSC_sp_frequencies = np.arange(np.shape(C)[0])/(np.shape(img1)[0]/sqrt(2.0))
+    #x2 = r/(np.shape(img1)[0]/sqrt(2.0))
+    FSC_sp_frequencies = np.arange(np.shape(C)[0])/(np.shape(img1)[0])
+    x2 = r/(np.shape(img1)[0])
+    FSC_data_smooth = smooth(FSC_data, 20)
+    FSC_bw = find_BW(FSC_sp_frequencies, FSC_data_smooth, SNRt)
+    '''
+    If the disp_res input is set to True, an output plot is generated. 
+    '''
+    if disp_res:
+        if ax=='':
+            fig = plt.figure(figsize=(8,12))
+            axs0 = fig.add_subplot(3,2,1)
+            axs1 = fig.add_subplot(3,2,2)
+            axs2 = fig.add_subplot(3,2,3)
+            axs3 = fig.add_subplot(3,2,4)
+            ax = fig.add_subplot(3,1,3)
+            fig.subplots_adjust(left=0.01, bottom=0.06, right=0.99, top=0.975, wspace=0.25, hspace=0.10)
+            vmin1, vmax1 = get_min_max_thresholds(img1)
+            vmin2, vmax2 = get_min_max_thresholds(img2)
+            axs0.imshow(img1, cmap='Greys', vmin=vmin1, vmax=vmax1)
+            axs1.imshow(img2, cmap='Greys', vmin=vmin2, vmax=vmax2)
+            x = np.linspace(0, 1.41, 500)
+            axs2.set_xlim(-1,1)
+            axs2.set_ylim(-1,1)
+            axs2.imshow(np.log(abs(I1)), extent=[-1, 1, -1, 1], cmap = 'Greys_r')
+            axs3.set_xlim(-1,1)
+            axs3.set_ylim(-1,1)
+            axs3.imshow(np.log(abs(I2)), extent=[-1, 1, -1, 1], cmap = 'Greys_r')
+            for i in np.arange(symm):
+                ai = np.radians(astart + 360.0/symm*i)
+                aa = np.radians(astop + 360.0/symm*i)
+                axs2.plot(x * np.cos(ai), x * np.sin(ai), color='orange', linewidth = 0.5)
+                axs3.plot(x * np.cos(ai), x * np.sin(ai), color='orange', linewidth = 0.5)
+                axs2.plot(x * np.cos(aa), x * np.sin(aa), color='orange', linewidth = 0.5)
+                axs3.plot(x * np.cos(aa), x * np.sin(aa), color='orange', linewidth = 0.5)
+            ttls = img_labels.copy()
+            ttls.append('FFT of '+img_labels[0])
+            ttls.append('FFT of '+img_labels[1])
+            for axi, ttl in zip([axs0, axs1, axs2, axs3], ttls):
+                axi.grid(False)
+                axi.axis(False)
+                axi.set_title(ttl)
+
+    if disp_res or ax != '':
+        ax.plot(FSC_sp_frequencies, FSC_data, label = 'FSC data', color='r')
+        ax.plot(FSC_sp_frequencies, FSC_data_smooth, label = 'FSC data smoothed', color='b')
+        ax.plot(x2, x2*0.0+SNRt, '--', label = 'Threshold SNR = {:.3f}'.format(SNRt), color='m')
+        if pixel>1e-6:
+            label = 'FSC BW = {:.3f} inv.pix., or {:.2f} nm'.format(FSC_bw, pixel/FSC_bw)
+        else:
+            label = 'FSC BW = {:.3f}'.format(FSC_bw)
+        ax.plot(np.array((FSC_bw,FSC_bw)), np.array((0.0,1.0)), '--', label = label, color = 'g')
+        ax.set_xlim(xrange)
+        ax.legend()
+        ax.set_xlabel('Spatial Frequency (inverse pixels)')
+        ax.set_ylabel('FSC Magnitude')
+        ax.grid(True)
+        if pixel>1e-6:
+            
+            def forward(x):
+                return x/pixel
+            def inverse(x):
+                return x*pixel
+            secax = ax.secondary_xaxis('top', functions=(forward, inverse))
+            secax.set_xlabel('Spatial Frequency ($nm^{-1}$)') 
+        
+    if disp_res:
+        ax.set_position([0.1, 0.05, 0.85, 0.28])
+        print('FSC BW = {:.5f}'.format(FSC_bw))
+        if save_res_png:
+            fig.savefig(res_fname, dpi=dpi)
+            print('Saved the results into the file: ', res_fname)
+    return (FSC_sp_frequencies, FSC_data, x2, T, FSC_bw)
 
 
 ##########################################
@@ -1326,6 +1619,12 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+    sliding_evaluation_box : bolean
+        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+    start_evaluation_box : list of 4 int
+        see above
+    stop_evaluation_box : list of 4 int
+        see above
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
     save_filename : str
@@ -4845,6 +5144,9 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     perfrom_transformation =  kwargs.get("perfrom_transformation", True)
     invert_data =  kwargs.get("invert_data", False)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])  #  [top, height, keft, width]
+    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+    start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+    stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
     disp_res = kwargs.get("disp_res", True)
 
     dformat_save = 'I8' if mrc_mode==0 else 'I16'
@@ -4886,6 +5188,7 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     xa = xi + test_frame.XResolution
     ysz = test_frame.YResolution + pady
     ya = yi + test_frame.YResolution
+    nfrs = len(fls)
 
     xi_eval = xi + evaluation_box[2]
     if evaluation_box[3] > 0:
@@ -4906,6 +5209,13 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     image_nsad = np.zeros((len(frame_inds)-1), dtype=float)
     image_ncc = np.zeros((len(frame_inds)-1), dtype=float)
     image_mi = np.zeros((len(frame_inds)-1), dtype=float)
+
+    if sliding_evaluation_box:
+        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+    else:
+        dx_eval = 0
+        dy_eval = 0
 
     if zbin_2x:
         if save_transformed_dataset:
@@ -4955,6 +5265,17 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
                 curr_img = frame0_img_reg/2.0 + frame1_img_reg/2.0
             if save_transformed_dataset:
                 mrc.data[j//2,:,:] = np.flip(curr_img.astype(dtp), axis=0)
+            if sliding_evaluation_box:
+                xi_eval = start_evaluation_box[2] + dx_eval*j//2//nfrs
+                yi_eval = start_evaluation_box[0] + dy_eval*j//2//nfrs
+                if start_evaluation_box[3] > 0:
+                    xa_eval = xi_eval + start_evaluation_box[3]
+                else:
+                    xa_eval = xsz
+                if start_evaluation_box[1] > 0:
+                    ya_eval = yi_eval + start_evaluation_box[1]
+                else:
+                    ya_eval = ysz
             I1c = cp.array(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
             if j>0:
                 I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
@@ -5006,6 +5327,17 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
             if save_transformed_dataset:
                 mrc.data[j,:,:] = np.flip(curr_img.astype(dtp), axis=0)
             if j>0:
+                if sliding_evaluation_box:
+                    xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
+                    yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
+                    if start_evaluation_box[3] > 0:
+                        xa_eval = xi_eval + start_evaluation_box[3]
+                    else:
+                        xa_eval = xsz
+                    if start_evaluation_box[1] > 0:
+                        ya_eval = yi_eval + start_evaluation_box[1]
+                    else:
+                        ya_eval = ysz
                 I1c = cp.array(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
                 I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
                 image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
@@ -5123,6 +5455,9 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
     perfrom_transformation =  kwargs.get("perfrom_transformation", True)
     invert_data =  kwargs.get("invert_data", False)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])  # [top, height, keft, width]
+    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+    start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+    stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
     disp_res = kwargs.get("disp_res", True)
 
     dformat_save = 'I8' if mrc_mode==0 else 'I16'
@@ -5176,6 +5511,13 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
     else:
         ya_eval = ya
 
+    if sliding_evaluation_box:
+        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+    else:
+        dx_eval = 0
+        dy_eval = 0
+    
     tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, save_asI8, data_min_glob, data_max_glob, ftype, dtp]
     fnames_orig = [fls[j] for j in indices_to_transform]
     fnames_new = [os.path.splitext(fname_orig)[0] + '_transformed.tif' for fname_orig in fnames_orig]
@@ -5222,7 +5564,19 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
                 curr_img = frame0_img_reg/2.0 + frame1_img_reg/2.0
             if save_transformed_dataset:
                 mrc.data[j//2,:,:] = np.flip(curr_img.astype(dtp), axis=0)
-            I1c = cp.array(frame0_img_reg.astype(float)[yi:ya, xi:xa])
+
+            if sliding_evaluation_box:
+                xi_eval = start_evaluation_box[2] + dx_eval*j//2//nfrs
+                yi_eval = start_evaluation_box[0] + dy_eval*j//2//nfrs
+                if start_evaluation_box[3] > 0:
+                    xa_eval = xi_eval + start_evaluation_box[3]
+                else:
+                    xa_eval = xsz
+                if start_evaluation_box[1] > 0:
+                    ya_eval = yi_eval + start_evaluation_box[1]
+                else:
+                    ya_eval = ysz
+            I1c = cp.array(frame0_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])
             if j>0:
                 I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
                 image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
@@ -5250,6 +5604,17 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
             if save_transformed_dataset:
                 mrc.data[j,:,:] = np.flip(curr_img.astype(dtp), axis=0)
             if j>0:
+                if sliding_evaluation_box:
+                    xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
+                    yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
+                    if start_evaluation_box[3] > 0:
+                        xa_eval = xi_eval + start_evaluation_box[3]
+                    else:
+                        xa_eval = xsz
+                    if start_evaluation_box[1] > 0:
+                        ya_eval = yi_eval + start_evaluation_box[1]
+                    else:
+                        ya_eval = ysz
                 I1c = cp.array(frame_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])
                 I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
                 image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
@@ -6399,7 +6764,13 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-
+        sliding_evaluation_box : bolean
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+        start_evaluation_box : list of 4 int
+            see above
+        stop_evaluation_box : list of 4 int
+            see above
+        
         Returns:
         reg_summary : pandas DataFrame
             reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
@@ -6433,6 +6804,9 @@ class FIBSEM_dataset:
         perfrom_transformation =  kwargs.get("perfrom_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
         invert_data =  kwargs.get("invert_data", False)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+        start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+        stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         disp_res  = kwargs.get("disp_res", True )
         
         save_kwargs = {'fnm_reg' : fnm_reg,
@@ -6458,6 +6832,9 @@ class FIBSEM_dataset:
                             'perfrom_transformation' : perfrom_transformation,
                             'invert_data' : invert_data,
                             'evaluation_box' : evaluation_box,
+                            'sliding_evaluation_box' : sliding_evaluation_box,
+                            'start_evaluation_box' : start_evaluation_box,
+                            'stop_evaluation_box' : stop_evaluation_box,
                             'perfrom_transformation' : perfrom_transformation,
                             'invert_data' : invert_data,
                             'disp_res' : disp_res}
@@ -6545,6 +6922,12 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+        sliding_evaluation_box : bolean
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+        start_evaluation_box : list of 4 int
+            see above
+        stop_evaluation_box : list of 4 int
+            see above
 
         Returns:
         reg_summary : pandas DataFrame
@@ -6578,6 +6961,9 @@ class FIBSEM_dataset:
         perfrom_transformation =  kwargs.get("perfrom_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
         invert_data =  kwargs.get("invert_data", False)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+        start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+        stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         disp_res  = kwargs.get("disp_res", True )
         
         save_kwargs = {'fnm_reg' : fnm_reg,
@@ -6603,6 +6989,9 @@ class FIBSEM_dataset:
                             'perfrom_transformation' : perfrom_transformation,
                             'invert_data' : invert_data,
                             'evaluation_box' : evaluation_box,
+                            'sliding_evaluation_box' : sliding_evaluation_box,
+                            'start_evaluation_box' : start_evaluation_box,
+                            'stop_evaluation_box' : stop_evaluation_box,
                             'perfrom_transformation' : perfrom_transformation,
                             'invert_data' : invert_data,
                             'disp_res' : disp_res}
@@ -6627,7 +7016,12 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-
+        sliding_evaluation_box : bolean
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+        start_evaluation_box : list of 4 int
+            see above
+        stop_evaluation_box : list of 4 int
+            see above
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
@@ -6666,7 +7060,10 @@ class FIBSEM_dataset:
             List oif frame indecis to use to display the evaluation box.
             Default are [nfrs//10, nfrs//2, nfrs//10*9]
         '''
-        evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0]) 
+        evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+        start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+        stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
         
@@ -6745,6 +7142,13 @@ class FIBSEM_dataset:
         else:
             ya_eval = ya
 
+        if sliding_evaluation_box:
+            dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+            dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+        else:
+            dx_eval = 0
+            dy_eval = 0
+
         frame_img = np.zeros((ysz, xsz))
         
         for j in frame_inds:
@@ -6771,6 +7175,17 @@ class FIBSEM_dataset:
             ax.imshow(frame_img_reg, cmap='Greys', vmin=vmin, vmax=vmax)
             ax.grid(True, color = "cyan")
             ax.set_title(fls[j])
+            if sliding_evaluation_box:
+                xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
+                yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
+                if start_evaluation_box[3] > 0:
+                    xa_eval = xi_eval + start_evaluation_box[3]
+                else:
+                    xa_eval = xsz
+                if start_evaluation_box[1] > 0:
+                    ya_eval = yi_eval + start_evaluation_box[1]
+                else:
+                    ya_eval = ysz
             rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=2.0, edgecolor='yellow',facecolor='none')
             ax.add_patch(rect_patch)
             if save_res_png :
