@@ -60,7 +60,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 
-
 ######################################################
 #    General Help Functions
 ######################################################
@@ -153,24 +152,16 @@ def get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_re
 def argmax2d(X):
     return np.unravel_index(X.argmax(), X.shape)
 
-def radial_profile_with_angle_exclusion(data, center, astart = 89, afin = 91, symm=True):
-    y, x = np.indices((data.shape))
-    r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
-    r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True)).ravel()
-    r = r.astype(np.int)
-    
-    if symm:
-        ind = np.where(((r_ang < astart) + (r_ang > afin)) & ((r_ang < (astart-180)) + (r_ang > (afin-180))))
-    else:
-        ind = np.where((r_ang < astart) & (r_ang > afin))
-        
-    rr = np.ravel(r)[ind]
-    dd = np.ravel(data)[ind]
 
-    tbin = np.bincount(rr, dd)
-    nr = np.bincount(rr)
-    radialprofile = tbin / nr
-    return radialprofile
+def find_BW(fr, FSC, SNRt):
+    npts = np.shape(FSC)[0]*0.75
+    j = 15
+    while (j<npts-1) and FSC[j]>SNRt:
+        j = j+1
+    BW = fr[j-1] + (fr[j]-fr[j-1])*(SNRt-FSC[j-1])/(FSC[j]-FSC[j-1])
+    #print(fr[j-1], fr[j], FSC[j-1], FSC[j])
+    #print(BW, SNRt)
+    return BW
 
 
 def radial_profile(data, center):
@@ -291,14 +282,14 @@ def smooth(x, window_len=11, window='hanning'):
         raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
 
-    s=numpy.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
+    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
     #print(len(s))
     if window == 'flat': #moving average
-        w=numpy.ones(window_len,'d')
+        w=np.ones(window_len,'d')
     else:
-        w=eval('numpy.'+window+'(window_len)')
+        w=eval('np.'+window+'(window_len)')
 
-    y=numpy.convolve(w/w.sum(),s,mode='valid')
+    y=np.convolve(w/w.sum(),s,mode='valid')
     return y[(window_len//2-1):-(window_len//2)]
 
 
