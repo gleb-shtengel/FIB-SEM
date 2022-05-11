@@ -1013,9 +1013,9 @@ def Perform_2D_fit(img, estimator, **kwargs):
     kwargs:
     bins : int
         binsize for image binning. If not provided, bins=10
-    calc_corr : bolean
+    calc_corr : boolean
         If True - the full image correction is calculated
-    ignore_Y  : bolean
+    ignore_Y  : boolean
         If True - the parabolic fit to only X is perfromed
     disp_res : boolean
         (default is False) - to plot/ display the results
@@ -1236,7 +1236,7 @@ def Two_Image_NCC_SNR(img1, img2, **kwargs):
             SNR - Signal-to-Noise ratio based on NCC
     
    [1] J. Frank, L. AI-Ali, Signal-to-noise ratio of electron micrographs obtained by cross correlation. Nature 256, 4 (1975).
-   [2] Frank, in: Computer Processing of Electron Microscopic Images. Ed. P.W. Hawkes (Springer, Berlin, 1980).
+   [2] J. Frank, in: Computer Processing of Electron Microscopic Images. Ed. P.W. Hawkes (Springer, Berlin, 1980).
    [3] M. Radermacher, T. Ruiz, On cross-correlations, averages and noise in electron microscopy. Acta Crystallogr. Sect. F Struct. Biol. Commun. 75, 12–18 (2019).
     
     '''
@@ -1283,7 +1283,7 @@ def Two_Image_FSC(img1, img2, **kwargs):
         display results (plots) (default is False)
     ax : axis object (matplotlip)
         to export the plot
-    save_res_png : bolean
+    save_res_png : boolean
         save results into PNG file (default is False)
     res_fname : string
         filename for the result image ('SNR_result.png')
@@ -1499,7 +1499,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-    sliding_evaluation_box : bolean
+    sliding_evaluation_box : boolean
         if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
     start_evaluation_box : list of 4 int
         see above
@@ -3286,9 +3286,9 @@ class FIBSEM_frame:
                     HuberRegressor()
         bins : int
             binsize for image binning. If not provided, bins=10
-        calc_corr : bolean
+        calc_corr : boolean
             If True - the full image correction is calculated
-        ignore_Y  : bolean
+        ignore_Y  : boolean
             If True - the parabolic fit to only X is perfromed
         disp_res : boolean
             (default is False) - to plot/ display the results
@@ -6782,7 +6782,7 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-        sliding_evaluation_box : bolean
+        sliding_evaluation_box : boolean
             if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
         start_evaluation_box : list of 4 int
             see above
@@ -6938,7 +6938,7 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-        sliding_evaluation_box : bolean
+        sliding_evaluation_box : boolean
             if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
         start_evaluation_box : list of 4 int
             see above
@@ -7032,7 +7032,7 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-        sliding_evaluation_box : bolean
+        sliding_evaluation_box : boolean
             if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
         start_evaluation_box : list of 4 int
             see above

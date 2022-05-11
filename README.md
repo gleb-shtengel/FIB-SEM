@@ -53,9 +53,9 @@ You will also need to have these packages installed:
     mutual_information_2d_cp(x, y, sigma=1, bin=256, normalized=False)
         Computes (normalized) mutual information between two 1D variate from a joint histogram using CUPY package.
     Two_Image_NCC_SNR(img1, img2, **kwargs)
-        Estimates normalized cross-correlation and SNR of two images. After:
+        Estimate normalized cross-correlation and SNR of two images. After:
         [1] J. Frank, L. AI-Ali, Signal-to-noise ratio of electron micrographs obtained by cross correlation. Nature 256, 4 (1975).
-        [2] Frank, in: Computer Processing of Electron Microscopic Images. Ed. P.W. Hawkes (Springer, Berlin, 1980).
+        [2] J. Frank, in: Computer Processing of Electron Microscopic Images. Ed. P.W. Hawkes (Springer, Berlin, 1980).
         [3] M. Radermacher, T. Ruiz, On cross-correlations, averages and noise in electron microscopy. Acta Crystallogr. Sect. F Struct. Biol. Commun. 75, 12–18 (2019).
     Two_Image_FSC(img1, img2, **kwargs)
         Perform Fourier Shell Correlation to determine the image resolution, after [1].
@@ -153,7 +153,7 @@ You will also need to have these packages installed:
         file type (0 - Shan Xu's .dat, 1 - tif)
     fnm_reg : str
         filename for the final registed dataset
-    use_DASK : bolean
+    use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
     threshold_min : float
         CDF threshold for determining the minimum data value
@@ -161,7 +161,7 @@ You will also need to have these packages installed:
         CDF threshold for determining the maximum data value
     nbins : int
         number of histogram bins for building the PDF and CDF
-    sliding_minmax : bolean
+    sliding_minmax : boolean
         if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
         if False - same data_min_glob and data_max_glob will be used for all files
     TransformType : object reference
@@ -183,22 +183,22 @@ You will also need to have these packages installed:
         In the case of 'LinReg' - outlier threshold for iterative regression
     max_iter : int
         Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-    BFMatcher : bolean
+    BFMatcher : boolean
         If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-    save_matches : bolean
+    save_matches : boolean
         If True, matches will be saved into individual files
     kp_max_num : int
         Max number of key-points to be matched.
         Key-points in every frame are indexed (in descending order) by the strength of the response.
         Only kp_max_num is kept for further processing.
         Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
-    save_res_png  : bolean
+    save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
-    save_asI8 : bolean
+    save_asI8 : boolean
         If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
-    zbin_2x : bolean
+    zbin_2x : boolean
         If True, the data will be binned 2x in z-direction (z-milling direction) when saving the final result.
-    preserve_scales : bolean
+    preserve_scales : boolean
         If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
     fit_params : list
         Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
@@ -214,12 +214,12 @@ You will also need to have these packages installed:
                 3: Bi-cubic
                 4: Bi-quartic
                 5: Bi-quintic
-    subtract_linear_fit : [boolean, bolean]
+    subtract_linear_fit : [boolean, boolean]
         List of two Boolean values for two directions: X- and Y-.
         If True, the linear slopes along X- and Y- directions (respectively)
         will be subtracted from the cumulative shifts.
         This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
-    pad_edges : bolean
+    pad_edges : boolean
         If True, the data will be padded before transformation to avoid clipping.
     ImgB_fraction : float
             fractional ratio of Image B to be used for constructing the fuksed image:
