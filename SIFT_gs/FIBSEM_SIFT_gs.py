@@ -1434,130 +1434,6 @@ def Two_Image_FSC(img1, img2, **kwargs):
 #         MRC stack analysis functions
 ##########################################
 
-def analyze_mrc_stack(mrc_filename, **kwargs):
-    '''
-    Read MRC stack and analyze registration - calculate NSAD, NCC, and MI.
-    ©G.Shtengel, 04/2021. gleb.shtengel@gmail.com
-
-    Parameters:
-    ---------
-    mrc_filename : str
-        File name (full path) of the mrc stack to be analyzed
-     
-    kwargs:
-    evaluation_box : list of 4 int
-        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
-        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-    frame_inds : array of int
-        indices of frames to be analyzed. If not explicitly defines, the entire stack is analyzed 
-    save_res_png  : boolean
-        Save PNG images of the intermediate processing statistics and final registration quality check
-
-    Returns:
-    reg_summary : PD data frame
-    '''
-    Sample_ID = kwargs.get("Sample_ID", '')
-    save_res_png  = kwargs.get("save_res_png", True )
-    save_filename = kwargs.get("save_filename", mrc_filename )
-    evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
-   
-    mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
-    header = mrc_obj.header
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
-
-    xi_eval = evaluation_box[2]
-    if evaluation_box[3] > 0:
-        xa_eval = xi_eval + evaluation_box[3]
-    else:
-        xa_eval = nx
-    yi_eval = evaluation_box[0]
-    if evaluation_box[1] > 0:
-        ya_eval = yi_eval + evaluation_box[1]
-    else:
-        ya_eval = ny
-
-    frame_inds_default = np.arange(nz-1)+1
-    frame_inds = np.array(kwargs.get("frame_inds", frame_inds_default))
-    nf = len(frame_inds)
-    if frame_inds[0]==0:
-        frame_inds = frame_inds+1
-    print('Will analyze regstrations in {:d} frame_inds'.format(len(frame_inds)))
-    print('Will save the data into '+os.path.splitext(save_filename)[0] + '_RegistrationQuality.csv')
-    image_nsad = np.zeros((nf), dtype=float)
-    image_ncc = np.zeros((nf), dtype=float)
-    image_mi = np.zeros((nf), dtype=float)
-
-    prev_frame = mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
-    for j in tqdm(frame_inds, desc='Evaluating frame registration: '):
-        curr_frame = mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
-        curr_frame_cp = cp.array(curr_frame)
-        prev_frame_cp = cp.array(prev_frame)
-        fr_mean = curr_frame_cp/2.0 + prev_frame_cp/2.0
-        image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(curr_frame_cp-prev_frame_cp))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
-        image_ncc[j-1] = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
-        image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(prev_frame_cp.ravel(), curr_frame_cp.ravel(), sigma=1.0, bin=2048, normalized=True))
-        prev_frame = curr_frame.copy()
-        del curr_frame_cp, prev_frame_cp
-    
-    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
-    #image_ncc = image_ncc[1:-1]
-    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
-    nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
-
-    fs=12
-    lwl=1
-    fig, axs = subplots(2,2, figsize=(12, 8), sharex=True)
-    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, wspace=0.18, hspace=0.04)
-
-    axs[0,0].axis(False)
-
-    axs[1,0].plot(image_nsad, 'r', linewidth=lwl)
-    axs[1,0].set_ylabel('Normalized Sum of Abs. Diff')
-    axs[1,0].text(0.02, 0.04, 'NSAD mean = {:.3f}   NSAD median = {:.3f}  NSAD STD = {:.3f}'.format(nsads[0], nsads[1], nsads[2]), transform=axs[1,0].transAxes, fontsize = fs-1)
-    axs[1,0].set_xlabel('Frame #')
-
-    axs[0,1].plot(image_ncc, 'b', linewidth=lwl)
-    axs[0,1].set_ylabel('Normalized Cross-Correlation')
-    axs[0,1].grid(True)
-    axs[0,1].text(0.02, 0.04, 'NCC mean = {:.3f}   NCC median = {:.3f}  NCC STD = {:.3f}'.format(nccs[0], nccs[1], nccs[2]), transform=axs[0,1].transAxes, fontsize = fs-1)
-
-    axs[1,1].plot(image_mi, 'g', linewidth=lwl)
-    axs[1,1].set_ylabel('Normalized Mutual Information')
-    axs[1,1].set_xlabel('Frame #')
-    axs[1,1].grid(True)
-    axs[1,1].text(0.02, 0.04, 'NMI mean = {:.3f}   NMI median = {:.3f}  NMI STD = {:.3f}'.format(nmis[0], nmis[1], nmis[2]), transform=axs[1,1].transAxes, fontsize = fs-1)
-
-    axs_fr0 = fig.add_subplot(6,2,1)
-    axs_fr1 = fig.add_subplot(6,2,3)
-    axs_fr2 = fig.add_subplot(6,2,5)
-    axs_frms = [axs_fr0, axs_fr1, axs_fr2]
-    frame_inds = [frame_inds[nf//10],  frame_inds[nf//2], frame_inds[nf//10*9]]
-    for fr, ax in zip(frame_inds, axs_frms):
-        eval_frame = mrc_obj.data[fr, :, :].astype(float64)
-        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
-        ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
-        ax.text(0.03, 0.75, Sample_ID +'  frame={:d}'.format(fr), color='cyan', transform=ax.transAxes)
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=0.5, edgecolor='yellow',facecolor='none')
-        ax.add_patch(rect_patch)
-        ax.axis('off')
-
-    for ax in axs.ravel():
-        ax.grid(True)
-
-    fig.suptitle(mrc_filename, fontsize = fs-4)
-    if save_res_png :
-        fig.savefig(os.path.splitext(save_filename)[0] +'_RegistrationQuality.png', dpi=300)
-
-    registration_summary_fnm = os.path.splitext(save_filename)[0] + '_RegistrationQuality.csv'
-    columns=['Image NSAD', 'Image NCC', 'Image MI']
-    reg_summary = pd.DataFrame(np.vstack((image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
-    reg_summary.to_csv(registration_summary_fnm, index = None)
-    
-    mrc_obj.close()
-
-    return reg_summary
-
-
 def evaluate_registration_two_frames(params_mrc):
     '''
     Helper function used by DASK routine. Analyzes registration between two frames.
@@ -1578,13 +1454,24 @@ def evaluate_registration_two_frames(params_mrc):
     '''
     mrc_filename, fr, invert_data, evals = params_mrc
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
+    header = mrc_obj.header
+    try: 
+        dmin = float(header['dmin'])
+        dmax = float(header['dmax'])
+        if (dmin >= 0 and dmax<=255):
+            dt = uint8
+        else:
+            dt = int16
+    except:
+        dt = int16
+
     xi_eval, xa_eval, yi_eval, ya_eval = evals
     if invert_data:
-        prev_frame = -1.0 * mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
-        curr_frame = -1.0 * mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
+        prev_frame = -1.0 * (mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
+        curr_frame = -1.0 * (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
     else:
-        prev_frame = mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
-        curr_frame = mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
+        prev_frame = (mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
+        curr_frame = (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
     fr_mean = curr_frame/2.0 + prev_frame/2.0
     image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
     image_ncc = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
@@ -1607,6 +1494,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     kwargs:
      use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+    frames : array
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -1631,12 +1520,28 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
 
+    if sliding_evaluation_box:
+        print('Will use sliding (linearly) evaluation box')
+        print('   Starting with box:  ', start_evaluation_box)
+        print('   Finishing with box: ', stop_evaluation_box)
+    else:
+        print('Will use fixed evaluation box: ', evaluation_box)
+
     use_DASK = kwargs.get("use_DASK", False)
     invert_data =  kwargs.get("invert_data", False)
    
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    try: 
+        dmin = float(header['dmin'])
+        dmax = float(header['dmax'])
+        if (dmin >= 0 and dmax<=255):
+            dt = uint8
+        else:
+            dt = int16
+    except:
+        dt = int16
 
     xi_eval = evaluation_box[2]
     if evaluation_box[3] > 0:
@@ -1648,10 +1553,11 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         ya_eval = yi_eval + evaluation_box[1]
     else:
         ya_eval = ny
+    evals = [xi_eval, xa_eval, yi_eval, ya_eval]
     
     frames_default = np.arange(nz-1)+1
     frames = np.array(kwargs.get("frames", frames_default))
-    nf = len(frames)
+    nf = frames[-1]-frames[0]+1
     if frames[0]==0:
         frames = frames+1
     print('Will analyze regstrations in {:d} frames'.format(len(frames)))
@@ -1666,8 +1572,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     params_mrc_mult = []
     for j, fr in enumerate(frames):
         if sliding_evaluation_box:
-            xi_eval = start_evaluation_box[2] + dx_eval*j//nf
-            yi_eval = start_evaluation_box[0] + dy_eval*j//nf
+            xi_eval = start_evaluation_box[2] + dx_eval*(fr-frames[0])//nf
+            yi_eval = start_evaluation_box[0] + dy_eval*(fr-frames[0])//nf
             if start_evaluation_box[3] > 0:
                 xa_eval = xi_eval + start_evaluation_box[3]
             else:
@@ -1693,9 +1599,31 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         image_nsad = np.zeros((nf), dtype=float)
         image_ncc = np.zeros((nf), dtype=float)
         image_mi = np.zeros((nf), dtype=float)
-        prev_frame = mrc_obj.data[frames[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
+        if sliding_evaluation_box:
+            xi_eval = start_evaluation_box[2] + dx_eval*frames[0]//nf
+            yi_eval = start_evaluation_box[0] + dy_eval*frames[0]//nf
+            if start_evaluation_box[3] > 0:
+                xa_eval = xi_eval + start_evaluation_box[3]
+            else:
+                xa_eval = nx
+            if start_evaluation_box[1] > 0:
+                ya_eval = yi_eval + start_evaluation_box[1]
+            else:
+                ya_eval = ny
+        prev_frame = (mrc_obj.data[frames[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
         for j in tqdm(frames, desc='Evaluating frame registration: '):
-            curr_frame = mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(float64)
+            if sliding_evaluation_box:
+                xi_eval = start_evaluation_box[2] + dx_eval*j//nf
+                yi_eval = start_evaluation_box[0] + dy_eval*j//nf
+                if start_evaluation_box[3] > 0:
+                    xa_eval = xi_eval + start_evaluation_box[3]
+                else:
+                    xa_eval = nx
+                if start_evaluation_box[1] > 0:
+                    ya_eval = yi_eval + start_evaluation_box[1]
+                else:
+                    ya_eval = ny
+            curr_frame = (mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
             curr_frame_cp = cp.array(curr_frame)
             prev_frame_cp = cp.array(prev_frame)
             fr_mean = curr_frame_cp/2.0 + prev_frame_cp/2.0
@@ -1744,9 +1672,24 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     frame_inds = [frames[nf//10],  frames[nf//2], frames[nf//10*9]]
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     for fr, ax in zip(frame_inds, axs_frms):
-        eval_frame = mrc_obj.data[fr, :, :].astype(float64)
+        eval_frame = (mrc_obj.data[fr, :, :].astype(dt)).astype(float)
+        if sliding_evaluation_box:
+            xi_eval = start_evaluation_box[2] + dx_eval*(fr-frames[0])//nf
+            yi_eval = start_evaluation_box[0] + dy_eval*(fr-frames[0])//nf
+            if start_evaluation_box[3] > 0:
+                xa_eval = xi_eval + start_evaluation_box[3]
+            else:
+                xa_eval = nx
+            if start_evaluation_box[1] > 0:
+                ya_eval = yi_eval + start_evaluation_box[1]
+            else:
+                ya_eval = ny
         dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
-        ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
+        if invert_data:
+            ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
+        else:
+            ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
+
         ax.text(0.03, 0.75, Sample_ID +'  frame={:d}'.format(fr), color='cyan', transform=ax.transAxes)
         rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=0.5, edgecolor='yellow',facecolor='none')
         ax.add_patch(rect_patch)
@@ -1767,7 +1710,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
 
 def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     '''
-    Read MRC stack and displays the eval box for each frame from the list.
+    Read MRC stack and display the eval box for each frame from the list.
     ©G.Shtengel, 04/2021. gleb.shtengel@gmail.com
 
     Parameters
@@ -1801,6 +1744,15 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     mrc = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc.header
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    try: 
+        dmin = float(header['dmin'])
+        dmax = float(header['dmax'])
+        if (dmin >= 0 and dmax<=255):
+            dt = uint8
+        else:
+            dt = int16
+    except:
+        dt = int16
 
     frame_inds = kwargs.get("frame_inds", [nz//10,  nz//2, nz//10*9] )
     
@@ -1823,7 +1775,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
         dy_eval = 0
 
     for fr_ind in frame_inds: 
-        eval_frame = mrc.data[fr_ind, :, :].astype(float64)
+        eval_frame = (mrc.data[fr_ind, :, :].astype(dt)).astype(float)
 
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*fr_ind//nz
@@ -1869,6 +1821,8 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
         Filenames (full paths) of the registration summaries (*.csv files)
     labels : array of str
         Labels (for each registration)
+
+    kwargs:
     save_res_png : boolean
         If True, the PNG's of summary plots as well as summary Excel notebook are saved 
     save_filename : str
@@ -1879,12 +1833,15 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
         Bounds for NCC plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
     nmi_bounds : list of floats
         Bounds for NMI plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
+    linewidths : array of float
+        linewidths for individual files. If not provided, all linewidts are set to 0.5
 
     Returns
     xlsx_fname : str
         Filename of the summary Excel notebook
     '''
     save_res_png  = kwargs.get("save_res_png", True )
+    linewidths = kwargs.get("linewidths", np.ones(len(data_files))*0.5)
     data_dir = os.path.split(data_files[0])[0]
     default_save_filename = os.path.join(data_dir, 'Regstration_Summary.png')
     save_filename = kwargs.get("save_filename", default_save_filename)
@@ -1900,7 +1857,7 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
         reg_datas.append(data)
 
     lw0 = 0.5
-    lw1=1
+    lw1 = 1
     
     fs=12
     fs2=10
@@ -1916,23 +1873,31 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     ax_nmi.set_xlabel('Frame', fontsize=fs)
 
     spreads=[]
-    my_cols = []
+    my_cols = [get_cmap("gist_rainbow_r")((nfls-j)/(nfls)) for j in np.arange(nfls)]
+    my_cols[0] = 'grey'
+    my_cols[-1] = 'red'
+
     means = []
     image_nsads= []
     image_nccs= []
+    image_snrs= []
     image_nmis = []
     for j, reg_data in enumerate(tqdm(reg_datas, desc='generating the registration quality summary plots')):
-        my_col = get_cmap("gist_rainbow_r")((nfls-j)/(nfls))
-        my_cols.append(my_col)
+        #my_col = get_cmap("gist_rainbow_r")((nfls-j)/(nfls))
+        #my_cols.append(my_col)
+        my_col = my_cols[j]
         pf = labels[j]
+        lw0 = linewidths[j]
         image_nsad = reg_data['Image NSAD']
         image_nsads.append(image_nsad)
         image_ncc = reg_data['Image NCC']
         image_nccs.append(image_ncc)
+        image_snr = image_ncc/(1.0-image_ncc)
+        image_snrs.append(image_snr)
         image_nmi = reg_data['Image MI']
         image_nmis.append(image_nmi)
 
-        metrics = [image_nsad, image_ncc, image_nmi]
+        metrics = [image_nsad, image_ncc, image_snr, image_nmi]
         spreads.append([get_spread(metr) for metr in metrics])
         means.append([np.mean(metr) for metr in metrics])
 
@@ -1983,20 +1948,20 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     fst=9
 
     for j, (mean, spread) in enumerate(tqdm(zip(means, spreads), desc='generating the summary table')):
-        cell_text.append(['{:.3f}'.format(mean[0]), '{:.3f}'.format(spread[0]),
-                          '{:.3f}'.format(mean[1]), '{:.3f}'.format(spread[1]),
-                          '{:.3f}'.format(mean[2]), '{:.3f}'.format(spread[2])])
-        fig2_data.append([mean[0], spread[0], mean[1], spread[1], mean[2], spread[2]])
+        cell_text.append(['{:.4f}'.format(mean[0]), '{:.4f}'.format(spread[0]),
+                          '{:.4f}'.format(mean[1]), '{:.4f}'.format(spread[1]), '{:.4f}'.format(mean[2]),
+                          '{:.4f}'.format(mean[3]), '{:.4f}'.format(spread[3])])
+        fig2_data.append([mean[0], spread[0], mean[1], spread[1], mean[2], mean[3], spread[3]])
         
     # Generate the table
     fig2, ax = subplots(1, 1, figsize=(9.5,1.3))
     fig2.subplots_adjust(left=0.32, bottom=0.01, right=0.98, top=0.86, wspace=0.05, hspace=0.05)
     ax.axis(False)
-    ax.text(-0.30, 1.07, 'SIFT Registration Comparisons:  ' +data_dir, fontsize=fst)
+    ax.text(-0.30, 1.07, 'SIFT Registration Comparisons:  ' + data_dir, fontsize=fst)
     llw1=0.3
     clw = [llw1, llw1]
 
-    columns = ['NSAD Mean', 'NSAD Spread', 'NCC Mean', 'NCC Spread', 'NMI Mean', 'NMI Spread']
+    columns = ['NSAD Mean', 'NSAD Spread', 'NCC Mean', 'NCC Spread', 'Mean SNR', 'NMI Mean', 'NMI Spread']
 
     n_cols = len(columns)
     n_rows = len(rows)
@@ -2027,8 +1992,74 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
         cell.get_text().set_fontsize(fst)
     save_filename2 = save_filename.replace('.png', '_table.png')
     if save_res_png:
-        fig2.savefig(save_filename2, dpi=300)
+        fig2.savefig(save_filename2, dpi=300)   
         
+    ysize_fig = 4
+    ysize_tbl = 0.25 * nfls
+    fst3 = 8
+    fig3, axs3 = subplots(2, 1, figsize=(7, ysize_fig+ysize_tbl),  gridspec_kw={"height_ratios" : [ysize_tbl, ysize_fig]})
+    fig3.subplots_adjust(left=0.10, bottom=0.10, right=0.98, top=0.96, wspace=0.05, hspace=0.05)
+
+    for j, reg_data in enumerate(tqdm(reg_datas, desc='generating the registration quality summary plots')):
+        my_col = my_cols[j]
+        pf = labels[j]
+        lw0 = linewidths[j]
+        image_ncc = reg_data['Image NCC']
+        axs3[1].plot(image_ncc, c=my_col, linewidth=lw0)
+        axs3[1].plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
+    axs3[1].grid(True)
+    axs3[1].legend(fontsize=fs2)
+    axs3[1].set_ylabel('Normalized Cross-Correlation', fontsize=fs)
+    axs3[1].set_xlabel('Frame', fontsize=fs)
+    axs3[1].set_ylim(ncc_min, ncc_max)
+    axs3[0].axis(False)
+    axs3[0].text(-0.1, 1.07, 'SIFT Registration Comparisons:  ' + data_dir, fontsize=fst3)
+    llw1=0.3
+    clw = [llw1, llw1]
+
+    columns2 = ['NCC Mean', 'NCC Spread', 'SNR Mean', 'SNR Spread']
+    cell2_text = []
+    fig3_data = []
+    limits = []
+    rows = labels
+    
+    for j, (mean, spread) in enumerate(tqdm(zip(means, spreads), desc='generating the summary table')):
+        cell2_text.append(['{:.4f}'.format(mean[1]), '{:.4f}'.format(spread[1]),
+                          '{:.4f}'.format(mean[2]), '{:.4f}'.format(spread[2])])
+    n_cols = len(columns2)
+    n_rows = len(rows)
+
+    tbl2 = axs3[0].table(cellText = cell2_text,
+                   rowLabels = rows,
+                   colLabels = columns2,
+                   cellLoc = 'center',
+                   colLoc = 'center',
+                   bbox = [0.38, 0, 0.55, 1.0],  # (left, bottom, width, height)
+                  fontsize=16)
+    rl = max([len(pf) for pf in labels])
+    #tbl2.auto_set_column_width(col=[rl+5, len(columns2[0]), len(columns2[1]), len(columns2[2]), len(columns2[3])])
+    tbl2.auto_set_column_width(col=list(range(len(columns2)+1)))
+    tbl2.auto_set_font_size(False)
+
+    table2_props = tbl2.properties()
+    try:
+        table2_cells = table2_props['child_artists']
+    except:
+        table2_cells = table2_props['children']
+
+    tbl.auto_set_font_size(False)
+    for j, cell in enumerate(table2_cells[0:n_cols*n_rows]):
+        cell.get_text().set_color(my_cols[j//n_cols])
+        cell.get_text().set_fontsize(fst3)
+    for j, cell in enumerate(table2_cells[n_cols*(n_rows+1):]):
+        cell.get_text().set_color(my_cols[j])
+    for cell in table2_cells[n_cols*n_rows:]:
+    #    cell.get_text().set_fontweight('bold')
+        cell.get_text().set_fontsize(fst3)
+    save_filename3 = save_filename.replace('.png', '_fig_and_table.png')
+    if save_res_png:
+        fig3.savefig(save_filename3, dpi=300)
+    
     if save_res_png:
         # Generate a single multi-page CSV file
         xlsx_fname = save_filename.replace('.png', '.xlsx')
@@ -2043,7 +2074,6 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
             reg_data.to_excel(writer, sheet_name=data_fn)
         writer.save()
     return xlsx_fname
-
 
 
 #######################################
@@ -2153,7 +2183,7 @@ class FIBSEM_frame:
                     self.EightBit = int(type(self.RawImageA[0,0])==np.uint8)
             except:
                 self.header = ''
-                self.EightBit = self.EightBit = int(type(self.RawImageA[0,0])==np.uint8)
+                self.EightBit = int(type(self.RawImageA[0,0])==np.uint8)
 
             self.PixelSize = kwargs.get("PixelSize", 8.0)
             self.Sample_ID = kwargs.get("Sample_ID", '')
@@ -4553,7 +4583,7 @@ def build_filename(fname, **kwargs):
     save_asI8_save = save_asI8 or frame.EightBit==1
 
     if save_asI8_save:
-        dtp = np.int8
+        dtp = int8
         dformat_save = 'I8'
         mrc_mode = 0
         if zbin_2x:
@@ -4561,7 +4591,7 @@ def build_filename(fname, **kwargs):
         else:
             fnm_reg = 'Registered_I8.mrc'
     else:
-        dtp = np.int16
+        dtp = int16
         dformat_save = 'I16'
         mrc_mode = 1
         if zbin_2x:
@@ -4625,7 +4655,7 @@ def find_fit(tr_matr_cum, fit_params):
     s_fits = [s00_fit, s01_fit, s10_fit, s11_fit]
     return tr_matr_cum_new, s_fits
 
-def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_mean, data_min_glob, data_max_glob, **kwargs):
+def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_mean, **kwargs):
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -4676,7 +4706,7 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
     # display the info
     axs5[0,0].axis(False)
     axs5[0,0].text(-0.1, 0.9, Sample_ID, fontsize = fs + 4)
-    axs5[0,0].text(-0.1, 0.73, 'Global Data Range:  Min={:.2f}, Max={:.2f}'.format(data_min_glob, data_max_glob), transform=axs5[0,0].transAxes, fontsize = fs)
+    #axs5[0,0].text(-0.1, 0.73, 'Global Data Range:  Min={:.2f}, Max={:.2f}'.format(data_min_glob, data_max_glob), transform=axs5[0,0].transAxes, fontsize = fs)
     
     if TransformType == RegularizedAffineTransform:
         tstr = ['{:d}'.format(x) for x in targ_vector] 
@@ -5153,10 +5183,10 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     if pad_edges and perfrom_transformation:
         shape = [test_frame.YResolution, test_frame.XResolution]
         xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual, disp_res)
-        padx = np.int16(xmx - xmn)
-        pady = np.int16(ymx - ymn)
-        xi = np.int16(np.max([xmx, 0]))
-        yi = np.int16(np.max([ymx, 0]))
+        padx = int(xmx - xmn)
+        pady = int(ymx - ymn)
+        xi = int(np.max([xmx, 0]))
+        yi = int(np.max([ymx, 0]))
         # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
         # so that the transformed images are not clipped.
         # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -5965,6 +5995,7 @@ class FIBSEM_dataset:
             If True, the data will be padded before transformation to avoid clipping.
         """
         self.fls = fls
+        self.fnms = [os.path.splitext(fl)[0] + '_kpdes.bin' for fl in fls]
         self.nfrs = len(fls)
         print('Total Number of frames: ', self.nfrs)
         self.data_dir = data_dir
@@ -6535,8 +6566,6 @@ class FIBSEM_dataset:
                                              self.fnms_matches,
                                              self.npts,
                                              self.error_abs_mean,
-                                             self.data_minmax[0],
-                                             self.data_minmax[1],
                                              **TM_kwargs)
         return self.tr_matr_cum_residual
 
@@ -6682,8 +6711,6 @@ class FIBSEM_dataset:
                                              self.fnms_matches,
                                              self.npts,
                                              self.error_abs_mean,
-                                             self.data_minmax[0],
-                                             self.data_minmax[1],
                                              **TM_kwargs)
         return self.tr_matr_cum_residual
 
@@ -6826,8 +6853,6 @@ class FIBSEM_dataset:
                             'sliding_evaluation_box' : sliding_evaluation_box,
                             'start_evaluation_box' : start_evaluation_box,
                             'stop_evaluation_box' : stop_evaluation_box,
-                            'perfrom_transformation' : perfrom_transformation,
-                            'invert_data' : invert_data,
                             'disp_res' : disp_res}
 
         if perfrom_transformation and hasattr(self, 'tr_matr_cum_residual'):

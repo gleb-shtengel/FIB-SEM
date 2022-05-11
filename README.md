@@ -62,6 +62,18 @@ You will also need to have these packages installed:
         [1] M. van Heela, and M. Schatzb, "Fourier shell correlation threshold criteria," Journal of Structural Biology 151, 250-262 (2005)
 
 
+## MRC stack evaluation Functions
+    analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs)
+        Read MRC stack and analyze registration - calculate NSAD, NCC, and MI.
+    show_eval_box_mrc_stack(mrc_filename, **kwargs)
+        Read MRC stack and display the eval box for each frame from the list.
+
+
+## Helper Functions for Results Presentation
+    plot_registrtion_quality_csvs(data_files, labels, **kwargs):
+        Read and plot together multiple registration quality summaries.
+
+
 ## class FIBSEM_frame:
     A class representing single FIB-SEM data frame. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com.
     Contains the info/settings on a single FIB-SEM data frame and the procedures that can be performed on it.
