@@ -1833,6 +1833,8 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
         Bounds for NCC plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
     nmi_bounds : list of floats
         Bounds for NMI plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
+    colors : array or list of colors
+        Optional colors for each plot/file. If not provided, will be auto-generated.
     linewidths : array of float
         linewidths for individual files. If not provided, all linewidts are set to 0.5
 
@@ -1876,6 +1878,7 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     my_cols = [get_cmap("gist_rainbow_r")((nfls-j)/(nfls)) for j in np.arange(nfls)]
     my_cols[0] = 'grey'
     my_cols[-1] = 'red'
+    my_cols = kwargs.get("colors", my_cols)
 
     means = []
     image_nsads= []
