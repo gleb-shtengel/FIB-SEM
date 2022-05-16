@@ -1494,7 +1494,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     kwargs:
      use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-    frames : array
+    frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
@@ -1555,12 +1555,12 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         ya_eval = ny
     evals = [xi_eval, xa_eval, yi_eval, ya_eval]
     
-    frames_default = np.arange(nz-1)+1
-    frames = np.array(kwargs.get("frames", frames_default))
-    nf = frames[-1]-frames[0]+1
-    if frames[0]==0:
-        frames = frames+1
-    print('Will analyze regstrations in {:d} frames'.format(len(frames)))
+    frame_inds_default = np.arange(nz-1)+1
+    frame_inds = np.array(kwargs.get("frame_inds", frame_inds_default))
+    nf = frame_inds[-1]-frame_inds[0]+1
+    if frame_inds[0]==0:
+        frame_inds = frame_inds+1
+    print('Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
     print('Will save the data into '+os.path.splitext(save_filename)[0] + '_RegistrationQuality.csv')
     if sliding_evaluation_box:
         dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
@@ -1570,10 +1570,10 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         dy_eval = 0
     
     params_mrc_mult = []
-    for j, fr in enumerate(frames):
+    for j, fr in enumerate(frame_inds):
         if sliding_evaluation_box:
-            xi_eval = start_evaluation_box[2] + dx_eval*(fr-frames[0])//nf
-            yi_eval = start_evaluation_box[0] + dy_eval*(fr-frames[0])//nf
+            xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
+            yi_eval = start_evaluation_box[0] + dy_eval*(fr-frame_inds[0])//nf
             if start_evaluation_box[3] > 0:
                 xa_eval = xi_eval + start_evaluation_box[3]
             else:
@@ -1584,7 +1584,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                 ya_eval = ny
             evals = [xi_eval, xa_eval, yi_eval, ya_eval]
         params_mrc_mult.append([mrc_filename, fr, invert_data, evals])
-    #params_mrc_mult = [[mrc_filename, fr, evals] for fr in frames]
+    #params_mrc_mult = [[mrc_filename, fr, evals] for fr in frame_inds]
         
     if use_DASK:
         mrc_obj.close()
@@ -1600,8 +1600,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         image_ncc = np.zeros((nf), dtype=float)
         image_mi = np.zeros((nf), dtype=float)
         if sliding_evaluation_box:
-            xi_eval = start_evaluation_box[2] + dx_eval*frames[0]//nf
-            yi_eval = start_evaluation_box[0] + dy_eval*frames[0]//nf
+            xi_eval = start_evaluation_box[2] + dx_eval*frame_inds[0]//nf
+            yi_eval = start_evaluation_box[0] + dy_eval*frame_inds[0]//nf
             if start_evaluation_box[3] > 0:
                 xa_eval = xi_eval + start_evaluation_box[3]
             else:
@@ -1610,8 +1610,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                 ya_eval = yi_eval + start_evaluation_box[1]
             else:
                 ya_eval = ny
-        prev_frame = (mrc_obj.data[frames[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
-        for j in tqdm(frames, desc='Evaluating frame registration: '):
+        prev_frame = (mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
+        for j in tqdm(frame_inds, desc='Evaluating frame registration: '):
             if sliding_evaluation_box:
                 xi_eval = start_evaluation_box[2] + dx_eval*j//nf
                 yi_eval = start_evaluation_box[0] + dy_eval*j//nf
@@ -1669,13 +1669,13 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     axs_fr1 = fig.add_subplot(6,2,3)
     axs_fr2 = fig.add_subplot(6,2,5)
     axs_frms = [axs_fr0, axs_fr1, axs_fr2]
-    frame_inds = [frames[nf//10],  frames[nf//2], frames[nf//10*9]]
+    frame_inds = [frame_inds[nf//10],  frame_inds[nf//2], frame_inds[nf//10*9]]
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     for fr, ax in zip(frame_inds, axs_frms):
         eval_frame = (mrc_obj.data[fr, :, :].astype(dt)).astype(float)
         if sliding_evaluation_box:
-            xi_eval = start_evaluation_box[2] + dx_eval*(fr-frames[0])//nf
-            yi_eval = start_evaluation_box[0] + dy_eval*(fr-frames[0])//nf
+            xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
+            yi_eval = start_evaluation_box[0] + dy_eval*(fr-frame_inds[0])//nf
             if start_evaluation_box[3] > 0:
                 xa_eval = xi_eval + start_evaluation_box[3]
             else:
@@ -1726,9 +1726,18 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
         Save PNG images of the intermediate processing statistics and final registration quality check
     ax : matplotlib ax artist
         if provided, the data is exported to external ax object.
-    frame_inds : list of int
+    frame_inds : array
         List of frame indices to display the evaluation box. If not provided, three frames will be used:
         [nz//10,  nz//2, nz//10*9] where nz is number of frames in mrc stack
+    evaluation_box : list of 4 int
+        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
+        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+    sliding_evaluation_box : boolean
+        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+    start_evaluation_box : list of 4 int
+        see above
+    stop_evaluation_box : list of 4 int
+        see above
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
     save_res_png  = kwargs.get("save_res_png", True )
@@ -1891,13 +1900,13 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
         my_col = my_cols[j]
         pf = labels[j]
         lw0 = linewidths[j]
-        image_nsad = reg_data['Image NSAD']
+        image_nsad = np.array(reg_data['Image NSAD'])
         image_nsads.append(image_nsad)
-        image_ncc = reg_data['Image NCC']
+        image_ncc = np.array(reg_data['Image NCC'])
         image_nccs.append(image_ncc)
         image_snr = image_ncc/(1.0-image_ncc)
         image_snrs.append(image_snr)
-        image_nmi = reg_data['Image MI']
+        image_nmi = np.array(reg_data['Image MI'])
         image_nmis.append(image_nmi)
 
         metrics = [image_nsad, image_ncc, image_snr, image_nmi]
@@ -1916,7 +1925,7 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
         ax.legend(fontsize=fs2)
         
     if nsad_bounds[0]==nsad_bounds[1]:
-        nsad_min, nsad_max = get_min_max_thresholds(np.array(image_nsads),
+        nsad_min, nsad_max = get_min_max_thresholds(np.concatenate(image_nsads),
                                                     thr_min=1e-4, thr_max=1e-4,
                                                     nbins=256, disp_res=False)
     else:
@@ -1924,7 +1933,7 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     ax_nsad.set_ylim(nsad_min, nsad_max)
 
     if ncc_bounds[0]==ncc_bounds[1]:
-        ncc_min, ncc_max = get_min_max_thresholds(np.array(image_nccs),
+        ncc_min, ncc_max = get_min_max_thresholds(np.concatenate(image_nccs),
                                                     thr_min=1e-4, thr_max=1e-4,
                                                     nbins=256, disp_res=False)
     else:
@@ -1932,7 +1941,7 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     ax_ncc.set_ylim(ncc_min, ncc_max)
 
     if nmi_bounds[0]==nmi_bounds[1]:
-        nmi_min, nmi_max = get_min_max_thresholds(np.array(image_nmis),
+        nmi_min, nmi_max = get_min_max_thresholds(np.concatenate(image_nmis),
                                                     thr_min=1e-4, thr_max=1e-4,
                                                     nbins=256, disp_res=False)
     else:
@@ -1950,7 +1959,7 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     rows = labels
     fst=9
 
-    for j, (mean, spread) in enumerate(tqdm(zip(means, spreads), desc='generating the summary table')):
+    for j, (mean, spread) in enumerate(zip(means, spreads)):
         cell_text.append(['{:.4f}'.format(mean[0]), '{:.4f}'.format(spread[0]),
                           '{:.4f}'.format(mean[1]), '{:.4f}'.format(spread[1]), '{:.4f}'.format(mean[2]),
                           '{:.4f}'.format(mean[3]), '{:.4f}'.format(spread[3])])
@@ -2003,7 +2012,7 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     fig3, axs3 = subplots(2, 1, figsize=(7, ysize_fig+ysize_tbl),  gridspec_kw={"height_ratios" : [ysize_tbl, ysize_fig]})
     fig3.subplots_adjust(left=0.10, bottom=0.10, right=0.98, top=0.96, wspace=0.05, hspace=0.05)
 
-    for j, reg_data in enumerate(tqdm(reg_datas, desc='generating the registration quality summary plots')):
+    for j, reg_data in enumerate(reg_datas):
         my_col = my_cols[j]
         pf = labels[j]
         lw0 = linewidths[j]
@@ -2026,7 +2035,7 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     limits = []
     rows = labels
     
-    for j, (mean, spread) in enumerate(tqdm(zip(means, spreads), desc='generating the summary table')):
+    for j, (mean, spread) in enumerate(zip(means, spreads)):
         cell2_text.append(['{:.4f}'.format(mean[1]), '{:.4f}'.format(spread[1]),
                           '{:.4f}'.format(mean[2]), '{:.4f}'.format(spread[2])])
     n_cols = len(columns2)
