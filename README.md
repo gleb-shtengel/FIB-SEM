@@ -2,7 +2,7 @@
 
 ## "Register_FIB-SEM_stack_DASK_v1.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
 
-## "Evaluate_FIB-SEM_MRC_stack_registrations.ipynb" - Python Notebook for evaluates FIB-SEM stack registration (works with stacks saved into MRC files)
+## "Evaluate_FIB-SEM_MRC_stack_registrations.ipynb" - Python Notebook for evaluating FIB-SEM stack registration (works with stacks saved into MRC files, uses DASK)
 
 In order to run the Python Notebook code, first, install basic Anaconda:
 https://www.anaconda.com/products/individual
