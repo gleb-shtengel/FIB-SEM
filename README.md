@@ -24,6 +24,8 @@ You will also need to have these packages installed:
 
 
 ## General Help Functions
+    get_spread(data, window=501, porder=3):
+        Calculates spread - standard deviation of the (signal - Sav-Gol smoothed signal)
     get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_res=False)
         Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
     radial_profile(data, center)
@@ -127,7 +129,7 @@ You will also need to have these packages installed:
         Analyses the noise statistics in the selected ROI's of the EM data.
     analyze_noise_statistics(**kwargs):
         Analyses the noise statistics of the EM data image.
-    analyze_crosscor_SNR(image_name = 'RawImageA', **kwargs):
+    analyze_SNR_autocorr(image_name = 'RawImageA', **kwargs):
         Estimates SNR using auto-correlation analysis of a single image.
     show_eval_box(**kwargs):
         Show the box used for evaluating the noise
