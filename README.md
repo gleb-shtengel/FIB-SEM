@@ -2,8 +2,8 @@
 
 ## "Register_FIB-SEM_stack_DASK_v1.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
 
-## "Register_FIB-SEM_stack_DASK_v1_AMST.ipynb" - Python Notebook which performs FIB-SEM stack registration of AMST dataset and compares the results with AMST registration. AMST data has been published here:
-J. Hennies et al, "AMST: Alignment to Median Smoothed Template for Focused Ion Beam Scanning Electron Microscopy Image Stacks", Sci. Rep. 10, 2004 (2020).
+## "Register_FIB-SEM_stack_DASK_v1_AMST.ipynb" - Python Notebook which performs FIB-SEM stack registration of AMST dataset and compares the results with AMST registration [1]
+1. J. Hennies et al, "AMST: Alignment to Median Smoothed Template for Focused Ion Beam Scanning Electron Microscopy Image Stacks", Sci. Rep. 10, 2004 (2020).
 
 ## "Evaluate_FIB-SEM_MRC_stack_registrations.ipynb" - Python Notebook for evaluating FIB-SEM stack registration (works with stacks saved into MRC files, uses DASK)
 
