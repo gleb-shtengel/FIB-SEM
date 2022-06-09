@@ -204,7 +204,7 @@ def radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4):
     astop : float
         Stop angle for radial averaging. Default is 90
     symm : int
-        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 4.
+        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
 
 
     Returns
@@ -236,12 +236,12 @@ def radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4):
 
 
 def smooth(x, window_len=11, window='hanning'):
-    """Smooth the data using a window with requested size.
+    """smooth the data using a window with requested size.
     
     This method is based on the convolution of a scaled window with the signal.
     The signal is prepared by introducing reflected copies of the signal 
     (with the window size) in both ends so that transient parts are minimized
-    in the beginning and end part of the output signal.
+    in the begining and end part of the output signal.
     
     input:
         x: the input signal 
@@ -401,7 +401,11 @@ def Single_Image_SNR(img, **kwargs):
     img_label = kwargs.get("img_label", 'Orig. Image')
     dpi = kwargs.get("dpi", 300)
     
+    #first make image size even
     ysz, xsz = img.shape
+    img = img[0:ysz//2*2, 0:xsz//2*2]
+    ysz, xsz = img.shape
+
     xy_ratio = xsz/ysz
     data_FT = fftshift(fftn(ifftshift(img-img.mean())))
     data_FC = (np.multiply(data_FT,np.conj(data_FT)))/xsz/ysz
@@ -413,7 +417,8 @@ def Single_Image_SNR(img, **kwargs):
     #print(radial_ACR[0:10], radial_ACR[-10:-1])
     r_ACR = np.concatenate((radial_ACR[::-1], radial_ACR[1:-1]))
     
-    rsz = xsz
+    #rsz = xsz
+    rsz = len(r_ACR)
     rcr = np.linspace(-rsz//2, rsz//2-1, rsz)
     xcr = np.linspace(-xsz//2, xsz//2-1, xsz)
     ycr = np.linspace(-ysz//2, ysz//2-1, ysz)
@@ -629,7 +634,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
     
     xy_ratio = img.shape[1]/img.shape[0]
     xsz = 15
-    ysz = xsz*4.0/xy_ratio
+    ysz = xsz*3.5/xy_ratio
 
     n_ROIs = len(Noise_ROIs)+1
     mean_vals = np.zeros(n_ROIs)
@@ -859,15 +864,15 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     imdiff = (img-img_filtered)
     range_imdiff = get_min_max_thresholds(imdiff, thresholds_disp[0], thresholds_disp[1], nbins_disp)
 
-    xy_ratio = np.sqrt(img.shape[1]/img.shape[0])
+    xy_ratio = img.shape[1]/img.shape[0]
     xsz = 15
-    ysz = xsz/xy_ratio/1.5
+    ysz = xsz/1.5*xy_ratio
     if disp_res:
-        fs=9
-        fig, axss = subplots(2,3, figsize=(xsz,ysz),  gridspec_kw={"height_ratios" : [1, xy_ratio]})
-        fig.subplots_adjust(left=0.07, bottom=0.08, right=0.99, top=0.92, wspace=0.15, hspace=0.10)
+        fs=11
+        fig, axss = subplots(2,3, figsize=(xsz,ysz),  gridspec_kw={"height_ratios" : [1,1]})
+        fig.subplots_adjust(left=0.07, bottom=0.06, right=0.99, top=0.92, wspace=0.15, hspace=0.10)
         axs = axss.ravel()
-        axs[0].text(-0.1, 1.15, res_fname + ',       ' +  Notes, transform=axs[0].transAxes, fontsize=fs)
+        axs[0].text(-0.1, 1.1, res_fname + ',       ' +  Notes, transform=axs[0].transAxes, fontsize=fs)
 
         axs[0].imshow(img, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs[0].axis(False)
@@ -875,7 +880,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
 
         axs[1].imshow(img_filtered, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs[1].axis(False)
-        axs[1].set_title('Smoothed Image', fontsize=fs+1)
+        axs[1].set_title('Smoothed Image')
         Low_mask = img*0.0+255.0
         High_mask = Low_mask.copy()
         Low_mask[img_filtered > range_analysis[0]] = np.nan
@@ -915,13 +920,13 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         axs[4].plot([range_analysis[1], range_analysis[1]],[ylim4[0]-1000, ylim4[1]], color='red', linestyle='dashed', label='Ihigh')
         axs[4].set_ylim(ylim4)
         txt1 = 'Smoothing Kernel'
-        axs[4].text(0.71, 0.940, txt1, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-1)
+        axs[4].text(0.69, 0.955, txt1, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-1)
         txt2 = '{:.3f}  {:.3f}  {:.3f}'.format(kernel[0,0], kernel[0,1], kernel[0,2])
-        axs[4].text(0.71, 0.895, txt2, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-2)
+        axs[4].text(0.69, 0.910, txt2, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-2)
         txt3 = '{:.3f}  {:.3f}  {:.3f}'.format(kernel[1,0], kernel[1,1], kernel[1,2])
-        axs[4].text(0.71, 0.850, txt3, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-2)
+        axs[4].text(0.69, 0.865, txt3, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-2)
         txt3 = '{:.3f}  {:.3f}  {:.3f}'.format(kernel[2,0], kernel[2,1], kernel[2,2])
-        axs[4].text(0.71, 0.805, txt3, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-2)
+        axs[4].text(0.69, 0.820, txt3, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-2)
     
     if disp_res:
         hist, bins, patches = axs[5].hist(imdiff.ravel(), bins = nbins_disp)
@@ -966,7 +971,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         lbl_high = '$I_{high}$'+', thr={:.1e}'.format(thresholds_analysis[1])
         axs[3].plot([range_analysis[0], range_analysis[0]],[ylim3[0]-1000, ylim3[1]], color='lime', linestyle='dashed', label=lbl_low)
         axs[3].plot([range_analysis[1], range_analysis[1]],[ylim3[0]-1000, ylim3[1]], color='red', linestyle='dashed', label=lbl_high)
-        axs[3].legend(loc='upper left', fontsize=fs+1)
+        axs[3].legend(loc='upper center', fontsize=fs+1)
         axs[3].set_ylim(ylim3)
     
     PSNR = (I_peak-I0)/np.sqrt(Var_peak)
@@ -977,19 +982,19 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         print('PSNR={:.2f}, PSNR_header={:.2f}, DSNR={:.2f}'.format(PSNR, PSNR_header, DSNR))
     
         txt1 = 'Histogram Peak:  ' + Ipeak_lbl
-        axs[3].text(0.40, 0.27, txt1, transform=axs[3].transAxes, fontsize=fs+1)
+        axs[3].text(0.25, 0.27, txt1, transform=axs[3].transAxes, fontsize=fs+1)
         txt2 = 'DSNR = ' +'$(I_{high}$' +'$ - I_{low})$' +'/'+'$σ_{peak}$' + ' = {:.2f}'.format(DSNR)
-        axs[3].text(0.40, 0.22, txt2, transform=axs[3].transAxes, fontsize=fs+1)
+        axs[3].text(0.25, 0.22, txt2, transform=axs[3].transAxes, fontsize=fs+1)
         
         txt3 = 'Zero Intercept:    ' +'$I_{0}$' +'={:.1f}'.format(I0)
-        axs[3].text(0.40, 0.17, txt3, transform=axs[3].transAxes, color='blue', fontsize=fs+1)
+        axs[3].text(0.25, 0.17, txt3, transform=axs[3].transAxes, color='blue', fontsize=fs+1)
         txt4 = 'PSNR = ' +'$(I_{peak}$' +'$ - I_{0})$' +'/'+'$σ_{peak}$' + ' = {:.2f}'.format(PSNR)
-        axs[3].text(0.40, 0.12, txt4, transform=axs[3].transAxes, color='blue', fontsize=fs+1)
+        axs[3].text(0.25, 0.12, txt4, transform=axs[3].transAxes, color='blue', fontsize=fs+1)
 
         txt5 = 'Header Zero Int.:    ' +'$I_{0}$' +'={:.1f}'.format(DarkCount)
-        axs[3].text(0.40, 0.07, txt5, transform=axs[3].transAxes, color='magenta', fontsize=fs+1)
+        axs[3].text(0.25, 0.07, txt5, transform=axs[3].transAxes, color='magenta', fontsize=fs+1)
         txt6 = 'PSNR = ' +'$(I_{peak}$' +'$ - I_{0})$' +'/'+'$σ_{peak}$' + ' = {:.2f}'.format(PSNR_header)
-        axs[3].text(0.40, 0.02, txt6, transform=axs[3].transAxes, color='magenta', fontsize=fs+1)
+        axs[3].text(0.25, 0.02, txt6, transform=axs[3].transAxes, color='magenta', fontsize=fs+1)
 
         if save_res_png:
             fig.savefig(res_fname, dpi=300)
@@ -1000,7 +1005,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
 def Perform_2D_fit(img, estimator, **kwargs):
     '''
     Bin the image and then perform 2D polynomial (currently only 2D parabolic) fit on the binned image.
-    ©G.Shtengel 05/2022 gleb.shtengel@gmail.com
+    ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
     
     Parameters
     ----------
@@ -1017,7 +1022,6 @@ def Perform_2D_fit(img, estimator, **kwargs):
         If True - the full image correction is calculated
     ignore_Y  : boolean
         If True - the parabolic fit to only X is perfromed
-    Y_range  :  list [Ymin, Ymax] - range of Y indices to average
     disp_res : boolean
         (default is False) - to plot/ display the results
     save_res_png : boolean
@@ -1034,7 +1038,6 @@ def Perform_2D_fit(img, estimator, **kwargs):
     ysz, xsz = img.shape
     calc_corr = kwargs.get("calc_corr", False)
     ignore_Y = kwargs.get("ignore_Y", False)
-    Y_range = kwargs.get("Y_range", [0, ysz])
     lbl = kwargs.get("label", '')
     Xsect = kwargs.get("Xsect", xsz//2)
     Ysect = kwargs.get("Ysect", ysz//2)
@@ -1044,20 +1047,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
     res_fname = kwargs.get("res_fname", '2D_Parabolic_Fit.png')
     dpi = kwargs.get("dpi", 300)
     
-    # limit image to the size of integer number of bins
-    xszl = xsz//bins*bins
-    if ignore_Y:
-        yszl = (Y_range[1]-Y_range[0])//bins*bins
-        img_cropped = img[Y_range[0]:(Y_range[0]+yszl), 0:xszl]
-        if Ysect>yszl-1:
-            Ysect = (Y_range[1]-Y_range[0])//2
-    else:
-        yszl = ysz//bins*bins
-        img_cropped = img[0:yszl, 0:xszl]
-        
-    # create a cropped and binned image to fit
-    img_rebinned = np.moveaxis(img_cropped.astype(float).reshape(yszl//bins, bins, xszl//bins, bins), 1, 2).reshape(yszl//bins, xszl//bins, bins*bins)
-    img_binned = np.quantile(img_rebinned, [0.1, 0.5, 0.5], axis=2)[2]
+    img_binned = img.astype(float).reshape(ysz//bins, bins, xsz//bins, bins).sum(3).sum(1)/bins/bins
     vmin, vmax = get_min_max_thresholds(img_binned)
     yszb, xszb = img_binned.shape
     yb, xb = np.indices(img_binned.shape)
@@ -1066,8 +1056,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
     yb_1d = yb.ravel()
     X = np.vstack((xb_1d, yb_1d)).T
     
-    # create index map (Xf) for creating a full image correction
-    # it needs to be scaled by the value of bins to make a correct predictioon
+    ysz, xsz = img.shape
     yf, xf = np.indices(img.shape)
     xf_1d = xf.ravel()/bins
     yf_1d = yf.ravel()/bins
@@ -1092,32 +1081,9 @@ def Perform_2D_fit(img, estimator, **kwargs):
     img_fit_1d = model.predict(X)
     scr = model.score(X, img_1D)
     mse = mean_squared_error(img_fit_1d, img_1D)
-
-    if ignore_Y:
-        # in case if we want only 2D model, perform tricks to only pick "epoxy" signal - min across the Y-slice
-        img_binned_1D = np.min(img_binned, axis=0)
-        popt = np.polyfit(xb[0,:]*bins, img_binned_1D, 2)
-        coefs[0] = 1
-        coefs[1] = popt[1]
-        coefs[3] = popt[0]
-        intercept = popt[2]
-        if hasattr(model[-1], 'estimator_'):
-            model[-1].estimator_.coef_ = coefs
-            model[-1].estimator_.intercept_ = intercept
-        else:
-            model[-1].coef_ = coefs
-            model[-1].intercept_ = intercept
-        sct_fit = np.polyval(popt, xb[0,:]*bins)
-        sct_fit = np.polyval(popt, xb[0,:]*bins)
-        img_fit = np.tile(sct_fit, (yszb, 1))
-    else:
-        img_fit = img_fit_1d.reshape(yszb, xszb)
-        
+    img_fit = img_fit_1d.reshape(yszb, xszb)
     if calc_corr:
-        if ignore_Y:
-            img_full_correction = np.mean(img_fit) / np.tile((np.polyval(popt, np.arange(xsz))), (ysz, 1))
-        else:
-            img_full_correction = np.mean(img_fit_1d) / model.predict(Xf).reshape(ysz, xsz)
+        img_full_correction = np.mean(img_fit_1d) / model.predict(Xf).reshape(ysz, xsz)
     else:
         img_full_correction = img * 0.0
         
@@ -1128,34 +1094,29 @@ def Perform_2D_fit(img, estimator, **kwargs):
         fig, axs = subplots(2,2, figsize = (12, 8))
         axs[0, 0].imshow(img_binned, cmap='Greys', vmin=vmin, vmax=vmax)
         axs[0, 0].grid(True)
-        if not ignore_Y:
-            axs[0, 0].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
-            axs[0, 0].plot([0, xszb], [Ysect//bins, Ysect//bins], 'cyan', linewidth = 0.5)
+        axs[0, 0].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
+        axs[0, 0].plot([0, xszb], [Ysect//bins, Ysect//bins], 'cyan', linewidth = 0.5)
         axs[0, 0].set_xlim((0, xszb))
         axs[0, 0].set_ylim((yszb, 0))
         axs[0, 0].set_title('{:d}-x Binned Original Image'.format(bins))
   
         axs[0, 1].imshow(img_fit, cmap='Greys', vmin=vmin, vmax=vmax)
         axs[0, 1].grid(True)
-        if not ignore_Y:
-            axs[0, 1].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
-            axs[0, 1].plot([0, xszb], [Ysect//bins, Ysect//bins], 'cyan', linewidth = 0.5)
+        axs[0, 1].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
+        axs[0, 1].plot([0, xszb], [Ysect//bins, Ysect//bins], 'cyan', linewidth = 0.5)
         axs[0, 1].set_xlim((0, xszb))
         axs[0, 1].set_ylim((yszb,0))
         axs[0, 1].set_title('{:d}-x Binned Fit Image: '.format(bins) + lbl)
 
-        axs[1, 0].plot(img[Ysect, :],'b', label = 'Orig Image', linewidth =0.5)
-        if ignore_Y:
-            axs[1, 0].plot(xb[0,:]*bins, img_binned_1D,'cyan', label = 'Binned Image')
-        else:
-            axs[1, 0].plot(xb[0,:]*bins, img_binned[Ysect//bins, :],'cyan', label = 'Binned Image')
+        axs[1, 0].plot(img[Ysect, :],'b', label = 'Raw Image A', linewidth =0.5)
+        axs[1, 0].plot(xb[0,:]*bins, img_binned[Ysect//bins, :],'cyan', label = 'Binned Orig Image A')
         axs[1, 0].plot(xb[0,:]*bins, img_fit[Ysect//bins, :], 'yellow', linewidth=4, linestyle='--', label = 'Fit: '+lbl)
         axs[1, 0].legend()
         axs[1, 0].grid(True)
         axs[1, 0].set_xlabel('X-coordinate')
 
-        axs[1, 1].plot(img[:, Xsect],'g', label = 'Orig Image', linewidth =0.5)
-        axs[1, 1].plot(yb[:, 0]*bins, img_binned[:, Xsect//bins],'lime', label = 'Binned Image')
+        axs[1, 1].plot(img[:, Xsect],'g', label = 'Raw Image A', linewidth =0.5)
+        axs[1, 1].plot(yb[:, 0]*bins, img_binned[:, Xsect//bins],'lime', label = 'Binned Orig Image A')
         axs[1, 1].plot(yb[:, 0]*bins, img_fit[:, Xsect//bins], 'yellow', linewidth=4, linestyle='--', label = 'Fit: '+lbl)
         axs[1, 1].legend()
         axs[1, 1].grid(True)
@@ -2129,8 +2090,6 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
             data_fn = label[0:31]
             reg_data.to_excel(writer, sheet_name=data_fn)
         writer.save()
-    else:
-        xlsx_fname = 'Data not saved'
     return xlsx_fname
 
 
@@ -2203,7 +2162,7 @@ class FIBSEM_frame:
     analyze_noise_statistics(**kwargs):
         Analyses the noise statistics of the EM data image. (Calls Single_Image_Noise_Statistics(img, **kwargs):)
 
-    analyze_crosscor_SNR(**kwargs):
+    analyze_SNR_autocorr(**kwargs):
         Estimates SNR using auto-correlation analysis of a single image. (Calls Single_Image_SNR(img, **kwargs):)
 
     show_eval_box(**kwargs):
@@ -3180,7 +3139,7 @@ class FIBSEM_frame:
         return mean_vals, var_vals, I0, PSNR, DSNR, popt, result
     
 
-    def analyze_crosscor_SNR(self, **kwargs):
+    def analyze_SNR_autocorr(self, **kwargs):
         '''
         Estimates SNR using auto-correlation analysis of a single image.
         ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
@@ -5192,6 +5151,90 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
             fig0.savefig(os.path.join(data_dir, fnm_reg.replace('.mrc','_DataBounds.png')), dpi=300)
            
     return [data_min_glob, data_max_glob, data_min_sliding, data_max_sliding]
+
+
+def transform_frame(frame, tr_matr, **kwargs):
+    '''
+    Transforms single frame
+
+    Parameters:
+        frame : instance of FIBSEM_frame object
+        tr_matr : transformation matrix
+    **kwargs:
+        ImgB_fraction : Image B (ESB image) fraction for image fusion
+        pad_edges : boolean
+            default is True
+        xy_limits : list of 4 indices: [xi, xa, yi, ya]  paddind range
+            default is [0, -1, 0, -1]
+        perfrom_transformation : boolean
+            default is True
+        invert_data : boolean
+            default is False
+        flatten_image : boolean
+            default is False
+        Image_correction : list of two full-size image corrections
+
+    Returns:
+        transformed_img : 2D array
+
+    '''
+    ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
+                                                           # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
+    if test_frame.DetB == 'None':
+        ImgB_fraction=0.0
+    pad_edges =  kwargs.get("pad_edges", True)
+    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
+    int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
+    perfrom_transformation =  kwargs.get("perfrom_transformation", True)
+    invert_data =  kwargs.get("invert_data", False)
+    xy_limits = kwargs.get("xy_limits", [0, -1, 0, -1])
+    xi, xa, yi, ya = xy_limits
+    flatten_image =  kwargs.get("flatten_image", False)
+    Image_correction =  kwargs.get("Image_correction", [np.ones(frame.RawImageA.shape), np.ones(frame.RawImageA.shape)])
+
+    if pad_edges and perfrom_transformation:
+        shift_matrix = np.array([[1.0, 0.0, xi],
+                                 [0.0, 1.0, yi],
+                                 [0.0, 0.0, 1.0]])
+        inv_shift_matrix = np.linalg.inv(shift_matrix)
+    else:
+        xi = 0
+        yi = 0
+        shift_matrix = np.eye(3,3)
+        inv_shift_matrix = np.eye(3,3)
+
+    if ImgB_fraction < 1e-5 or (not hasattr(frame, 'RawImageB')):
+        if flatten_image:
+            image = (frame.RawImageA.astype(float64) -  frame.Scaling[1,0])*Image_correction[0] + frame.Scaling[1,0]
+        else:
+            image = frame.RawImageA.astype(float64)
+
+    else:
+        if flatten_image:
+            ImgA_flattened = (frame.RawImageA.astype(float64) -  frame.Scaling[1,0])*Image_correction[0] + frame.Scaling[1,0]
+            ImgB_flattened = (frame.RawImageB.astype(float64) -  frame.Scaling[1,1])*Image_correction[1] + frame.Scaling[1,1]
+            image = ImgA_flattened * (1.0 - ImgB_fraction) + ImgB_flattened * ImgB_fraction
+        else:
+            image = frame.RawImageA * (1.0 - ImgB_fraction) + frame.RawImageB * ImgB_fraction
+        
+    if invert_data:
+        if test_frame.EightBit==0:
+            padded_img[yi:ya, xi:xa] = np.negative(image)
+
+        else:
+            padded_img[yi:ya, xi:xa]  =  uint8(255) - image   
+    else:
+        padded_img[yi:ya, xi:xa]  = image
+
+    if perfrom_transformation:
+        transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matr @ inv_shift_matrix))
+        transformed_img = warp(padded_img, transf, order = int_order,  preserve_range=True)
+
+    else:
+        transformed_img = padded_img
+
+    return transformed_img
+
 
 
 def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
