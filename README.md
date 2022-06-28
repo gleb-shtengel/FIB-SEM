@@ -13,6 +13,7 @@ This notebook uses OpenCV implementation of SIFT. SIFT is part of standard OpenC
 
 Uninstall the OpenCV:
 >pip uninstall opencv-python
+
 Then install the contrib version of OpenCV:
 >pip install opencv-contrib-python
 
