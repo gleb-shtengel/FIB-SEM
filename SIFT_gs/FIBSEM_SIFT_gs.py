@@ -1478,7 +1478,8 @@ def evaluate_registration_two_frames(params_mrc):
         prev_frame = (mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
         curr_frame = (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
     fr_mean = curr_frame/2.0 + prev_frame/2.0
-    image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
+    #image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
+    image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)
     image_ncc = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
     image_mi = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
     mrc_obj.close()
@@ -4380,6 +4381,7 @@ def determine_transformations_files(params_dsf):
     solver - a string indicating which solver to use:
     'LinReg' will use Linear Regression with iterative "Throwing out the Worst Residual" Heuristic
     'RANSAC' will use RANSAC (Random Sample Consensus) algorithm.
+    Lowe_Ratio_Threshold - threshold for Lowe's Ratio Test
     drmax - in the case of 'LinReg' - outlier threshold for iterative regression
            - in the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
     max_iter - max number of iterations
@@ -4404,6 +4406,7 @@ def determine_transformations_files(params_dsf):
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     kp_max_num = kwargs.get("kp_max_num", -1)
+    Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)    # threshold for Lowe's Ratio Test
 
     if TransformType == RegularizedAffineTransform:
 
@@ -4456,7 +4459,7 @@ def determine_transformations_files(params_dsf):
     # Lowe's Ratio test
     good = []
     for m, n in matches:
-        if m.distance < 0.7*n.distance:
+        if m.distance < Lowe_Ratio_Threshold * n.distance:
             good.append(m)
 
     src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1, 2)
@@ -4478,6 +4481,9 @@ def determine_transformations_files(params_dsf):
             placeholder_matches = [cv2.DMatch(idx, idx, 1) for idx in range(n_inliers)]
             src_pts_ransac = np.float32([ inlier_keypoints_left[m.queryIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
             dst_pts_ransac = np.float32([ inlier_keypoints_right[m.trainIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
+            #non_nan_inds = ~np.isnan(src_pts_ransac) * ~np.isnan(dst_pts_ransac)
+            #src_pts_ransac = src_pts_ransac[non_nan_inds]
+            #dst_pts_ransac = dst_pts_ransac[non_nan_inds]
             kpts = [src_pts_ransac, dst_pts_ransac]
             # find shift parameters
             transform_matrix = model.params
@@ -4935,6 +4941,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
     kp_max_num = kwargs.get("kp_max_num", -1)
+    Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     save_res_png  = kwargs.get("save_res_png", True)
@@ -5401,7 +5408,8 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
             I1c = cp.array(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
             if j>0:
                 I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
+                #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0))
                 image_ncc[j-1] = Two_Image_NCC_SNR(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
             I2c = cp.array(frame1_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
@@ -5462,7 +5470,8 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
                         ya_eval = ysz
                 I1c = cp.array(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
                 I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
+                #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0))
                 #print('cp results: ',cp.mean(cp.abs(I1c-I2c)), cp.mean(I1c/2.0 + I2c/2.0))
                 image_ncc[j-1] = Two_Image_NCC_SNR(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval], frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
@@ -5700,7 +5709,8 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
             I1c = cp.array(frame0_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])
             if j>0:
                 I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
+                #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0))
                 image_ncc[j-1] = Two_Image_NCC_SNR(frame0_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval], prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
             I2c = cp.array(frame1_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])
@@ -5738,7 +5748,8 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
                         ya_eval = ysz
                 I1c = cp.array(frame_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])
                 I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
+                #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0))
                 #print('cp results: ',cp.mean(cp.abs(I1c-I2c)), cp.mean(I1c/2.0 + I2c/2.0))
                 image_ncc[j-1] = Two_Image_NCC_SNR(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval], frame_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
@@ -5834,7 +5845,7 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
 
-    inds_zeros = np.squeeze(np.argwhere(np.array(npts) < thr_npt ))
+    inds_zeros = [np.squeeze(np.argwhere(np.array(npts) < thr_npt ))]
     print('Frames with no matches to the next frame:  ', np.array(inds_zeros))
     frames_to_remove = []
     for ind0 in inds_zeros:
@@ -6242,10 +6253,12 @@ class FIBSEM_dataset:
         drmax = kwargs.get("drmax", self.drmax)
         max_iter = kwargs.get("max_iter", self.max_iter)
         kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+        Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         save_matches = kwargs.get("save_matches", self.save_matches)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
+
         
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts = SIFT_evaluation_dataset(eval_fls,
                                 ftype = ftype,
@@ -6262,6 +6275,7 @@ class FIBSEM_dataset:
                                 drmax = drmax,
                                 max_iter = max_iter,
                                 kp_max_num = kp_max_num,
+                                Lowe_Ratio_Threshold = Lowe_Ratio_Threshold,
                                 BFMatcher = BFMatcher,
                                 save_matches = save_matches,
                                 save_res_png  = save_res_png )
@@ -6496,6 +6510,8 @@ class FIBSEM_dataset:
             In the case of 'LinReg' - outlier threshold for iterative regression
         max_iter : int
             Max number of iterations in the iterative procedure above (RANSAC or LinReg)
+        Lowe_Ratio_Threshold : float
+            threshold for Lowe's Ratio Test
         BFMatcher : boolean
             If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
         save_matches : boolean
@@ -6529,6 +6545,7 @@ class FIBSEM_dataset:
             drmax = kwargs.get("drmax", self.drmax)
             max_iter = kwargs.get("max_iter", self.max_iter)
             kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+            Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
             BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
             save_matches = kwargs.get("save_matches", self.save_matches)
             save_res_png  = kwargs.get("save_res_png", self.save_res_png )
@@ -6541,7 +6558,8 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'save_matches' : save_matches,
-                            'kp_max_num' : kp_max_num}
+                            'kp_max_num' : kp_max_num,
+                            'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold}
 
             params_s4 = []
             for j, fnm in enumerate(self.fnms[:-1]):
