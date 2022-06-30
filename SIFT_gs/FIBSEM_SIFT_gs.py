@@ -1479,7 +1479,7 @@ def evaluate_registration_two_frames(params_mrc):
         curr_frame = (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
     fr_mean = curr_frame/2.0 + prev_frame/2.0
     #image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
-    image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)
+    image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean))
     image_ncc = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
     image_mi = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
     mrc_obj.close()
