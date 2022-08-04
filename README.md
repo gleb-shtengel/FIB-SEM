@@ -75,6 +75,13 @@ You will also need to have these packages installed:
         Read MRC stack and display the eval box for each frame from the list.
 
 
+## TIF stack evaluation Functions
+    analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs)
+        Read TIF stack and analyze registration - calculate NSAD, NCC, and MI.
+    show_eval_box_tif_stack(tif_filename, **kwargs)
+        Read TIF stack and display the eval box for each frame from the list.
+
+
 ## Helper Functions for Results Presentation
     plot_registrtion_quality_csvs(data_files, labels, **kwargs):
         Read and plot together multiple registration quality summaries.
