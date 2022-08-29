@@ -2125,7 +2125,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
             curr_frame = frame1[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
             curr_frame_cp = cp.array(curr_frame)
             prev_frame_cp = cp.array(prev_frame)
-            fr_mean = curr_frame_cp/2.0 + prev_frame_cp/2.0
+            fr_mean = np.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
             image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(curr_frame_cp-prev_frame_cp))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
             image_ncc[j-1] = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
             image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(prev_frame_cp.ravel(), curr_frame_cp.ravel(), sigma=1.0, bin=2048, normalized=True))
@@ -3539,6 +3539,8 @@ class FIBSEM_frame:
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         edge_fraction : float
             fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
+        evaluation_box : list of 4 int
+            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
         disp_res : boolean
             display results (plots) (default is True)
         save_res_png : boolean
@@ -3708,7 +3710,6 @@ class FIBSEM_frame:
         image_name = kwargs.get("image_name", 'RawImageA')
         estimator = kwargs.get("estimator", LinearRegression())
         del kwargs["estimator"]
-        evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0]) 
         calc_corr = kwargs.get("calc_corr", False)
         ignore_Y = kwargs.get("ignore_Y", False)
         lbl = kwargs.get("label", '')
@@ -4534,12 +4535,34 @@ def extract_keypoints_descr_files(params):
             CDF threshold for determining the maximum data value
         nbins : int
             number of histogram bins for building the PDF and CDF
+        evaluation_box : list of 4 int
+            evaluation_box = [top, height, left, width] boundaries of the box used for key-point extraction.
         kp_max_num : int
             Max number of key-points to be matched.
             Key-points in every frame are indexed (in descending order)
             by the strength of the response. Only kp_max_num is kept for
             further processing.
             Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+        SIFT_nfeatures : int
+            SIFT libary default is 0. The number of best features to retain.
+            The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+        SIFT_nOctaveLayers : int
+            SIFT libary default  is 3. The number of layers in each octave.
+            3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+        SIFT_contrastThreshold : double
+            SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+            The larger the threshold, the less features are produced by the detector.
+            The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+            When nOctaveLayers is set to default and if you want to use the value used in
+            D. Lowe paper (0.03), set this argument to 0.09.
+        SIFT_edgeThreshold : double
+            SIFT libary default  is 10. The threshold used to filter out edge-like features.
+            Note that the its meaning is different from the contrastThreshold,
+            i.e. the larger the edgeThreshold, the less features are filtered out
+            (more features are retained).
+        SIFT_sigma : double
+            SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+            If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
 
     Returns:
         fnm : str
@@ -4551,15 +4574,37 @@ def extract_keypoints_descr_files(params):
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     kp_max_num = kwargs.get("kp_max_num", 10000)
+    evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
 
-    sift = cv2.xfeatures2d.SIFT_create()
+    SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
+    SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", 3)
+    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
+    SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
+    SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
+
+    sift = cv2.xfeatures2d.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
     img, d1, d2 = FIBSEM_frame(fl, ftype=ftype).RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = dmin, data_max = dmax, nbins=256)
     # extract keypoints and descriptors for both images
-    kps, dess = sift.detectAndCompute(img, None)
+
+    xi_eval = evaluation_box[2]
+    if evaluation_box[3] > 0:
+        xa_eval = xi_eval + evaluation_box[3]
+    else:
+        xa_eval = -1
+    yi_eval = evaluation_box[0]
+    if evaluation_box[1] > 0:
+        ya_eval = yi_eval + evaluation_box[1]
+    else:
+        ya_eval = -1
+
+    kps, dess = sift.detectAndCompute(img[yi_eval:ya_eval, xi_eval:xa_eval], None)
     if kp_max_num != -1 and (len(kps) > kp_max_num):
         kp_ind = np.argsort([-kp.response for kp in kps])[0:kp_max_num]
         kps = np.array(kps)[kp_ind]
         dess = np.array(dess)[kp_ind]
+    if xi_eval >0 or yi_eval>0:   # add shifts to ke-pint coordinates to convert them to full image coordinated
+        for kp in kps:
+            kp.pt = kp.pt + np.array((xi_eval, yi_eval))
     #key_points = [KeyPoint(kp) for kp in kps]
     key_points = [kp_to_list(kp) for kp in kps]
     kpd = [key_points, dess]
@@ -4611,6 +4656,26 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
         by the strength of the response. Only kp_max_num is kept for
         further processing.
         Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+    SIFT_nfeatures : int
+        SIFT libary default is 0. The number of best features to retain.
+        The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+    SIFT_nOctaveLayers : int
+        SIFT libary default  is 3. The number of layers in each octave.
+        3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+    SIFT_contrastThreshold : double
+        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        The larger the threshold, the less features are produced by the detector.
+        The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+        When nOctaveLayers is set to default and if you want to use the value used in
+        D. Lowe paper (0.03), set this argument to 0.09.
+    SIFT_edgeThreshold : double
+        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        Note that the its meaning is different from the contrastThreshold,
+        i.e. the larger the edgeThreshold, the less features are filtered out
+        (more features are retained).
+    SIFT_sigma : double
+        SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+        If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
     
     Returns:
     fnms : str array
@@ -5305,15 +5370,252 @@ def determine_pad_offsets(shape, tr_matr, disp_res):
         ymaxs[j] = np.max(a[:, 1])
     return np.min(xmins), np.max(xmaxs)-xsz, np.min(ymins), np.max(ymaxs)-ysz
 
-# This is a function used for selecting proper threshold and kp_max_num parameters for SIFT processing
 
-def SIFT_evaluation_dataset(fs, **kwargs):
+def SIFT_find_keypoints_dataset(fr, **kwargs):
+    '''
+    Evaluate SIFT key point discovery for a test frame (fr). ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
+    
+    Parameters:
+    fr : str
+        filename for the data frame to be used for SIFT key point discovery evaluation
+    
+    kwargs
+    ---------
+    data_dir : str
+        data direcory (path)
+    ftype : int
+        file type (0 - Shan Xu's .dat, 1 - tif)
+    fnm_reg : str
+        filename for the final registed dataset
+    threshold_min : float
+        CDF threshold for determining the minimum data value
+    threshold_max : float
+        CDF threshold for determining the maximum data value
+    nbins : int
+        number of histogram bins for building the PDF and CDF
+    evaluation_box : list of 4 int
+        evaluation_box = [top, height, left, width] boundaries of the box used for key-point extraction
+        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+    
+    SIFT_nfeatures : int
+        SIFT libary default is 0. The number of best features to retain.
+        The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+    SIFT_nOctaveLayers : int
+        SIFT libary default  is 3. The number of layers in each octave.
+        3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+    SIFT_contrastThreshold : double
+        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        The larger the threshold, the less features are produced by the detector.
+        The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+        When nOctaveLayers is set to default and if you want to use the value used in
+        D. Lowe paper (0.03), set this argument to 0.09.
+    SIFT_edgeThreshold : double
+        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        Note that the its meaning is different from the contrastThreshold,
+        i.e. the larger the edgeThreshold, the less features are filtered out
+        (more features are retained).
+    SIFT_sigma : double
+        SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+        If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
+    save_res_png  : boolean
+        Save PNG images of the intermediate processing statistics and final registration quality check
+
+    Returns:
+    dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts
+    '''
+
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     threshold_min = kwargs.get("threshold_min", 1e-3)
     threshold_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
+    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
+    l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
+    l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
+    l2_matrix_default[2,2] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix_default[5,5] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix = kwargs.get("l2_matrix", l2_matrix_default)
+    targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
+    solver = kwargs.get("solver", 'RANSAC')
+    drmax = kwargs.get("drmax", 2.0)
+    max_iter = kwargs.get("max_iter", 1000)
+    kp_max_num = kwargs.get("kp_max_num", -1)
+    Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
+    BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
+    save_res_png  = kwargs.get("save_res_png", True)
+    evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+
+    frame = FIBSEM_frame(fr, ftype=ftype)
+    if ftype == 0:
+        if frame.FileVersion > 8 :
+            Sample_ID = frame.Sample_ID.strip('\x00')
+        else:
+            Sample_ID = frame.Notes[0:16]
+    else:
+        Sample_ID = frame.Sample_ID
+    Sample_ID = kwargs.get("Sample_ID", Sample_ID)
+
+    print(Sample_ID)
+    
+    #if save_res_png :
+    #    frame.display_images()
+
+    img = np.ravel(frame.RawImageA)
+    fsz=12
+    fszl=14
+    dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins)
+    xi = dmin-(np.abs(dmax-dmin)/10)
+    xa = dmax+(np.abs(dmax-dmin)/10)
+
+    fig, axs = subplots(2,1, figsize=(6,6))
+    hist, bins, patches = axs[0].hist(img, bins = nbins)
+    axs[0].set_xlim(xi, xa)
+    axs[0].plot([dmin, dmin], [0, np.max(hist)], 'r', linestyle = '--')
+    axs[0].plot([dmax, dmax], [0, np.max(hist)], 'g', linestyle = '--')
+    axs[0].set_ylabel('Count', fontsize = fsz)
+    pdf = hist / (frame.XResolution * frame.YResolution)
+    cdf = np.cumsum(pdf)
+    xCDF = bins[0:-1]+(bins[1]-bins[0])/2.0
+    xthr = [xCDF[0], xCDF[-1]]
+    ythr_min = [threshold_min, threshold_min]
+    y1thr_max = [1-threshold_max, 1-threshold_max]
+
+    axs[1].plot(xCDF, cdf, label='CDF')
+    axs[1].plot(xthr, ythr_min, 'r', label='thr_min={:.5f}'.format(threshold_min))
+    axs[1].plot([dmin, dmin], [0, 1], 'r', linestyle = '--', label = 'data_min={:.1f}'.format(dmin))
+    axs[1].plot(xthr, y1thr_max, 'g', label='1.0 - thr_max = {:.5f}'.format(1-threshold_max))
+    axs[1].plot([dmax, dmax], [0, 1], 'g', linestyle = '--', label = 'data_max={:.1f}'.format(dmax))
+    axs[1].set_xlabel('Intensity Level', fontsize = fsz)
+    axs[1].set_ylabel('CDF', fontsize = fsz)
+    axs[1].set_xlim(xi, xa)
+    axs[1].legend(loc='center', fontsize=fsz)
+    axs[0].set_title('Data Min and Max with thr_min={:.0e},  thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize = fsz)
+    for ax in ravel(axs):
+        ax.grid(True)
+        
+    t0 = time.time()
+    params1 = [fr, dmin, dmax, kwargs]
+    fnm_1 = extract_keypoints_descr_files(params1)
+           
+    t1 = time.time()
+    comp_time = (t1-t0)
+    #print('Time to compute: {:.1f}sec'.format(comp_time))
+
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, kp_max_num={:d}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, kp_max_num, comp_time), fontsize=fszl)
+           
+    xfsz = 3 * (np.int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1)
+    yfsz = 3 * (np.int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2)
+    fig2, ax = subplots(1,1, figsize=(xfsz,yfsz))
+    fig2.subplots_adjust(left=0.0, bottom=0.25*(1-frame.YResolution/frame.XResolution), right=1.0, top=1.0)
+    symsize = 2
+    fsize = 12  
+    img2 = FIBSEM_frame(fr, ftype=ftype).RawImageA
+    ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
+    ax.axis(False)
+    
+    kpp1s, des1 = pickle.load(open(fnm_1, 'rb'))
+    kp1 = [list_to_kp(kpp1) for kpp1 in kpp1s]     # this converts a list of lists to a list of keypoint objects to be used by a matcher later
+    src_pts = np.float32([ kp.pt for kp in kp1 ]).reshape(-1, 2)    
+    x, y = src_pts.T
+    print('Extracted {:d} keyponts'.format(len(kp1)))
+    # the code below is for vector map. vectors have origin coordinates x and y, and vector projections xs and ys.
+    vec_field = ax.scatter(x,y, s=0.02, marker='o', c='r')
+    ax.text(0.01, 1.1-0.13*frame.YResolution/frame.XResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}, SIFT_nfeatures={:d}'.format(threshold_min, threshold_max, SIFT_nfeatures), fontsize=fsize, transform=ax.transAxes)
+    if save_res_png :
+        png_name = os.path.splitext(fr)[0] + '_SIFT_kpts_eval_'+'_thr_min{:.5f}_thr_max{:.5f}.png'.format(threshold_min, threshold_max) 
+        fig2.savefig(png_name, dpi=300)
+    return(dmin, dmax, comp_time, src_pts)
+
+
+# This is a function used for selecting proper threshold and kp_max_num parameters for SIFT processing
+def SIFT_evaluation_dataset(fs, **kwargs):
+    '''
+    Evaluate SIFT settings and perfromance of few test frames (fs). ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
+    
+    Parameters:
+    fs : array of str
+        filenames for the data frames to be used for SIFT evaluation
+    
+    kwargs
+    ---------
+    data_dir : str
+        data direcory (path)
+    ftype : int
+        file type (0 - Shan Xu's .dat, 1 - tif)
+    fnm_reg : str
+        filename for the final registed dataset
+    threshold_min : float
+        CDF threshold for determining the minimum data value
+    threshold_max : float
+        CDF threshold for determining the maximum data value
+    nbins : int
+        number of histogram bins for building the PDF and CDF
+    evaluation_box : list of 4 int
+        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
+    TransformType : object reference
+        Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
+        Choose from the following options:
+            ShiftTransform - only x-shift and y-shift
+            XScaleShiftTransform  -  x-scale, x-shift, y-shift
+            ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
+            AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
+            RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
+    l2_matrix : 2D float array
+        matrix of regularization (shrinkage) parameters
+    targ_vector = 1D float array
+        target vector for regularization
+    solver : str
+        Solver used for SIFT ('RANSAC' or 'LinReg')
+    drmax : float
+        In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
+        In the case of 'LinReg' - outlier threshold for iterative regression
+    max_iter : int
+        Max number of iterations in the iterative procedure above (RANSAC or LinReg)
+    BFMatcher : boolean
+        If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    save_matches : boolean
+        If True, matches will be saved into individual files
+    kp_max_num : int
+        Max number of key-points to be matched.
+        Key-points in every frame are indexed (in descending order) by the strength of the response.
+        Only kp_max_num is kept for further processing.
+        Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+    SIFT_nfeatures : int
+        SIFT libary default is 0. The number of best features to retain.
+        The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+    SIFT_nOctaveLayers : int
+        SIFT libary default  is 3. The number of layers in each octave.
+        3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+    SIFT_contrastThreshold : double
+        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        The larger the threshold, the less features are produced by the detector.
+        The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+        When nOctaveLayers is set to default and if you want to use the value used in
+        D. Lowe paper (0.03), set this argument to 0.09.
+    SIFT_edgeThreshold : double
+        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        Note that the its meaning is different from the contrastThreshold,
+        i.e. the larger the edgeThreshold, the less features are filtered out
+        (more features are retained).
+    SIFT_sigma : double
+        SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+        If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
+    save_res_png  : boolean
+        Save PNG images of the intermediate processing statistics and final registration quality check
+
+    Returns:
+    dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts
+    '''
+
+    ftype = kwargs.get("ftype", 0)
+    data_dir = kwargs.get("data_dir", '')
+    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
+    threshold_min = kwargs.get("threshold_min", 1e-3)
+    threshold_max = kwargs.get("threshold_max", 1e-3)
+    nbins = kwargs.get("nbins", 256)
+    evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
     l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
     l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
@@ -5384,8 +5686,10 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     #print('data range: ', dmin, dmax)
     
     t0 = time.time()
+    print,'File1: ',fs[0], dmin, dmax, kwargs
     params1 = [fs[0], dmin, dmax, kwargs]
     fnm_1 = extract_keypoints_descr_files(params1)
+    print,'File2: ',fs[1], dmin, dmax, kwargs
     params2 = [fs[1], dmin, dmax, kwargs]
     fnm_2 = extract_keypoints_descr_files(params2)
     
@@ -5795,11 +6099,12 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
                     ya_eval = yi_eval + start_evaluation_box[1]
                 else:
                     ya_eval = ysz
-            I1c = cp.array(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
+            I1c = cp.array(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
             if j>0:
-                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
                 #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0))
+                fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
                 image_ncc[j-1] = Two_Image_NCC_SNR(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
             I2c = cp.array(frame1_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
@@ -5861,10 +6166,11 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
                         ya_eval = yi_eval + start_evaluation_box[1]
                     else:
                         ya_eval = ysz
-                I1c = cp.array(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
-                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                I1c = cp.array(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
+                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
                 #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0))
+                fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
                 #print('cp results: ',cp.mean(cp.abs(I1c-I2c)), cp.mean(I1c/2.0 + I2c/2.0))
                 image_ncc[j-1] = Two_Image_NCC_SNR(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval], frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
@@ -6099,11 +6405,13 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
                     ya_eval = yi_eval + start_evaluation_box[1]
                 else:
                     ya_eval = ysz
-            I1c = cp.array(frame0_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])
+
+            I1c = cp.array(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
             if j>0:
-                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
+                fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
                 #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0))
                 image_ncc[j-1] = Two_Image_NCC_SNR(frame0_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval], prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
             I2c = cp.array(frame1_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])
@@ -6139,10 +6447,11 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
                         ya_eval = yi_eval + start_evaluation_box[1]
                     else:
                         ya_eval = ysz
-                I1c = cp.array(frame_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])
-                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                I1c = cp.array(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
+                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
+                fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
                 #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0))
                 #print('cp results: ',cp.mean(cp.abs(I1c-I2c)), cp.mean(I1c/2.0 + I2c/2.0))
                 image_ncc[j-1] = Two_Image_NCC_SNR(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval], frame_img_reg.astype(float)[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
@@ -6539,6 +6848,12 @@ class FIBSEM_dataset:
         self.BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
         self.save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
         self.kp_max_num = kwargs.get("kp_max_num", -1)
+        self.SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
+        self.SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", 3)
+        self.SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
+        self.SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
+        self.SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
+
         self.save_res_png  = kwargs.get("save_res_png", True)
 
         self.save_asI8 =  kwargs.get("save_asI8", False) 
@@ -6585,7 +6900,7 @@ class FIBSEM_dataset:
 
     def SIFT_evaluation(self, eval_fls = [], **kwargs):
         '''
-        Evaluate SIFT settings and perfromance of few test frames (eval_fls).
+        Evaluate SIFT settings and perfromance of few test frames (eval_fls). ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
         
         Parameters:
         eval_fls : array of str
@@ -6605,7 +6920,9 @@ class FIBSEM_dataset:
             CDF threshold for determining the maximum data value
         nbins : int
             number of histogram bins for building the PDF and CDF
-        
+        evaluation_box : list of 4 int
+            evaluation_box = [top, height, left, width] boundaries of the box used for key-point extraction
+            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
         TransformType : object reference
             Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
             Choose from the following options:
@@ -6634,6 +6951,26 @@ class FIBSEM_dataset:
             Key-points in every frame are indexed (in descending order) by the strength of the response.
             Only kp_max_num is kept for further processing.
             Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+        SIFT_nfeatures : int
+            SIFT libary default is 0. The number of best features to retain.
+            The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+        SIFT_nOctaveLayers : int
+            SIFT libary default  is 3. The number of layers in each octave.
+            3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+        SIFT_contrastThreshold : double
+            SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+            The larger the threshold, the less features are produced by the detector.
+            The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+            When nOctaveLayers is set to default and if you want to use the value used in
+            D. Lowe paper (0.03), set this argument to 0.09.
+        SIFT_edgeThreshold : double
+            SIFT libary default  is 10. The threshold used to filter out edge-like features.
+            Note that the its meaning is different from the contrastThreshold,
+            i.e. the larger the edgeThreshold, the less features are filtered out
+            (more features are retained).
+        SIFT_sigma : double
+            SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+            If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
     
@@ -6655,32 +6992,45 @@ class FIBSEM_dataset:
         drmax = kwargs.get("drmax", self.drmax)
         max_iter = kwargs.get("max_iter", self.max_iter)
         kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+        SIFT_nfeatures = kwargs.get("SIFT_nfeatures", self.SIFT_nfeatures)
+        SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", self.SIFT_nOctaveLayers)
+        SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
+        SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
+        SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
         Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         save_matches = kwargs.get("save_matches", self.save_matches)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
+        evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
 
+        SIFT_evaluation_kwargs = {'ftype' : ftype,
+                                'Sample_ID' : Sample_ID,
+                                'data_dir' : data_dir,
+                                'fnm_reg' : fnm_reg,
+                                'threshold_min' : threshold_min,
+                                'threshold_max' : threshold_max,
+                                'nbins' : nbins,
+                                'evaluation_box' : evaluation_box,
+                                'TransformType' : TransformType, 
+                                'l2_matrix' : l2_matrix,
+                                'targ_vector' : targ_vector,
+                                'solver' : solver,
+                                'drmax' : drmax,
+                                'max_iter' : max_iter,
+                                'kp_max_num' : kp_max_num,
+                                'SIFT_Transform' : TransformType,
+                                'SIFT_nfeatures' : SIFT_nfeatures,
+                                'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
+                                'SIFT_contrastThreshold' : SIFT_contrastThreshold,
+                                'SIFT_edgeThreshold' : SIFT_edgeThreshold,
+                                'SIFT_sigma' : SIFT_sigma,
+                                'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold,
+                                'BFMatcher' : BFMatcher,
+                                'save_matches' : save_matches,
+                                'save_res_png'  : save_res_png}
         
-        dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts = SIFT_evaluation_dataset(eval_fls,
-                                ftype = ftype,
-                                Sample_ID = Sample_ID,
-                                data_dir = data_dir,
-                                fnm_reg = fnm_reg,
-                                threshold_min = threshold_min,
-                                threshold_max = threshold_max,
-                                nbins = nbins,
-                                TransformType = TransformType, 
-                                l2_matrix = l2_matrix,
-                                targ_vector = targ_vector,
-                                solver = solver,
-                                drmax = drmax,
-                                max_iter = max_iter,
-                                kp_max_num = kp_max_num,
-                                Lowe_Ratio_Threshold = Lowe_Ratio_Threshold,
-                                BFMatcher = BFMatcher,
-                                save_matches = save_matches,
-                                save_res_png  = save_res_png )
+        dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts = SIFT_evaluation_dataset(eval_fls, **SIFT_evaluation_kwargs)
         src_pts_filtered, dst_pts_filtered = kpts
         print('Transformation Matrix determined using '+ TransformType.__name__ +' using ' + solver + ' solver')
         print(transform_matrix)
@@ -6859,8 +7209,24 @@ class FIBSEM_dataset:
             sliding_minmax = kwargs.get("sliding_minmax", self.sliding_minmax)
             data_minmax = kwargs.get("data_minmax", self.data_minmax)
             kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+
+            SIFT_nfeatures = kwargs.get("SIFT_nfeatures", self.SIFT_nfeatures)
+            SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", self.SIFT_nOctaveLayers)
+            SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
+            SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
+            SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
+
             data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
-            kpt_kwargs = {'ftype' : ftype, 'threshold_min' : threshold_min, 'threshold_max' : threshold_max, 'nbins' : nbins, 'kp_max_num' : kp_max_num}
+            kpt_kwargs = {'ftype' : ftype,
+                        'threshold_min' : threshold_min,
+                        'threshold_max' : threshold_max,
+                        'nbins' : nbins,
+                        'kp_max_num' : kp_max_num,
+                        'SIFT_nfeatures' : SIFT_nfeatures,
+                        'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
+                        'SIFT_contrastThreshold' : SIFT_contrastThreshold,
+                        'SIFT_edgeThreshold' : SIFT_edgeThreshold,
+                        'SIFT_sigma' : SIFT_sigma}
 
             if sliding_minmax:
                 params_s3 = [[dts3[0], dts3[1], dts3[2], kpt_kwargs] for dts3 in zip(self.fls, data_min_sliding, data_max_sliding)]

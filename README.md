@@ -177,6 +177,26 @@ You will also need to have these packages installed:
     sliding_minmax : boolean
         if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
         if False - same data_min_glob and data_max_glob will be used for all files
+    SIFT_nfeatures : int
+        SIFT libary default is 0. The number of best features to retain.
+        The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+    SIFT_nOctaveLayers : int
+        SIFT libary default  is 3. The number of layers in each octave.
+        3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+    SIFT_contrastThreshold : double
+        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        The larger the threshold, the less features are produced by the detector.
+        The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+        When nOctaveLayers is set to default and if you want to use the value used in
+        D. Lowe paper (0.03), set this argument to 0.09.
+    SIFT_edgeThreshold : double
+        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        Note that the its meaning is different from the contrastThreshold,
+        i.e. the larger the edgeThreshold, the less features are filtered out
+        (more features are retained).
+    SIFT_sigma : double
+        SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+        If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
     TransformType : object reference
         Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
         Choose from the following options:
