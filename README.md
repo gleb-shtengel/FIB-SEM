@@ -191,7 +191,7 @@ You will also need to have these packages installed:
         D. Lowe paper (0.03), set this argument to 0.09.
     SIFT_edgeThreshold : double
         SIFT libary default  is 10. The threshold used to filter out edge-like features.
-        Note that the its meaning is different from the contrastThreshold,
+        Note that its meaning is different from the contrastThreshold,
         i.e. the larger the edgeThreshold, the less features are filtered out
         (more features are retained).
     SIFT_sigma : double

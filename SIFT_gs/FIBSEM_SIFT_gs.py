@@ -498,7 +498,8 @@ def Single_Image_SNR(img, **kwargs):
         axs[0].imshow(img, cmap='Greys', vmin=range_disp[0], vmax=range_disp[1])
         axs[0].grid(True)
         axs[0].set_title(img_label)
-        axs[0].text(0, 1.1 + (xy_ratio-1.0)/20.0, res_fname, transform=axs[0].transAxes)
+        if save_res_png:
+            axs[0].text(0, 1.1 + (xy_ratio-1.0)/20.0, res_fname, transform=axs[0].transAxes)
         axs[1].imshow(data_ACR_log, extent=[-xsz//2-1, xsz//2, -ysz//2-1, ysz//2])
         axs[1].grid(True)
         axs[1].set_title('Autocorrelation (log scale)')
@@ -515,16 +516,16 @@ def Single_Image_SNR(img, **kwargs):
         axs[3].plot(xcr, data_ACR[ysz//2, :], 'rx', label='X data')
         axs[3].plot(ycr, data_ACR[:, xsz//2], 'bd', label='Y data')
         axs[3].plot(rcr, r_ACR, 'g+', ms=10, label='R data')
-        axs[3].plot(xcr[xsz//2], data_ACR[ysz//2, xsz//2], 'md', label='Peak: {:.5f}, {:.5f}'.format(xcr[xsz//2], data_ACR[ysz//2, xsz//2]))
+        axs[3].plot(xcr[xsz//2], data_ACR[ysz//2, xsz//2], 'md', label='Peak: {:.4f}, {:.4f}'.format(xcr[xsz//2], data_ACR[ysz//2, xsz//2]))
         axs[3].plot(x_left, xacr_left, 'r')
-        axs[3].plot(x_right, xacr_right, 'r', label='X extrapolation: {:.5f}, {:.5f}'.format(x_right[0], xacr_right[0]))
+        axs[3].plot(x_right, xacr_right, 'r', label='X extrap.: {:.4f}, {:.4f}'.format(x_right[0], xacr_right[0]))
         axs[3].plot(y_left, yacr_left, 'b')
-        axs[3].plot(y_right, yacr_right, 'b', label='Y extrapolation: {:.5f}, {:.5f}'.format(y_right[0], yacr_right[0]))
+        axs[3].plot(y_right, yacr_right, 'b', label='Y extrap.: {:.4f}, {:.4f}'.format(y_right[0], yacr_right[0]))
         axs[3].plot(r_left, racr_left, 'g')
-        axs[3].plot(r_right, racr_right, 'g', label='R extrapolation: {:.5f}, {:.5f}'.format(r_right[0], racr_right[0]))
-        axs[3].text(0.05, 0.90, 'xSNR = {:.2f}'.format(xSNR), color='r', transform=axs[3].transAxes, fontsize=fs)
-        axs[3].text(0.05, 0.84, 'ySNR = {:.2f}'.format(ySNR), color='b', transform=axs[3].transAxes, fontsize=fs)
-        axs[3].text(0.05, 0.78, 'rSNR = {:.2f}'.format(rSNR), color='g', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].plot(r_right, racr_right, 'g', label='R extrap.: {:.4f}, {:.4f}'.format(r_right[0], racr_right[0]))
+        axs[3].text(0.03, 0.92, 'xSNR = {:.2f}'.format(xSNR), color='r', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.03, 0.86, 'ySNR = {:.2f}'.format(ySNR), color='b', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.03, 0.80, 'rSNR = {:.2f}'.format(rSNR), color='g', transform=axs[3].transAxes, fontsize=fs)
         axs[3].grid(True)
         axs[3].legend()
         axs[3].set_xlim(-5,5)
@@ -1462,29 +1463,32 @@ def evaluate_registration_two_frames(params_mrc):
     mrc_filename, fr, invert_data, evals = params_mrc
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
-    try: 
-        dmin = float(header['dmin'])
-        dmax = float(header['dmax'])
-        if (dmin >= 0 and dmax<=255):
-            dt = uint8
-        else:
-            #dt = int16
-            dt = uint16
-    except:
-        #dt = int16
-        dt = uint16
+    '''
+    mode 0 -> uint8
+    mode 1 -> int16
+    mode 2 -> float32
+    mode 4 -> complex64
+    mode 6 -> uint16
+    '''
+    mrc_mode = mrc_obj.header.mode
+    if mrc_mode==0:
+        dt_mrc=uint8
+    if mrc_mode==1:
+        dt_mrc=int16
+    if mrc_mode==2:
+        dt_mrc=float32
+    if mrc_mode==4:
+        dt_mrc=complex64
+    if mrc_mode==6:
+        dt_mrc=uint16
 
     xi_eval, xa_eval, yi_eval, ya_eval = evals
     if invert_data:
-        #prev_frame = -1.0 * (mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
-        #curr_frame = -1.0 * (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
-        prev_frame = -1.0 * (mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval]).astype(float)
-        curr_frame = -1.0 * (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval]).astype(float)
+        prev_frame = -1.0 * ((mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval]).astype(dt_mrc)).astype(float)
+        curr_frame = -1.0 * ((mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval]).astype(dt_mrc)).astype(float)
     else:
-        #prev_frame = (mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
-        #curr_frame = (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
-        prev_frame = mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
-        curr_frame = mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
+        prev_frame = (mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
+        curr_frame = (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
     fr_mean = np.abs(curr_frame/2.0 + prev_frame/2.0)
     image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
     #image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean))
@@ -1547,15 +1551,26 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
-    try: 
-        dmin = float(header['dmin'])
-        dmax = float(header['dmax'])
-        if (dmin >= 0 and dmax<=255):
-            dt = uint8
-        else:
-            dt = int16
-    except:
-        dt = int16
+    mrc_mode = header.mode
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    '''
+    mode 0 -> uint8
+    mode 1 -> int16
+    mode 2 -> float32
+    mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    if mrc_mode==0:
+        dt_mrc=uint8
+    if mrc_mode==1:
+        dt_mrc=int16
+    if mrc_mode==2:
+        dt_mrc=float32
+    if mrc_mode==4:
+        dt_mrc=complex64
+    if mrc_mode==6:
+        dt_mrc=uint16
+    print('mrc_mode={:d} '.format(mrc_mode), ', dt_mrc=', dt_mrc)
 
     xi_eval = evaluation_box[2]
     if evaluation_box[3] > 0:
@@ -1598,7 +1613,6 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                 ya_eval = ny
             evals = [xi_eval, xa_eval, yi_eval, ya_eval]
         params_mrc_mult.append([mrc_filename, fr, invert_data, evals])
-    #params_mrc_mult = [[mrc_filename, fr, evals] for fr in frame_inds]
         
     if use_DASK:
         mrc_obj.close()
@@ -1610,9 +1624,9 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         image_mi = np.array([res[2] for res in dask_results])
     else:
         print('Using Local Computation')
-        image_nsad = np.zeros((nf), dtype=float)
-        image_ncc = np.zeros((nf), dtype=float)
-        image_mi = np.zeros((nf), dtype=float)
+        image_nsad = np.zeros(nf, dtype=float)
+        image_ncc = np.zeros(nf, dtype=float)
+        image_mi = np.zeros(nf, dtype=float)
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*frame_inds[0]//nf
             yi_eval = start_evaluation_box[0] + dy_eval*frame_inds[0]//nf
@@ -1624,8 +1638,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                 ya_eval = yi_eval + start_evaluation_box[1]
             else:
                 ya_eval = ny
-        #prev_frame = (mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
-        prev_frame = mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
+        prev_frame =(mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
         for j in tqdm(frame_inds, desc='Evaluating frame registration: '):
             if sliding_evaluation_box:
                 xi_eval = start_evaluation_box[2] + dx_eval*j//nf
@@ -1638,8 +1651,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                     ya_eval = yi_eval + start_evaluation_box[1]
                 else:
                     ya_eval = ny
-            #curr_frame = (mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt)).astype(float)
-            curr_frame = mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
+            curr_frame = (mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
             curr_frame_cp = cp.array(curr_frame)
             prev_frame_cp = cp.array(prev_frame)
             fr_mean = cp.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
@@ -1690,7 +1702,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     for fr, ax in zip(frame_inds, axs_frms):
         #eval_frame = (mrc_obj.data[fr, :, :].astype(dt)).astype(float)
-        eval_frame = mrc_obj.data[fr, :, :].astype(float)
+        eval_frame = mrc_obj.data[fr, :, :].astype(dt_mrc)
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
             yi_eval = start_evaluation_box[0] + dy_eval*(fr-frame_inds[0])//nf
@@ -1772,17 +1784,24 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     mrc = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc.header
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
-    try: 
-        dmin = float(header['dmin'])
-        dmax = float(header['dmax'])
-        if (dmin >= 0 and dmax<=255):
-            dt = uint8
-        else:
-            #dt = int16
-            dt = uint16
-    except:
-        #dt = int16
-        dt = uint16
+    '''
+        mode 0 -> uint8
+        mode 1 -> int16
+        mode 2 -> float32
+        mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    mrc_mode = header.mode
+    if mrc_mode==0:
+        dt_mrc=uint8
+    if mrc_mode==1:
+        dt_mrc=int16
+    if mrc_mode==2:
+        dt_mrc=float32
+    if mrc_mode==4:
+        dt_mrc=complex64
+    if mrc_mode==6:
+        dt_mrc=uint16
 
     frame_inds = kwargs.get("frame_inds", [nz//10,  nz//2, nz//10*9] )
     
@@ -1805,8 +1824,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
         dy_eval = 0
 
     for fr_ind in frame_inds: 
-        #eval_frame = (mrc.data[fr_ind, :, :].astype(dt)).astype(float)
-        eval_frame = mrc.data[fr_ind, :, :].astype(float)
+        eval_frame = (mrc.data[fr_ind, :, :].astype(dt_mrc)).astype(float)
 
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*fr_ind//nz
@@ -1836,6 +1854,66 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
             fig.savefig(fname, dpi=300)
 
     mrc.close()
+
+
+def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
+    '''
+    Bins a 3D mrc stack along Z-direction and nd crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
+
+    Parameters:
+        mrc_filename : str
+            name (full path) of the mrc file to be binned
+        zbin_factor : int
+            binning factor
+    **kwargs:
+        frmax : int
+            Maximum frame to bin. If not present, the entire file is binned
+        binned_mrc_filename : str
+            name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
+    
+    '''
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    header = mrc_obj.header
+    '''
+        mode 0 -> uint8
+        mode 1 -> int16
+        mode 2 -> float32
+        mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    mrc_mode = mrc_obj.header.mode
+    if mrc_mode==0:
+        dt_mrc=uint8
+    if mrc_mode==1:
+        dt_mrc=int16
+    if mrc_mode==2:
+        dt_mrc=float32
+    if mrc_mode==4:
+        dt_mrc=complex64
+    if mrc_mode==6:
+        dt_mrc=uint16
+    vx = mrc_obj.voxel_size
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    frmax = kwargs.get('frmax', nz)
+    xi = kwargs.get('xi', 0)
+    xa = kwargs.get('xa', nx)
+    yi = kwargs.get('yi', 0)
+    ya = kwargs.get('ya', ny)
+    binned_mrc_filename_default = mrc_filename.replace('.mrc', '_zbin{:d}_crop.mrc'.format(zbin_factor))
+    binned_mrc_filename = kwargs.get('binned_mrc_filename', binned_mrc_filename_default)
+    dt = type(mrc_obj.data[0,0,0])
+    
+    st_frames = np.arange(0, frmax, zbin_factor)
+    mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), (ya-yi), (xa-xi)), mrc_mode=mrc_mode, overwrite=True)
+    mrc_new.voxel_size = vx
+
+    for j, st_frame in enumerate(tqdm(st_frames, desc='Binning MRC stack')):
+        #print(st_frame,(st_frame+zbin))
+        zbinnd_fr = np.mean(mrc_obj.data[st_frame:(st_frame+zbin_factor), yi:ya, xi:xa], axis=0)
+        mrc_new.data[j,:,:] = zbinnd_fr.astype(dt) 
+   
+    mrc_obj.close()
+    mrc_new.close()
 
 
 ##########################################
@@ -3647,7 +3725,6 @@ class FIBSEM_frame:
             img = self.ImageA
         if image_name == 'ImageB':
             img = self.ImageB
-        range_disp = get_min_max_thresholds(img, thresholds_disp[0], thresholds_disp[1], nbins_disp)
 
         xi = 0
         yi = 0
@@ -3664,6 +3741,8 @@ class FIBSEM_frame:
             ya_eval = yi_eval + evaluation_box[1]
         else:
             ya_eval = ya
+
+        range_disp = get_min_max_thresholds(img[yi_eval:ya_eval, xi_eval:xa_eval], thresholds_disp[0], thresholds_disp[1], nbins_disp)
             
         fig, ax = subplots(1,1, figsize = (10.0, 11.0*ysz/xsz))
         ax.imshow(img, cmap='Greys', vmin = range_disp[0], vmax = range_disp[1])
@@ -4582,7 +4661,8 @@ def extract_keypoints_descr_files(params):
     SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
     SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
 
-    sift = cv2.xfeatures2d.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
+    #sift = cv2.xfeatures2d.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
+    sift = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
     img, d1, d2 = FIBSEM_frame(fl, ftype=ftype).RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = dmin, data_max = dmax, nbins=256)
     # extract keypoints and descriptors for both images
 
@@ -5041,8 +5121,8 @@ def build_filename(fname, **kwargs):
     kp_max_num = kwargs.get("kp_max_num", -1)
     save_res_png  = kwargs.get("save_res_png", True)
 
-    save_asI8 =  kwargs.get("save_asI8", False) 
-    zbin_2x =  kwargs.get("zbin_2x", True)                  # If true, the data will be converted to I8 using global MIN and MAX values determined in the Step 1
+    save_asI8 =  kwargs.get("save_asI8", False)         # If true, the data will be converted to I8 using global MIN and MAX values determined in the Step 1
+    zbin_factor =  kwargs.get("zbin_factor", 1)             # binning factor in z-direction (milling direction). Default is 1
     preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
@@ -5055,21 +5135,18 @@ def build_filename(fname, **kwargs):
     save_asI8_save = save_asI8 or frame.EightBit==1
 
     if save_asI8_save:
-        dtp = int8
+        dtp = uint8
         dformat_save = 'I8'
         mrc_mode = 0
-        if zbin_2x:
-            fnm_reg = 'Registered_I8_zbin2x.mrc'
-        else:
-            fnm_reg = 'Registered_I8.mrc'
+        fnm_reg = 'Registered_I8.mrc'
     else:
         dtp = int16
         dformat_save = 'I16'
         mrc_mode = 1
-        if zbin_2x:
-            fnm_reg = 'Registered_I16_zbin2x.mrc'
-        else:
-            fnm_reg = 'Registered_I16.mrc'
+        fnm_reg = 'Registered_I16.mrc'
+
+    if zbin_factor>1:
+        fnm_reg = fnm_reg.replace('.mrc', '_zbin{:d}.mrc'.format(zbin_factor))
             
     fnm_reg = fnm_reg.replace('.mrc', ('_' + TransformType.__name__ + '_' + solver + '.mrc'))
 
@@ -5446,6 +5523,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     save_res_png  = kwargs.get("save_res_png", True)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
 
     frame = FIBSEM_frame(fr, ftype=ftype)
     if ftype == 0:
@@ -5464,12 +5542,14 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
 
     img = np.ravel(frame.RawImageA)
     fsz=12
-    fszl=14
+    fszl=11
     dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins)
     xi = dmin-(np.abs(dmax-dmin)/10)
     xa = dmax+(np.abs(dmax-dmin)/10)
 
     fig, axs = subplots(2,1, figsize=(6,6))
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, contrastThreshold={:.3f}, kp_max_num={:d}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, SIFT_contrastThreshold, kp_max_num, comp_time), fontsize=fszl)
+    
     hist, bins, patches = axs[0].hist(img, bins = nbins)
     axs[0].set_xlim(xi, xa)
     axs[0].plot([dmin, dmin], [0, np.max(hist)], 'r', linestyle = '--')
@@ -5502,9 +5582,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     t1 = time.time()
     comp_time = (t1-t0)
     #print('Time to compute: {:.1f}sec'.format(comp_time))
-
-    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, kp_max_num={:d}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, kp_max_num, comp_time), fontsize=fszl)
-           
+       
     xfsz = 3 * (np.int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1)
     yfsz = 3 * (np.int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2)
     fig2, ax = subplots(1,1, figsize=(xfsz,yfsz))
@@ -5631,6 +5709,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     save_res_png  = kwargs.get("save_res_png", True)
+    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
 
     frame = FIBSEM_frame(fs[0], ftype=ftype)
     if ftype == 0:
@@ -5649,12 +5728,14 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     img = np.ravel(frame.RawImageA)
     fsz=12
-    fszl=14
+    fszl=11
     dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins)
     xi = dmin-(np.abs(dmax-dmin)/10)
     xa = dmax+(np.abs(dmax-dmin)/10)
 
     fig, axs = subplots(2,2, figsize=(12,8))
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, contrastThreshold={:.3f}, kp_max_num={:d}'.format(threshold_min, threshold_max, SIFT_contrastThreshold, kp_max_num), fontsize=fszl)
+
     hist, bins, patches = axs[0,0].hist(img, bins = nbins)
     axs[0,0].set_xlim(xi, xa)
     axs[0,0].plot([dmin, dmin], [0, np.max(hist)], 'r', linestyle = '--')
@@ -5686,10 +5767,10 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     #print('data range: ', dmin, dmax)
     
     t0 = time.time()
-    print,'File1: ',fs[0], dmin, dmax, kwargs
+    #print('File1: ',fs[0], dmin, dmax, kwargs)
     params1 = [fs[0], dmin, dmax, kwargs]
     fnm_1 = extract_keypoints_descr_files(params1)
-    print,'File2: ',fs[1], dmin, dmax, kwargs
+    #print('File2: ',fs[1], dmin, dmax, kwargs)
     params2 = [fs[1], dmin, dmax, kwargs]
     fnm_2 = extract_keypoints_descr_files(params2)
     
@@ -5755,7 +5836,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     # the code below is for vector map. vectors have origin coordinates x and y, and vector projections xs and ys.
     vec_field = ax.quiver(x,y,xs,ys,M, scale=40, width =0.003, cmap='jet')
-    cbar = fig2.colorbar(vec_field, cmap='jet', pad=0.05, shrink=0.70, orientation = 'horizontal', format="%.1f")
+    cbar = fig2.colorbar(vec_field, pad=0.05, shrink=0.70, orientation = 'horizontal', format="%.1f")
     cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize)
 
     ax.text(0.01, 1.1-0.13*frame.YResolution/frame.XResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}, kp_max_num={:d},  #of matches={:d}'.format(threshold_min, threshold_max, kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
@@ -5931,8 +6012,306 @@ def transform_frame(frame, tr_matr, **kwargs):
     return transformed_img
 
 
-
 def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
+    '''
+    Transform and save FIB-SEM data set. A new vesion, with variable zbin_factor option. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
+    '''
+    ftype = kwargs.get("ftype", 0)
+    data_dir = kwargs.get("data_dir", '')
+    test_frame = FIBSEM_frame(fls[0], ftype=ftype)
+    XResolution = kwargs.get("XResolution", test_frame.XResolution)
+    YResolution = kwargs.get("YResolution", test_frame.YResolution)
+    ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
+                                                           # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
+    if test_frame.DetB == 'None':
+        ImgB_fraction=0.0
+    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
+    Sample_ID = kwargs.get("Sample_ID", '')
+    pad_edges =  kwargs.get("pad_edges", True)
+    save_res_png  = kwargs.get("save_res_png", True)
+    save_asI8 =  kwargs.get("save_asI8", False)
+    dtp = kwargs.get("dtp", int16)
+    #print('will use data type: ', dtp)
+    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
+    solver = kwargs.get("solver", 'RANSAC')
+    drmax = kwargs.get("drmax", 2.0)
+    max_iter = kwargs.get("max_iter", 1000)
+    BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    mrc_mode = kwargs.get("mrc_mode", 0) 
+    zbin_factor =  kwargs.get("zbin_factor", 1)
+    int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
+    preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
+    fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+                                                            # window size 701, polynomial order 3
+    subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
+    perfrom_transformation =  kwargs.get("perfrom_transformation", True)
+    invert_data =  kwargs.get("invert_data", False)
+    evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])  #  [top, height, keft, width]
+    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+    start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+    stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+    disp_res = kwargs.get("disp_res", True)
+
+    dformat_save = 'I8' if mrc_mode==0 else 'I16'
+
+    nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
+    end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
+    st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)    # starting frame for each z-bin
+    nfrs_zbinned = len(st_frames)                                            # number of frames after z-ninning
+    
+    if invert_data:
+        if test_frame.EightBit==0:
+            data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = np.negative(data_minmax)
+        else:
+            data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = [ uint8(255) - x for x in data_minmax]
+    else:
+        data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
+
+    if pad_edges and perfrom_transformation:
+        #shape = [test_frame.YResolution, test_frame.XResolution]
+        shape = [YResolution, XResolution]
+        xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual, disp_res)
+        padx = int(xmx - xmn)
+        pady = int(ymx - ymn)
+        xi = int(np.max([xmx, 0]))
+        yi = int(np.max([ymx, 0]))
+        # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
+        # so that the transformed images are not clipped.
+        # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
+        # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
+        # those are calculated below base on the amount of padding calculated above
+        shift_matrix = np.array([[1.0, 0.0, xi],
+                                 [0.0, 1.0, yi],
+                                 [0.0, 0.0, 1.0]])
+        inv_shift_matrix = np.linalg.inv(shift_matrix)
+    else:
+        padx = 0
+        pady = 0
+        xi = 0
+        yi = 0
+        shift_matrix = np.eye(3,3)
+        inv_shift_matrix = np.eye(3,3)
+ 
+    fpath_reg = os.path.join(data_dir, fnm_reg)
+    xsz = XResolution + padx
+    xa = xi + XResolution
+    ysz = YResolution + pady
+    ya = yi + YResolution
+
+    xi_eval = xi + evaluation_box[2]
+    if evaluation_box[3] > 0:
+        xa_eval = xi_eval + evaluation_box[3]
+    else:
+        xa_eval = xa
+    yi_eval = yi + evaluation_box[0]
+    if evaluation_box[1] > 0:
+        ya_eval = yi_eval + evaluation_box[1]
+    else:
+        ya_eval = ya
+
+    frame_img = np.zeros((ysz, xsz), dtype=float)
+    prev_frame_img = frame_img.copy()
+
+    image_nsad = np.zeros((nfrs_zbinned-1), dtype=float)
+    image_ncc = np.zeros((nfrs_zbinned-1), dtype=float)
+    image_mi = np.zeros((nfrs_zbinned-1), dtype=float)
+    image_errors = np.zeros((nfrs_zbinned-1), dtype=float)
+    image_npts = np.zeros((nfrs_zbinned-1), dtype=float)
+
+    if sliding_evaluation_box:
+        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+    else:
+        dx_eval = 0
+        dy_eval = 0
+
+    if save_transformed_dataset:
+        print('Saving the registered and {:d}-x z-binned stack into the file: '.format(zbin_factor), fpath_reg)
+        #print('There will be {:d} frames in the saved stack'.format(nfrs_zbinned))
+        print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d}'.format(xsz, ysz, nfrs_zbinned))
+        # Make a new, empty memory-mapped MRC file
+        mrc = mrcfile.new_mmap(fpath_reg, shape=(nfrs_zbinned, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
+        # mode 0 -> uint8
+        # mode 1 -> int16:
+        mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
+        tq_desc = 'Saving into ' + dformat_save + ' MRC File'
+    else:
+        tq_desc = 'Processing frames'
+
+    #print('will be rounding  ', (mrc_mode==0 and test_frame.EightBit==1))
+    #bin_frs = np.arange(zbin_factor)
+    Pres_scales = 'ON' if  preserve_scales else 'OFF'
+    Subtr_Lin_Fit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
+    Pad_Edg = 'ON' if  pad_edges else 'OFF'
+
+    if disp_res:
+        fs=12
+        lwl=1
+        if preserve_scales:
+            fit_method = fit_params[0]
+            if fit_method == 'LF':
+                fit_str = ', Meth: Linear Fit'
+                fm_string = 'linear'
+            else:
+                if fit_method == 'SG':
+                    fit_str = ', Meth: Sav.-Gol., ' + str(fit_params[1:])
+                    fm_string = 'Sav.-Gol.'
+                else:
+                    fit_str = ', Meth: ' + fit_method + ', ' + str(fit_params[1:])
+                    fm_string = fit_method
+            preserve_scales_string = 'Preserve Scales: ON' + fit_str
+        else:
+            preserve_scales_string = 'Preserve Scales: OFF'
+
+        cond_str = TransformType.__name__ + ' with ' + solver + ', drmax={:.1f},  '.format(drmax) + preserve_scales_string + '.    Subtract Linear Fit:' + Subtr_Lin_Fit + ',  Pad Edges:'+Pad_Edg
+        
+        fig4, axs4 = subplots(2,2, figsize=(12, 8), sharex=True)
+        fig4.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, wspace=0.18, hspace=0.04)
+        axs4[0,0].axis('off')
+        frames_new = np.arange(nfrs_zbinned-1)+st_frames[0]//zbin_factor
+        axs_fr0 = fig4.add_subplot(6,2,1)
+        axs_fr1 = fig4.add_subplot(6,2,3)
+        axs_fr2 = fig4.add_subplot(6,2,5)
+        axs_frms = [axs_fr0, axs_fr1, axs_fr2]
+
+       
+        if len(st_frames)//10*9 > 0:
+            ev_ind2 = st_frames[len(st_frames)//10*9]
+        else:
+            ev_ind2 = st_frames[len(st_frames)-1]
+        frame_eval_inds = [st_frames[len(st_frames)//10],  st_frames[len(st_frames)//2], ev_ind2]
+    
+    j_ax = 0
+    for j, st_frame in enumerate(tqdm(st_frames, desc = tq_desc, disable=(not disp_res))):
+        binned_fr_img = np.zeros((ysz, xsz), dtype=float)
+        process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
+        #print('Processing frames: ', process_frames)
+        for fr in process_frames:
+            frame = FIBSEM_frame(fls[fr], ftype=ftype)
+
+            if ImgB_fraction < 1e-5:
+                image = frame.RawImageA.astype(float)
+            else:
+                image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
+
+            if invert_data:
+                if frame.EightBit==0:
+                    frame_img[yi:ya, xi:xa] = np.negative(image)
+                else:
+                    frame_img[yi:ya, xi:xa]  =  uint8(255) - image
+            else:
+                frame_img[yi:ya, xi:xa]  = image
+ 
+            if perfrom_transformation:
+                transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matr_cum_residual[fr] @ inv_shift_matrix))
+                frame_img_reg = warp(frame_img, transf, order = int_order,  preserve_range=True)
+            else:
+                frame_img_reg = frame_img.copy()
+
+            binned_fr_img = binned_fr_img + frame_img_reg
+            
+        if zbin_factor != 1:
+            binned_fr_img = binned_fr_img/zbin_factor
+        if (mrc_mode==0 and test_frame.EightBit==1):
+            binned_fr_img = np.clip(np.round((binned_fr_img - data_min_glob)/(data_max_glob - data_min_glob)*255.0), 0, 255)
+        binned_fr_img = np.flip(binned_fr_img.astype(dtp), axis=0)
+            
+        if save_transformed_dataset:
+            mrc.data[j,:,:] = binned_fr_img
+
+        if j>0:     # perform registration analysis for all frames starting with the second frame
+            if sliding_evaluation_box:
+                xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs_zbinned
+                yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs_zbinned
+                if start_evaluation_box[3] > 0:
+                    xa_eval = xi_eval + start_evaluation_box[3]
+                else:
+                    xa_eval = xsz
+                if start_evaluation_box[1] > 0:
+                    ya_eval = yi_eval + start_evaluation_box[1]
+                else:
+                    ya_eval = ysz
+            I1c = cp.array(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+            I2c = cp.array(prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+            fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
+
+            image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
+            image_ncc[j-1] = Two_Image_NCC_SNR(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
+            image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
+            image_errors[j-1] = np.mean(error_abs_mean[st_frame:st_frame+zbin_factor])
+            image_npts[j-1] = np.mean(npts[st_frame:st_frame+zbin_factor])
+            del I1c, I2c
+        prev_binned_fr_img = binned_fr_img.copy()  # update the previous frame for future registration
+        
+        if disp_res:
+            if st_frame in frame_eval_inds:
+                ax = axs_frms[j_ax]
+                dmin, dmax = get_min_max_thresholds(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
+                if invert_data:
+                    ax.imshow(binned_fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
+                else:
+                    ax.imshow(binned_fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
+
+                ax.text(0.03, 1.01, 'Acquisition Frame={:d}'.format(st_frame), color='cyan', transform=ax.transAxes)
+                rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+                ax.add_patch(rect_patch)
+                ax.axis('off')
+                j_ax = j_ax + 1
+
+    if save_transformed_dataset:
+        mrc.close()
+
+    # Generate a figure with analysis of registration quality - Image NSAD, NCC, NMI's vs. frames.
+    #image_nsad = image_nsad[1:-1]
+    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
+    #image_ncc = image_ncc[1:-1]
+    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
+    nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
+    
+        
+    if disp_res:
+        #axs4[0,0].plot(frames_new, image_errors, 'magenta', linewidth=lwl)
+        #axs4[0,0].text(0.02, 0.04, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs4[0,0].transAxes, fontsize = fs-1)
+        #axs4[0,0].set_ylabel('Mean Abs. Error (KeyPts)')
+
+        axs4[1,0].plot(frames_new, image_nsad, 'r', linewidth=lwl)
+        axs4[1,0].set_ylabel('Normalized Sum of Abs. Diff')
+        axs4[1,0].text(0.02, 0.04, 'NSAD mean = {:.3f}   NSAD median = {:.3f}  NSAD STD = {:.3f}'.format(nsads[0], nsads[1], nsads[2]), transform=axs4[1,0].transAxes, fontsize = fs-1)
+        axs4[1,0].set_xlabel('Binned Frame #')
+
+        axs4[0,1].plot(frames_new, image_ncc, 'b', linewidth=lwl)
+        axs4[0,1].set_ylabel('Normalized Cross-Correlation')
+        axs4[0,1].grid(True)
+        axs4[0,1].text(0.02, 0.04, 'NCC mean = {:.3f}   NCC median = {:.3f}  NCC STD = {:.3f}'.format(nccs[0], nccs[1], nccs[2]), transform=axs4[0,1].transAxes, fontsize = fs-1)
+
+        axs4[1,1].plot(frames_new, image_mi, 'g', linewidth=lwl)
+        axs4[1,1].set_ylabel('Normalized Mutual Information')
+        axs4[1,1].set_xlabel('Binned Frame #')
+        axs4[1,1].grid(True)
+        axs4[1,1].text(0.02, 0.04, 'NMI mean = {:.3f}   NMI median = {:.3f}  NMI STD = {:.3f}'.format(nmis[0], nmis[1], nmis[2]), transform=axs4[1,1].transAxes, fontsize = fs-1)
+
+        for ax in axs4.ravel()[1:-1]:
+            ax.grid(True)
+
+        if save_transformed_dataset:
+            fig4.suptitle(os.path.join(data_dir, fnm_reg), fontsize = fs-2)
+        if perfrom_transformation:
+            axs4[0,0].text(-0.1, 1.04, Sample_ID + '    ' +  cond_str, transform=axs4[0,0].transAxes)
+        else:
+            axs4[0,0].text(0.0, 1.04, Sample_ID, transform=axs4[0,0].transAxes)
+        if save_res_png :
+            fig4.savefig(os.path.join(data_dir, fnm_reg.replace('.mrc','_RegistrationQuality.png')), dpi=300)
+
+    registration_summary_fnm = os.path.join(data_dir, fnm_reg).replace('.mrc', '_RegistrationQuality.csv')
+    columns=['Frame', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
+    reg_summary = pd.DataFrame(np.vstack((frames_new, image_npts, image_errors, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
+    reg_summary.to_csv(registration_summary_fnm, index = None)
+    
+    return reg_summary
+
+
+
+def transform_and_save_dataset_old(save_transformed_dataset, frame_inds, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
     test_frame = FIBSEM_frame(fls[0], ftype=ftype)
@@ -6043,7 +6422,7 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
             print('Saving the registered and 2x z-binned stack into the file: ', fpath_reg)
             # Make a new, empty memory-mapped MRC file
             mrc = mrcfile.new_mmap(fpath_reg, shape=(len(frame_inds)//2, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
-            # mode 0 -> int8
+            # mode 0 -> uint8
             # mode 1 -> int16:
             mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
             tq_desc = 'Saving into ' + dformat_save + ' MRC File'
@@ -6119,7 +6498,7 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
             print('Saving the registered stack into the file: ', fpath_reg)
             # Make a new, empty memory-mapped MRC file
             mrc = mrcfile.new_mmap(fpath_reg, shape=(len(frame_inds), ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
-            # mode 0 -> int8
+            # mode 0 -> uint8
             # mode 1 -> int16:
             mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
             tq_desc = 'Saving into ' + dformat_save + ' MRC File'
@@ -6254,7 +6633,7 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     return reg_summary
 
 
-def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indices_to_transform, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
+def transform_and_save_dataset_DASK_old(DASK_client, save_transformed_dataset, indices_to_transform, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
     use_DASK = kwargs.get("use_DASK", False)
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
@@ -6377,7 +6756,7 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
         # Make a new, empty memory-mapped MRC file
         if save_transformed_dataset:
             mrc = mrcfile.new_mmap(fpath_reg, shape=(len(indices_to_transform)//2, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
-            # mode 0 -> int8
+            # mode 0 -> uint8
             # mode 1 -> int16:
             mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
         ind = np.arange(0,len(transformed_filenames)-1,2)
@@ -6426,7 +6805,7 @@ def transform_and_save_dataset_DASK(DASK_client, save_transformed_dataset, indic
         # Make a new, empty memory-mapped MRC file
         if save_transformed_dataset:
             mrc = mrcfile.new_mmap(fpath_reg, shape=(len(indices_to_transform), ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
-            # mode 0 -> int8
+            # mode 0 -> uint8
             # mode 1 -> int16:
             mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
         ind = np.arange(0,len(transformed_filenames))
@@ -6547,15 +6926,16 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
 
-    inds_zeros = [np.squeeze(np.argwhere(np.array(npts) < thr_npt ))]
+    inds_zeros = np.squeeze(np.argwhere(npts < thr_npt ))
     print('Frames with no matches to the next frame:  ', np.array(inds_zeros))
     frames_to_remove = []
-    for ind0 in inds_zeros:
-        if ind0 < (len(fls)-2) and npts[ind0+1] < thr_npt:
-            frames_to_remove.append(ind0+1)
-            print('Frame to remove: {:d} : '.format(ind0+1) + ', File: ' + fls[ind0+1])
-            frame_to_remove  = FIBSEM_frame(fls[ind0+1], ftype=ftype)
-            frame_to_remove.save_snapshot(dpi=300)
+    if shape(inds_zeros)!=():
+        for ind0 in inds_zeros:
+            if ind0 < (len(fls)-2) and npts[ind0+1] < thr_npt:
+                frames_to_remove.append(ind0+1)
+                print('Frame to remove: {:d} : '.format(ind0+1) + ', File: ' + fls[ind0+1])
+                frame_to_remove  = FIBSEM_frame(fls[ind0+1], ftype=ftype)
+                frame_to_remove.save_snapshot(dpi=300)
     print('Frames to remove:  ', frames_to_remove)
 
     if len(frames_to_remove) == 0:
@@ -6650,8 +7030,8 @@ class FIBSEM_dataset:
         Save PNG images of the intermediate processing statistics and final registration quality check
     save_asI8 : boolean
         If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
-    zbin_2x : boolean
-        If True, the data will be binned 2x in z-direction (z-milling direction) when saving the final result.
+    zbin_factor : int
+        binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
     preserve_scales : boolean
         If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
     fit_params : list
@@ -6781,8 +7161,8 @@ class FIBSEM_dataset:
             Save PNG images of the intermediate processing statistics and final registration quality check
         save_asI8 : boolean
             If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
-        zbin_2x : boolean
-            If True, the data will be binned 2x in z-direction (z-milling direction) when saving the final result.
+        zbin_factor : int
+            binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         preserve_scales : boolean
             If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
         fit_params : list
@@ -6857,7 +7237,7 @@ class FIBSEM_dataset:
         self.save_res_png  = kwargs.get("save_res_png", True)
 
         self.save_asI8 =  kwargs.get("save_asI8", False) 
-        self.zbin_2x =  kwargs.get("zbin_2x", True)                 # If true, the data will be converted to I8 using global MIN and MAX values determined in the Step 1
+        self.zbin_factor =  kwargs.get("zbin_factor", 1)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         self.preserve_scales =  kwargs.get("preserve_scales", True) # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
         self.fit_params =  kwargs.get("fit_params", False)          # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                                     # window size 701, polynomial order 3
@@ -7710,7 +8090,7 @@ class FIBSEM_dataset:
         max_iter = kwargs.get("max_iter", self.max_iter)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         mrc_mode = kwargs.get("mrc_mode", self.mrc_mode) 
-        zbin_2x =  kwargs.get("zbin_2x", self.zbin_2x)
+        zbin_factor =  kwargs.get("zbin_factor", self.zbin_factor)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         int_order = kwargs.get("int_order", self.int_order) 
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
@@ -7741,7 +8121,7 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'mrc_mode' : mrc_mode,
-                            'zbin_2x' : zbin_2x,
+                            'zbin_factor' : zbin_factor,
                             'int_order' : int_order,                        
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
@@ -7867,7 +8247,7 @@ class FIBSEM_dataset:
         max_iter = kwargs.get("max_iter", self.max_iter)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         mrc_mode = kwargs.get("mrc_mode", self.mrc_mode) 
-        zbin_2x =  kwargs.get("zbin_2x", self.zbin_2x)
+        zbin_factor =  kwargs.get("zbin_factor", 1)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         int_order = kwargs.get("int_order", self.int_order) 
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
@@ -7896,7 +8276,7 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'mrc_mode' : mrc_mode,
-                            'zbin_2x' : zbin_2x,
+                            'zbin_factor' : zbin_factor,
                             'int_order' : int_order,                        
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
@@ -7941,15 +8321,6 @@ class FIBSEM_dataset:
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
             data direcory (path)
-        data_minmax : list of 4 parameters
-            data_min_glob : float   
-                min data value for I8 conversion (open CV SIFT requires I8)
-            data_max_glob : float   
-                max data value for I8 conversion (open CV SIFT requires I8)
-            data_min_sliding : float array
-                min data values (one per file) for I8 conversion
-            data_max_sliding : float array
-                max data values (one per file) for I8 conversion
         fnm_reg : str
             filename for the final registed dataset
         Sample_ID : str
@@ -7981,17 +8352,6 @@ class FIBSEM_dataset:
         stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
-        
-        if "data_minmax" in kwargs.keys():
-            data_minmax = kwargs.get("data_minmax")
-            data_minmax_exists = True
-        else:
-            if hasattr(self, "data_minmax"):
-                data_minmax = self.data_minmax
-                data_minmax_exists = True
-            else:
-                data_minmax_exists = False
-
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         int_order = kwargs.get("int_order", self.int_order) 
@@ -7999,21 +8359,11 @@ class FIBSEM_dataset:
         invert_data =  kwargs.get("invert_data", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
-
         fls = self.fls
         nfrs = len(fls)
         default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
         frame_inds = kwargs.get("frame_inds", default_indecis)
         
-        if data_minmax_exists:
-            if invert_data:
-                if self.EightBit==0:
-                    data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = np.negative(data_minmax)
-                else:
-                    data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = [ uint8(255) - x for x in data_minmax]
-            else:
-                data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
-
         for j in frame_inds:
             frame = FIBSEM_frame(fls[j], ftype=ftype)
             if pad_edges and perfrom_transformation:
@@ -8078,16 +8428,7 @@ class FIBSEM_dataset:
                 frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True)
             else:
                 frame_img_reg = frame_img.copy()
-        
-            fig, ax = subplots(1,1, figsize = (10.0, 11.0*ysz/xsz))
-            if data_minmax_exists:
-                vmin = data_min_sliding[j]
-                vmax = data_max_sliding[j]
-            else:
-                vmin, vmax = get_min_max_thresholds(frame_img_reg)
-            ax.imshow(frame_img_reg, cmap='Greys', vmin=vmin, vmax=vmax)
-            ax.grid(True, color = "cyan")
-            ax.set_title(fls[j])
+
             if sliding_evaluation_box:
                 xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
                 yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
@@ -8099,6 +8440,12 @@ class FIBSEM_dataset:
                     ya_eval = yi_eval + start_evaluation_box[1]
                 else:
                     ya_eval = ysz
+
+            vmin, vmax = get_min_max_thresholds(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
+            fig, ax = subplots(1,1, figsize=(10.0, 11.0*ysz/xsz))
+            ax.imshow(frame_img_reg, cmap='Greys', vmin=vmin, vmax=vmax)
+            ax.grid(True, color = "cyan")
+            ax.set_title(fls[j])
             rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=2.0, edgecolor='yellow',facecolor='none')
             ax.add_patch(rect_patch)
             if save_res_png :
