@@ -229,8 +229,8 @@ You will also need to have these packages installed:
         Save PNG images of the intermediate processing statistics and final registration quality check
     save_asI8 : boolean
         If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
-    zbin_2x : boolean
-        If True, the data will be binned 2x in z-direction (z-milling direction) when saving the final result.
+    zbin_factor : int
+        Bbinning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1
     preserve_scales : boolean
         If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
     fit_params : list
