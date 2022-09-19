@@ -4,6 +4,7 @@ import pandas as pd
 import os
 import time
 import glob
+import re
 
 import matplotlib
 from matplotlib import pylab, mlab, pyplot
@@ -1528,7 +1529,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     save_filename : str
         Path to the filename to save the results. If empty, mrc_filename+'_RegistrationQuality.csv' will be used
 
-    Returns reg_summary : PD data frame
+    Returns reg_summary : PD data frame, registration_summary_xlsx
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
     save_res_png  = kwargs.get("save_res_png", True )
@@ -1537,6 +1538,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+    registration_summary_xlsx = save_filename.replace('.mrc', '_RegistrationQuality.xlsx')
 
     if sliding_evaluation_box:
         print('Will use sliding (linearly) evaluation box')
@@ -1550,15 +1552,18 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
    
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
     mrc_mode = header.mode
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    header_dict = {}
+    for record in header.dtype.names: # create dictionary from the header data
+        if ('extra' not in record) and ('label' not in record):
+            header_dict[record] = header[record]
     '''
     mode 0 -> uint8
     mode 1 -> int16
     mode 2 -> float32
     mode 4 -> complex64
-        mode 6 -> uint16
+    mode 6 -> uint16
     '''
     if mrc_mode==0:
         dt_mrc=uint8
@@ -1590,7 +1595,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     if frame_inds[0]==0:
         frame_inds = frame_inds+1
     print('Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
-    print('Will save the data into '+os.path.splitext(save_filename)[0] + '_RegistrationQuality.csv')
+    print('Will save the data into ' + registration_summary_xlsx)
     if sliding_evaluation_box:
         dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
         dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
@@ -1599,6 +1604,10 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         dy_eval = 0
     
     params_mrc_mult = []
+    xi_evals = np.zeros(nf, dtype=int16)
+    xa_evals = np.zeros(nf, dtype=int16)
+    yi_evals = np.zeros(nf, dtype=int16)
+    ya_evals = np.zeros(nf, dtype=int16)
     for j, fr in enumerate(frame_inds):
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
@@ -1612,6 +1621,10 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
             else:
                 ya_eval = ny
             evals = [xi_eval, xa_eval, yi_eval, ya_eval]
+            xi_evals[j] = xi_eval
+            xa_evals[j] = xa_eval
+            yi_evals[j] = yi_eval
+            ya_evals[j] = ya_eval
         params_mrc_mult.append([mrc_filename, fr, invert_data, evals])
         
     if use_DASK:
@@ -1668,74 +1681,18 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
     nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
 
-    fs=12
-    lwl=1
-    fig, axs = subplots(2,2, figsize=(12, 8), sharex=True)
-    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, wspace=0.18, hspace=0.04)
-    axs[0,0].axis(False)
+    print('Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
+    xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
+    columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Image NSAD', 'Image NCC', 'Image MI']
+    reg_summary = pd.DataFrame(np.vstack((frame_inds, xi_evals, xa_evals, yi_evals, ya_evals, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
+    reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
+    Stack_info = pd.DataFrame([{'Stack Filename' : mrc_filename, 'Sample_ID' : Sample_ID}]).T # prepare to be save in transposed format
+    header_info = pd.DataFrame([header_dict]).T
+    Stack_info = Stack_info.append(header_info)
+    Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
+    xlsx_writer.save()
 
-    axs[1,0].plot(image_nsad, 'r', linewidth=lwl)
-    axs[1,0].set_ylabel('Normalized Sum of Abs. Diff')
-    axs[1,0].text(0.02, 0.04, 'NSAD mean = {:.3f}   NSAD median = {:.3f}  NSAD STD = {:.3f}'.format(nsads[0], nsads[1], nsads[2]), transform=axs[1,0].transAxes, fontsize = fs-1)
-    axs[1,0].set_xlabel('Frame #')
-
-    axs[0,1].plot(image_ncc, 'b', linewidth=lwl)
-    axs[0,1].set_ylabel('Normalized Cross-Correlation')
-    axs[0,1].grid(True)
-    axs[0,1].text(0.02, 0.04, 'NCC mean = {:.3f}   NCC median = {:.3f}  NCC STD = {:.3f}'.format(nccs[0], nccs[1], nccs[2]), transform=axs[0,1].transAxes, fontsize = fs-1)
-
-    axs[1,1].plot(image_mi, 'g', linewidth=lwl)
-    axs[1,1].set_ylabel('Normalized Mutual Information')
-    axs[1,1].set_xlabel('Frame #')
-    axs[1,1].grid(True)
-    axs[1,1].text(0.02, 0.04, 'NMI mean = {:.3f}   NMI median = {:.3f}  NMI STD = {:.3f}'.format(nmis[0], nmis[1], nmis[2]), transform=axs[1,1].transAxes, fontsize = fs-1)
-
-    for ax in axs.ravel():
-        ax.grid(True)
-
-    # show three frames with eval box
-    axs_fr0 = fig.add_subplot(6,2,1)
-    axs_fr1 = fig.add_subplot(6,2,3)
-    axs_fr2 = fig.add_subplot(6,2,5)
-    axs_frms = [axs_fr0, axs_fr1, axs_fr2]
-    frame_inds = [frame_inds[nf//10],  frame_inds[nf//2], frame_inds[nf//10*9]]
-    mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
-    for fr, ax in zip(frame_inds, axs_frms):
-        #eval_frame = (mrc_obj.data[fr, :, :].astype(dt)).astype(float)
-        eval_frame = mrc_obj.data[fr, :, :].astype(dt_mrc)
-        if sliding_evaluation_box:
-            xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
-            yi_eval = start_evaluation_box[0] + dy_eval*(fr-frame_inds[0])//nf
-            if start_evaluation_box[3] > 0:
-                xa_eval = xi_eval + start_evaluation_box[3]
-            else:
-                xa_eval = nx
-            if start_evaluation_box[1] > 0:
-                ya_eval = yi_eval + start_evaluation_box[1]
-            else:
-                ya_eval = ny
-        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
-        if invert_data:
-            ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
-        else:
-            ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
-
-        ax.text(0.03, 0.75, Sample_ID +'  frame={:d}'.format(fr), color='cyan', transform=ax.transAxes)
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=0.5, edgecolor='yellow',facecolor='none')
-        ax.add_patch(rect_patch)
-        ax.axis('off')
-    mrc_obj.close()
-
-    fig.suptitle(mrc_filename, fontsize = fs-4)
-    if save_res_png :
-        fig.savefig(os.path.splitext(save_filename)[0] +'_RegistrationQuality.png', dpi=300)
-
-    registration_summary_fnm = os.path.splitext(save_filename)[0] + '_RegistrationQuality.csv'
-    columns=['Image NSAD', 'Image NCC', 'Image MI']
-    reg_summary = pd.DataFrame(np.vstack((image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
-    reg_summary.to_csv(registration_summary_fnm, index = None)
-    
-    return reg_summary
+    return reg_summary, registration_summary_xlsx
 
 
 def show_eval_box_mrc_stack(mrc_filename, **kwargs):
@@ -2288,6 +2245,606 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
 ##########################################
 #         helper functions for results presentation
 ##########################################
+
+
+def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name):
+    '''
+    Reads (SIFT processing) kwargs from XLSX file and returns them as dictionary. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
+    
+    Parameters:
+    file_xlsx : str
+        Full path to XLSX file containing a worksheet with SIFt parameters saves as two columns: (name, value)
+    kwargs_sheet_name : str
+        Name of the worksheet containing SIFT parameters
+    '''
+    kwargs_dict_initial = {}
+    try:
+        stack_info = pd.read_excel(file_xlsx, header=None, sheet_name=kwargs_sheet_name).T                #read from transposed
+        if len(stack_info.keys())>0:
+            if len(stack_info.keys())>0:
+                for key in stack_info.keys():
+                    kwargs_dict_initial[stack_info[key][0]] = stack_info[key][1]
+            else:
+                kwargs_dict_initial['Stack Filename'] = stack_info.index[1]
+    except:
+        print('No stack info record present, using defaults')
+    kwargs_dict = {}
+    for key in kwargs_dict_initial:
+        if type(kwargs_dict_initial[key]) is str:
+            # treat as string
+            if 'TransformType' in key:
+                exec('kwargs_dict["TransformType"] = ' + re.search('FIBSEM_SIFT_gs.(.+?)Transform', kwargs_dict_initial[key]).group(1)+'Transform')
+            elif 'targ_vector' in key:
+                exec('kwargs_dict["targ_vector"] = np.array(' + kwargs_dict_initial[key].replace(' ', ',')+ ')')
+            elif 'l2_matrix' in key:
+                exec('kwargs_dict["l2_matrix"] = np.array(' + kwargs_dict_initial[key].replace(' ', ',') + ')')
+            elif 'fit_params' in key:
+                exec('kwargs_dict["fit_params"] = ' + kwargs_dict_initial[key])
+            else:
+                exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\n', ',') + '"')
+        else:
+
+            exec('kwargs_dict["'+str(key)+'"] = '+ str(kwargs_dict_initial[key]))
+    return kwargs_dict
+
+
+def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, *kwargs):
+    '''
+    Generate Report Plot for Transformation Matrix from XLSX spreadsheet file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
+    
+    Parameters:
+    transf_matrix_xlsx_file : str
+        Path to the binary dump file
+
+    '''
+    print('Loading SIFT kwarg Data')
+    saved_kwargs = read_kwargs_xlsx(transf_matrix_xlsx_file, 'kwargs Info')
+    data_dir = saved_kwargs.get("data_dir", '')
+    fnm_reg = saved_kwargs.get("fnm_reg", 'Registration_file.mrc')
+    TransformType = saved_kwargs.get("TransformType", RegularizedAffineTransform)
+    Sample_ID = saved_kwargs.get("Sample_ID", '')
+    SIFT_nfeatures = saved_kwargs.get("SIFT_nfeatures", 0)
+    SIFT_nOctaveLayers = saved_kwargs.get("SIFT_nOctaveLayers", 3)
+    SIFT_contrastThreshold = saved_kwargs.get("SIFT_contrastThreshold", 0.025)
+    SIFT_edgeThreshold = saved_kwargs.get("SIFT_edgeThreshold", 10)
+    SIFT_sigma = saved_kwargs.get("SIFT_sigma", 1.6)
+    l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
+    l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
+    l2_matrix_default[2,2] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix_default[5,5] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix = saved_kwargs.get("l2_matrix", l2_matrix_default)
+    targ_vector = saved_kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
+    solver = saved_kwargs.get("solver", 'RANSAC')
+    drmax = saved_kwargs.get("drmax", 2.0)
+    max_iter = saved_kwargs.get("max_iter", 1000)
+    BFMatcher = saved_kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    save_matches = saved_kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
+    kp_max_num = saved_kwargs.get("kp_max_num", -1)
+    save_res_png  = saved_kwargs.get("save_res_png", True)
+
+    preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
+    fit_params =  saved_kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+                                                            # window size 701, polynomial order 3
+    subtract_linear_fit =  saved_kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
+    pad_edges =  saved_kwargs.get("pad_edges", True)
+    
+    print('Loading Original Transformation Data')
+    orig_transf_matrix = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Orig. Transformation Matrix')
+    transformation_matrix = np.vstack((orig_transf_matrix['T00 (Sxx)'],
+                         orig_transf_matrix['T01 (Sxy)'],
+                         orig_transf_matrix['T02 (Tx)'],
+                         orig_transf_matrix['T10 (Syx)'],
+                         orig_transf_matrix['T11 (Syy)'],
+                         orig_transf_matrix['T12 (Ty)'],
+                         orig_transf_matrix['T20 (0.0)'],
+                         orig_transf_matrix['T21 (0.0)'],
+                         orig_transf_matrix['T22 (1.0)'])).T.reshape((len(orig_transf_matrix['T00 (Sxx)']), 3, 3))
+   
+    
+    print('Loading Cumulative Transformation Data')
+    cum_transf_matrix = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Cum. Transformation Matrix')
+    tr_matr_cum = np.vstack((cum_transf_matrix['T00 (Sxx)'],
+                         cum_transf_matrix['T01 (Sxy)'],
+                         cum_transf_matrix['T02 (Tx)'],
+                         cum_transf_matrix['T10 (Syx)'],
+                         cum_transf_matrix['T11 (Syy)'],
+                         cum_transf_matrix['T12 (Ty)'],
+                         cum_transf_matrix['T20 (0.0)'],
+                         cum_transf_matrix['T21 (0.0)'],
+                         cum_transf_matrix['T22 (1.0)'])).T.reshape((len(cum_transf_matrix['T00 (Sxx)']), 3, 3))
+    
+    print('Loading Intermediate Data')
+    int_results = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Intermediate Results')
+    s00_cum_orig = int_results['s00_cum_orig']
+    s11_cum_orig = int_results['s11_cum_orig']
+    s00_fit = int_results['s00_fit']
+    s11_fit = int_results['s11_fit']
+    s01_cum_orig = int_results['s01_cum_orig']
+    s10_cum_orig = int_results['s10_cum_orig']
+    s01_fit = int_results['s01_fit']
+    s10_fit = int_results['s10_fit']
+    Xshift_cum_orig = int_results['Xshift_cum_orig']
+    Yshift_cum_orig = int_results['Yshift_cum_orig']
+    Xshift_cum = int_results['Xshift_cum']
+    Yshift_cum = int_results['Yshift_cum']
+    Xfit = int_results['Xfit']
+    Yfit = int_results['Yfit']
+    
+    print('Loading Statistics')
+    stat_results = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Reg. Stat. Info')
+    npts = stat_results['Npts']
+    error_abs_mean = stat_results['Mean Abs Error']
+ 
+    fs = 14
+    lwf = 2
+    lwl = 1
+    fig5, axs5 = subplots(4,3, figsize=(18, 16), sharex=True)
+    fig5.subplots_adjust(left=0.07, bottom=0.03, right=0.99, top=0.95)
+    # display the info
+    axs5[0,0].axis(False)
+    axs5[0,0].text(-0.1, 0.9, Sample_ID, fontsize = fs + 4)
+    #axs5[0,0].text(-0.1, 0.73, 'Global Data Range:  Min={:.2f}, Max={:.2f}'.format(data_min_glob, data_max_glob), transform=axs5[0,0].transAxes, fontsize = fs)
+    
+    if TransformType == RegularizedAffineTransform:
+        tstr = ['{:d}'.format(x) for x in targ_vector] 
+        otext = 'Reg.Aff.Transf., λ= {:.1e}, t=['.format(l2_matrix[0,0]) + ' '.join(tstr) + '], w/' + solver
+    else:
+        otext = TransformType.__name__ + ' with ' + solver + ' solver'
+    axs5[0,0].text(-0.1, 0.80, otext, transform=axs5[0,0].transAxes, fontsize = fs)
+
+    SIFT1text = 'SIFT: nFeatures = {:d}, nOctaveLayers = {:d}, '.format(SIFT_nfeatures, SIFT_nOctaveLayers)
+    axs5[0,0].text(-0.1, 0.65, SIFT1text, transform=axs5[0,0].transAxes, fontsize = fs)
+
+    SIFT2text = 'SIFT: contrThr = {:.3f}, edgeThr = {:.2f}, σ= {:.2f}'.format(SIFT_contrastThreshold, SIFT_edgeThreshold, SIFT_sigma)
+    axs5[0,0].text(-0.1, 0.50, SIFT2text, transform=axs5[0,0].transAxes, fontsize = fs)
+
+    sbtrfit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
+    axs5[0,0].text(-0.1, 0.35, 'drmax={:.1f}, Max # of KeyPts={:d}, Max # of Iter.={:d}'.format(drmax, kp_max_num, max_iter), transform=axs5[0,0].transAxes, fontsize = fs)
+    padedges = 'ON' if pad_edges else 'OFF'
+    if preserve_scales:
+        fit_method = fit_params[0]
+        if fit_method == 'LF':
+            fit_str = ', Meth: Linear Fit'
+            fm_string = 'linear'
+        else:
+            if fit_method == 'SG':
+                fit_str = ', Meth: Sav.-Gol., ' + str(fit_params[1:])
+                fm_string = 'Sav.-Gol.'
+            else:
+                fit_str = ', Meth: Pol.Fit, ord.={:d}'.format(fit_params[1])
+                fm_string = 'polyn.'
+        preserve_scales_string = 'Pres. Scls: ON' + fit_str
+    else:
+        preserve_scales_string = 'Preserve Scales: OFF'
+    axs5[0,0].text(-0.1, 0.20, preserve_scales_string, transform=axs5[0,0].transAxes, fontsize = fs)
+    axs5[0,0].text(-0.1, 0.05, 'Subtract Shift Fit: ' + sbtrfit + ', Pad Edges: ' + padedges, transform=axs5[0,0].transAxes, fontsize = fs)
+    # plot number of keypoints
+    axs5[0, 1].plot(npts, 'g', linewidth = lwl, label = '# of key-points per frame')
+    axs5[0, 1].set_title('# of key-points per frame')
+    axs5[0, 1].text(0.03, 0.2, 'Mean # of kpts= {:.0f}   Median # of kpts= {:.0f}'.format(np.mean(npts), np.median(npts)), transform=axs5[0, 1].transAxes, fontsize = fs-1)
+    # plot Standard deviations
+    axs5[0, 2].plot(error_abs_mean, 'magenta', linewidth = lwl, label = 'Mean Abs Error over keyponts per frame')
+    axs5[0, 2].set_title('Mean Abs Error keyponts per frame')  
+    axs5[0, 2].text(0.03, 0.2, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
+    
+    # plot scales terms
+    axs5[1, 0].plot(transformation_matrix[:, 0, 0], 'r', linewidth = lwl, label = 'Sxx frame-to-frame')
+    axs5[1, 0].plot(transformation_matrix[:, 1, 1], 'b', linewidth = lwl, label = 'Syy frame-to-frame')
+    axs5[1, 0].set_title('Frame-to-Frame Scale Change', fontsize = fs)
+    axs5[2, 0].plot(s00_cum_orig, 'r', linewidth = lwl, linestyle='dotted', label = 'Sxx cum.')
+    axs5[2, 0].plot(s11_cum_orig, 'b', linewidth = lwl, linestyle='dotted', label = 'Syy cum.')
+    if preserve_scales:
+        axs5[2, 0].plot(s00_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxx cum. - '+fm_string+' fit')
+        axs5[2, 0].plot(s11_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syy cum. - '+fm_string+' fit')
+    axs5[2, 0].set_title('Cumulative Scale', fontsize = fs)
+    yi10,ya10 = axs5[1, 0].get_ylim()
+    dy0 = (ya10-yi10)/2.0
+    yi20,ya20 = axs5[2, 0].get_ylim()
+    if (ya20-yi20)<0.01*dy0:
+        axs5[2, 0].set_ylim((yi20-dy0, ya20+dy0))
+    axs5[3, 0].plot(tr_matr_cum[:, 0, 0], 'r', linewidth = lwl, label = 'Sxx cum. - residual')
+    axs5[3, 0].plot(tr_matr_cum[:, 1, 1], 'b', linewidth = lwl, label = 'Syy cum. - residual')
+    axs5[3, 0].set_title('Residual Cumulative Scale', fontsize = fs)
+    axs5[3, 0].set_xlabel('Frame', fontsize = fs+1)
+    yi30,ya30 = axs5[3, 0].get_ylim()
+    if (ya30-yi30)<0.01*dy0:
+        axs5[3, 0].set_ylim((yi30-dy0, ya30+dy0))
+    
+    # plot shear terms
+    axs5[1, 1].plot(transformation_matrix[:, 0, 1], 'r', linewidth = lwl, label = 'Sxy frame-to-frame')
+    axs5[1, 1].plot(transformation_matrix[:, 1, 0], 'b', linewidth = lwl, label = 'Syx frame-to-frame')
+    axs5[1, 1].set_title('Frame-to-Frame Shear Change', fontsize = fs)
+    axs5[2, 1].plot(s01_cum_orig, 'r', linewidth = lwl, linestyle='dotted', label = 'Sxy cum.')
+    axs5[2, 1].plot(s10_cum_orig, 'b', linewidth = lwl, linestyle='dotted', label = 'Syx cum.')
+    if preserve_scales:
+        axs5[2, 1].plot(s01_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxy cum. - '+fm_string+' fit')
+        axs5[2, 1].plot(s10_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syx cum. - '+fm_string+' fit')
+    axs5[2, 1].set_title('Cumulative Shear', fontsize = fs)
+    yi11,ya11 = axs5[1, 1].get_ylim()
+    dy1 = (ya11-yi11)/2.0
+    yi21,ya21 = axs5[2, 1].get_ylim()
+    if (ya21-yi21)<0.01*dy1:
+        axs5[2, 1].set_ylim((yi21-dy1, ya21+dy1))
+    axs5[3, 1].plot(tr_matr_cum[:, 0, 1], 'r', linewidth = lwl, label = 'Sxy cum. - residual')
+    axs5[3, 1].plot(tr_matr_cum[:, 1, 0], 'b', linewidth = lwl, label = 'Syx cum. - residual')
+    axs5[3, 1].set_title('Residual Cumulative Shear', fontsize = fs)
+    axs5[3, 1].set_xlabel('Frame', fontsize = fs+1)
+    yi31,ya31 = axs5[3, 1].get_ylim()
+    if (ya31-yi21)<0.01*dy1:
+        axs5[3, 1].set_ylim((yi31-dy1, ya31+dy1))
+    
+    # plot shifts
+    axs5[1, 2].plot(transformation_matrix[:, 0, 2], 'r', linewidth = lwl, label = 'Tx fr.-to-fr.')
+    axs5[1, 2].plot(transformation_matrix[:, 1, 2], 'b', linewidth = lwl, label = 'Ty fr.-to-fr.')
+    axs5[1, 2].set_title('Frame-to-Frame Shift', fontsize = fs)
+    if preserve_scales:
+        axs5[2, 2].plot(Xshift_cum_orig, 'r', linewidth = lwl, label = 'Tx cum. - orig.')
+        axs5[2, 2].plot(Yshift_cum_orig, 'b', linewidth = lwl, label = 'Ty cum. - orig.')
+        axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum. - pres. scales')
+        axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum. - pres. scales')
+    else:
+        axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum.')
+        axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum.')
+    if subtract_linear_fit[0]:
+        axs5[2, 2].plot(Xfit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Tx cum. - lin. fit')
+    if subtract_linear_fit[1]:
+        axs5[2, 2].plot(Yfit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Ty cum. - lin. fit')
+    axs5[2, 2].set_title('Cumulative Shift', fontsize = fs)
+    axs5[3, 2].plot(tr_matr_cum[:, 0, 2], 'r', linewidth = lwl, label = 'Tx cum. - residual')
+    axs5[3, 2].plot(tr_matr_cum[:, 1, 2], 'b', linewidth = lwl, label = 'Ty cum. - residual')
+    axs5[3, 2].set_title('Residual Cumulative Shift', fontsize = fs)
+    axs5[3, 2].set_xlabel('Frame', fontsize = fs+1)
+
+    for ax in axs5.ravel()[1:]:
+        ax.grid(True)
+        ax.legend(fontsize = fs-1)
+    fig5.suptitle(transf_matrix_xlsx_file, fontsize = fs)
+    if save_res_png :
+        fig5.savefig(transf_matrix_xlsx_file.replace('.xlsx', '.png'), dpi=300)
+
+
+def generate_report_transf_matrix_details(transf_matrix_bin_file, *kwarrgs):
+    '''
+    Generate Report Plot for Transformation Matrix from binary dump file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
+    The binary dump file should contain list with these parameters (in this order):
+        [saved_kwargs, npts, error_abs_mean, transformation_matrix,
+        s00_cum_orig, s11_cum_orig, s00_fit, s11_fit, tr_matr_cum, s01_cum_orig, s10_cum_orig, s01_fit, s10_fit,
+        Xshift_cum_orig, Yshift_cum_orig, Xshift_cum, Yshift_cum, Xfit, Yfit]
+
+    Parameters:
+    transf_matrix_bin_file : str
+        Path to the binary dump file
+
+    '''
+    with open(transf_matrix_bin_file, "rb") as f:
+        [saved_kwargs, npts, error_abs_mean,
+         transformation_matrix, s00_cum_orig, s11_cum_orig, s00_fit, s11_fit,
+         tr_matr_cum, s01_cum_orig, s10_cum_orig, s01_fit, s10_fit,
+         Xshift_cum_orig, Yshift_cum_orig, Xshift_cum, Yshift_cum, Xfit, Yfit] = pickle.load(f)
+    
+    data_dir = saved_kwargs.get("data_dir", '')
+    fnm_reg = saved_kwargs.get("fnm_reg", 'Registration_file.mrc')
+    TransformType = saved_kwargs.get("TransformType", RegularizedAffineTransform)
+    Sample_ID = saved_kwargs.get("Sample_ID", '')
+    SIFT_nfeatures = saved_kwargs.get("SIFT_nfeatures", 0)
+    SIFT_nOctaveLayers = saved_kwargs.get("SIFT_nOctaveLayers", 3)
+    SIFT_contrastThreshold = saved_kwargs.get("SIFT_contrastThreshold", 0.025)
+    SIFT_edgeThreshold = saved_kwargs.get("SIFT_edgeThreshold", 10)
+    SIFT_sigma = saved_kwargs.get("SIFT_sigma", 1.6)
+    l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
+    l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
+    l2_matrix_default[2,2] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix_default[5,5] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix = saved_kwargs.get("l2_matrix", l2_matrix_default)
+    targ_vector = saved_kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
+    solver = saved_kwargs.get("solver", 'RANSAC')
+    drmax = saved_kwargs.get("drmax", 2.0)
+    max_iter = saved_kwargs.get("max_iter", 1000)
+    BFMatcher = saved_kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    save_matches = saved_kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
+    kp_max_num = saved_kwargs.get("kp_max_num", -1)
+    save_res_png  = saved_kwargs.get("save_res_png", True)
+
+    preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
+    fit_params =  saved_kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+                                                            # window size 701, polynomial order 3
+    subtract_linear_fit =  saved_kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
+    #print("subtract_linear_fit:", subtract_linear_fit)
+    pad_edges =  saved_kwargs.get("pad_edges", True)
+    
+    fs = 14
+    lwf = 2
+    lwl = 1
+    fig5, axs5 = subplots(4,3, figsize=(18, 16), sharex=True)
+    fig5.subplots_adjust(left=0.07, bottom=0.03, right=0.99, top=0.95)
+    # display the info
+    axs5[0,0].axis(False)
+    axs5[0,0].text(-0.1, 0.9, Sample_ID, fontsize = fs + 4)
+    #axs5[0,0].text(-0.1, 0.73, 'Global Data Range:  Min={:.2f}, Max={:.2f}'.format(data_min_glob, data_max_glob), transform=axs5[0,0].transAxes, fontsize = fs)
+    
+    if TransformType == RegularizedAffineTransform:
+        tstr = ['{:d}'.format(x) for x in targ_vector] 
+        otext = 'Reg.Aff.Transf., λ= {:.1e}, t=['.format(l2_matrix[0,0]) + ' '.join(tstr) + '], w/' + solver
+    else:
+        otext = TransformType.__name__ + ' with ' + solver + ' solver'
+    axs5[0,0].text(-0.1, 0.80, otext, transform=axs5[0,0].transAxes, fontsize = fs)
+
+    SIFT1text = 'SIFT: nFeatures = {:d}, nOctaveLayers = {:d}, '.format(SIFT_nfeatures, SIFT_nOctaveLayers)
+    axs5[0,0].text(-0.1, 0.65, SIFT1text, transform=axs5[0,0].transAxes, fontsize = fs)
+
+    SIFT2text = 'SIFT: contrThr = {:.3f}, edgeThr = {:.2f}, σ= {:.2f}'.format(SIFT_contrastThreshold, SIFT_edgeThreshold, SIFT_sigma)
+    axs5[0,0].text(-0.1, 0.50, SIFT2text, transform=axs5[0,0].transAxes, fontsize = fs)
+
+    sbtrfit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
+    axs5[0,0].text(-0.1, 0.35, 'drmax={:.1f}, Max # of KeyPts={:d}, Max # of Iter.={:d}'.format(drmax, kp_max_num, max_iter), transform=axs5[0,0].transAxes, fontsize = fs)
+    padedges = 'ON' if pad_edges else 'OFF'
+    if preserve_scales:
+        fit_method = fit_params[0]
+        if fit_method == 'LF':
+            fit_str = ', Meth: Linear Fit'
+            fm_string = 'linear'
+        else:
+            if fit_method == 'SG':
+                fit_str = ', Meth: Sav.-Gol., ' + str(fit_params[1:])
+                fm_string = 'Sav.-Gol.'
+            else:
+                fit_str = ', Meth: Pol.Fit, ord.={:d}'.format(fit_params[1])
+                fm_string = 'polyn.'
+        preserve_scales_string = 'Pres. Scls: ON' + fit_str
+    else:
+        preserve_scales_string = 'Preserve Scales: OFF'
+    axs5[0,0].text(-0.1, 0.20, preserve_scales_string, transform=axs5[0,0].transAxes, fontsize = fs)
+    axs5[0,0].text(-0.1, 0.05, 'Subtract Shift Fit: ' + sbtrfit + ', Pad Edges: ' + padedges, transform=axs5[0,0].transAxes, fontsize = fs)
+    # plot number of keypoints
+    axs5[0, 1].plot(npts, 'g', linewidth = lwl, label = '# of key-points per frame')
+    axs5[0, 1].set_title('# of key-points per frame')
+    axs5[0, 1].text(0.03, 0.2, 'Mean # of kpts= {:.0f}   Median # of kpts= {:.0f}'.format(np.mean(npts), np.median(npts)), transform=axs5[0, 1].transAxes, fontsize = fs-1)
+    # plot Standard deviations
+    axs5[0, 2].plot(error_abs_mean, 'magenta', linewidth = lwl, label = 'Mean Abs Error over keyponts per frame')
+    axs5[0, 2].set_title('Mean Abs Error keyponts per frame')  
+    axs5[0, 2].text(0.03, 0.2, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
+    
+    # plot scales terms
+    axs5[1, 0].plot(transformation_matrix[:, 0, 0], 'r', linewidth = lwl, label = 'Sxx frame-to-frame')
+    axs5[1, 0].plot(transformation_matrix[:, 1, 1], 'b', linewidth = lwl, label = 'Syy frame-to-frame')
+    axs5[1, 0].set_title('Frame-to-Frame Scale Change', fontsize = fs)
+    axs5[2, 0].plot(s00_cum_orig, 'r', linewidth = lwl, linestyle='dotted', label = 'Sxx cum.')
+    axs5[2, 0].plot(s11_cum_orig, 'b', linewidth = lwl, linestyle='dotted', label = 'Syy cum.')
+    if preserve_scales:
+        axs5[2, 0].plot(s00_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxx cum. - '+fm_string+' fit')
+        axs5[2, 0].plot(s11_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syy cum. - '+fm_string+' fit')
+    axs5[2, 0].set_title('Cumulative Scale', fontsize = fs)
+    yi10,ya10 = axs5[1, 0].get_ylim()
+    dy0 = (ya10-yi10)/2.0
+    yi20,ya20 = axs5[2, 0].get_ylim()
+    if (ya20-yi20)<0.01*dy0:
+        axs5[2, 0].set_ylim((yi20-dy0, ya20+dy0))
+    axs5[3, 0].plot(tr_matr_cum[:, 0, 0], 'r', linewidth = lwl, label = 'Sxx cum. - residual')
+    axs5[3, 0].plot(tr_matr_cum[:, 1, 1], 'b', linewidth = lwl, label = 'Syy cum. - residual')
+    axs5[3, 0].set_title('Residual Cumulative Scale', fontsize = fs)
+    axs5[3, 0].set_xlabel('Frame', fontsize = fs+1)
+    yi30,ya30 = axs5[3, 0].get_ylim()
+    if (ya30-yi30)<0.01*dy0:
+        axs5[3, 0].set_ylim((yi30-dy0, ya30+dy0))
+    
+    # plot shear terms
+    axs5[1, 1].plot(transformation_matrix[:, 0, 1], 'r', linewidth = lwl, label = 'Sxy frame-to-frame')
+    axs5[1, 1].plot(transformation_matrix[:, 1, 0], 'b', linewidth = lwl, label = 'Syx frame-to-frame')
+    axs5[1, 1].set_title('Frame-to-Frame Shear Change', fontsize = fs)
+    axs5[2, 1].plot(s01_cum_orig, 'r', linewidth = lwl, linestyle='dotted', label = 'Sxy cum.')
+    axs5[2, 1].plot(s10_cum_orig, 'b', linewidth = lwl, linestyle='dotted', label = 'Syx cum.')
+    if preserve_scales:
+        axs5[2, 1].plot(s01_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxy cum. - '+fm_string+' fit')
+        axs5[2, 1].plot(s10_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syx cum. - '+fm_string+' fit')
+    axs5[2, 1].set_title('Cumulative Shear', fontsize = fs)
+    yi11,ya11 = axs5[1, 1].get_ylim()
+    dy1 = (ya11-yi11)/2.0
+    yi21,ya21 = axs5[2, 1].get_ylim()
+    if (ya21-yi21)<0.01*dy1:
+        axs5[2, 1].set_ylim((yi21-dy1, ya21+dy1))
+    axs5[3, 1].plot(tr_matr_cum[:, 0, 1], 'r', linewidth = lwl, label = 'Sxy cum. - residual')
+    axs5[3, 1].plot(tr_matr_cum[:, 1, 0], 'b', linewidth = lwl, label = 'Syx cum. - residual')
+    axs5[3, 1].set_title('Residual Cumulative Shear', fontsize = fs)
+    axs5[3, 1].set_xlabel('Frame', fontsize = fs+1)
+    yi31,ya31 = axs5[3, 1].get_ylim()
+    if (ya31-yi21)<0.01*dy1:
+        axs5[3, 1].set_ylim((yi31-dy1, ya31+dy1))
+    
+    # plot shifts
+    axs5[1, 2].plot(transformation_matrix[:, 0, 2], 'r', linewidth = lwl, label = 'Tx fr.-to-fr.')
+    axs5[1, 2].plot(transformation_matrix[:, 1, 2], 'b', linewidth = lwl, label = 'Ty fr.-to-fr.')
+    axs5[1, 2].set_title('Frame-to-Frame Shift', fontsize = fs)
+    if preserve_scales:
+        axs5[2, 2].plot(Xshift_cum_orig, 'r', linewidth = lwl, label = 'Tx cum. - orig.')
+        axs5[2, 2].plot(Yshift_cum_orig, 'b', linewidth = lwl, label = 'Ty cum. - orig.')
+        axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum. - pres. scales')
+        axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum. - pres. scales')
+    else:
+        axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum.')
+        axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum.')
+    if subtract_linear_fit[0]:
+        axs5[2, 2].plot(Xfit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Tx cum. - lin. fit')
+    if subtract_linear_fit[1]:
+        axs5[2, 2].plot(Yfit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Ty cum. - lin. fit')
+    axs5[2, 2].set_title('Cumulative Shift', fontsize = fs)
+    axs5[3, 2].plot(tr_matr_cum[:, 0, 2], 'r', linewidth = lwl, label = 'Tx cum. - residual')
+    axs5[3, 2].plot(tr_matr_cum[:, 1, 2], 'b', linewidth = lwl, label = 'Ty cum. - residual')
+    axs5[3, 2].set_title('Residual Cumulative Shift', fontsize = fs)
+    axs5[3, 2].set_xlabel('Frame', fontsize = fs+1)
+
+    for ax in axs5.ravel()[1:]:
+        ax.grid(True)
+        ax.legend(fontsize = fs-1)
+    fn = os.path.join(data_dir, fnm_reg)
+    fig5.suptitle(fn, fontsize = fs)
+    if save_res_png :
+        fig5.savefig(fn.replace('.mrc', '_Transform_Summary.png'), dpi=300)
+
+
+def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
+    '''
+    Generate Report Plot for FIB-SEM data set registration from xlxs workbook file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
+    XLS file should have pages (sheets):
+        - 'Registration Quality Statistics' - containing columns with the the evaluation box data and registration quality metrics data: 
+            'Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI'
+        - 'Stack Info' - containing the fields:
+            'Stack Filename' and 'data_dir'
+        - 'SIFT kwargs' (optional) - containg the kwargs with SIFT registration parameters.
+
+    Parameters:
+    xlsx_fname : str
+        full path to the XLSX workbook file
+    
+    kwargs
+    ---------
+    png_file : str
+        filename to save the results. Default is file_xlsx with extension '.xlsx' replaced with '.png'
+    invert_data : bolean
+
+    '''
+    png_file_default = file_xlsx.replace('.xlsx','.png')
+    png_file = kwargs.get("png_file", png_file_default)
+    invert_data =  kwargs.get("invert_data", False)
+    
+    Regisration_data = pd.read_excel(file_xlsx, sheet_name='Registration Quality Statistics')
+    # columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
+    frames = Regisration_data['Frame']
+    xi_evals = Regisration_data['xi_eval']
+    xa_evals = Regisration_data['xa_eval']
+    yi_evals = Regisration_data['yi_eval']
+    ya_evals = Regisration_data['ya_eval']
+    image_nsad = Regisration_data['Image NSAD']
+    image_ncc = Regisration_data['Image NCC']
+    image_nmi = Regisration_data['Image MI']
+    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
+    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
+    nmis = [np.mean(image_nmi), np.median(image_nmi), np.std(image_nmi)]
+    
+    stack_info_dict = {}
+    try:
+        stack_info = pd.read_excel(file_xlsx, header=None, sheet_name='Stack Info').T                #read from transposed
+        if len(stack_info.keys())>0:
+            if len(stack_info.keys())>0:
+                for key in stack_info.keys():
+                    stack_info_dict[stack_info[key][0]] = stack_info[key][1]
+            else:
+                stack_info_dict['Stack Filename'] = stack_info.index[1]
+    except:
+        print('No stack info record present, using defaults')
+    stack_filename = stack_info_dict.get('Stack Filename', file_xlsx.replace('_RegistrationQuality.xlsx','.mrc'))
+    data_dir = stack_info_dict.get('data_dir', '')
+
+    ftype = stack_info_dict.get("ftype", 0)
+    ImgB_fraction = stack_info_dict.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
+                                                           # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
+    Sample_ID = stack_info_dict.get("Sample_ID", '')
+    if Sample_ID is nan:
+        Sample_ID = ''
+    pad_edges =  stack_info_dict.get("pad_edges", True)      
+
+    solver = stack_info_dict.get("solver", 'RANSAC')
+    drmax = stack_info_dict.get("drmax", 2.0)
+
+    preserve_scales =  stack_info_dict.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
+    fit_params =  stack_info_dict.get("fit_params", ['LF', 0, 0])           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+                                                            # window size 701, polynomial order 3
+    subtract_linear_fit =  stack_info_dict.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
+    perfrom_transformation =  stack_info_dict.get("perfrom_transformation", True)
+    disp_res = stack_info_dict.get("disp_res", True)
+
+    mrc_obj = mrcfile.mmap(stack_filename, mode='r')
+    header = mrc_obj.header 
+    mrc_mode = header.mode
+    '''
+    mode 0 -> uint8
+    mode 1 -> int16
+    mode 2 -> float32
+    mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    if mrc_mode==0:
+        dt_mrc=uint8
+    if mrc_mode==1:
+        dt_mrc=int16
+    if mrc_mode==2:
+        dt_mrc=float32
+    if mrc_mode==4:
+        dt_mrc=complex64
+    if mrc_mode==6:
+        dt_mrc=uint16
+
+    fs=12
+    lwl=1
+    
+    try:
+        transform_name = re.search('FIBSEM_SIFT_gs.(.+?)Transform', stack_info_dict['TransformType']).group(1)+'Transform'
+        transform_name = kwargs.get('TransformType', transform_name)
+        if preserve_scales:
+            preserve_scales_string = 'Preserve Scales: ON, Meth: ' + fit_params[0] + ', ' + str(fit_params[1:])
+        else:
+            preserve_scales_string = 'Preserve Scales: OFF'
+        Subtr_Lin_Fit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
+        Pad_Edg = 'ON' if  pad_edges else 'OFF'
+        cond_str = transform_name + ' w/ ' + solver + ', drmax={:.1f},  '.format(drmax) + preserve_scales_string + '.    Subtract Linear Fit:' + Subtr_Lin_Fit + ',  Pad Edges:'+Pad_Edg
+    except:
+        transform_name = kwargs.get('TransformType', '')
+        cond_str = transform_name
+    
+    fig, axs = subplots(2,2, figsize=(12, 8), sharex=True)
+    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, wspace=0.18, hspace=0.04)
+    axs[0,0].axis('off')
+    axs_fr0 = fig.add_subplot(6,2,1)
+    axs_fr1 = fig.add_subplot(6,2,3)
+    axs_fr2 = fig.add_subplot(6,2,5)
+    axs_frms = [axs_fr0, axs_fr1, axs_fr2]
+    
+    if len(frames)//10*9 > 0:
+        ev_ind2 = len(frames)//10*9
+    else:
+        ev_ind2 = len(frames)-1
+    eval_inds = [len(frames)//10,  len(frames)//2, ev_ind2]
+    
+    for j, eval_ind in enumerate(eval_inds):
+        ax = axs_frms[j]
+        frame_img =(mrc_obj.data[frames[eval_ind], :, :].astype(dt_mrc)).astype(float)
+        dmin, dmax = get_min_max_thresholds(frame_img[yi_evals[eval_ind]:ya_evals[eval_ind], xi_evals[eval_ind]:xa_evals[eval_ind]], 1e-3, 1e-3, 256, False)
+        if invert_data:
+            ax.imshow(frame_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
+        else:
+            ax.imshow(frame_img, cmap='Greys', vmin=dmin, vmax=dmax)
+
+        ax.text(0.03, 1.01, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frames[eval_ind], image_nsad[eval_ind], image_ncc[eval_ind], image_nmi[eval_ind]), color='red', transform=ax.transAxes)
+        rect_patch = patches.Rectangle((xi_evals[eval_ind], yi_evals[eval_ind]),abs(xa_evals[eval_ind]-xi_evals[eval_ind])-2,abs(ya_evals[eval_ind]-yi_evals[eval_ind])-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+        ax.add_patch(rect_patch)
+        ax.axis('off')
+
+    mrc_obj.close()
+
+    axs[1,0].plot(frames, image_nsad, 'r', linewidth=lwl)
+    axs[1,0].set_ylabel('Normalized Sum of Abs. Diff')
+    axs[1,0].text(0.02, 0.04, 'NSAD mean = {:.3f}   NSAD median = {:.3f}  NSAD STD = {:.3f}'.format(nsads[0], nsads[1], nsads[2]), transform=axs[1,0].transAxes, fontsize = fs-1)
+    axs[1,0].set_xlabel('Binned Frame #')
+
+    axs[0,1].plot(frames, image_ncc, 'b', linewidth=lwl)
+    axs[0,1].set_ylabel('Normalized Cross-Correlation')
+    axs[0,1].grid(True)
+    axs[0,1].text(0.02, 0.04, 'NCC mean = {:.3f}   NCC median = {:.3f}  NCC STD = {:.3f}'.format(nccs[0], nccs[1], nccs[2]), transform=axs[0,1].transAxes, fontsize = fs-1)
+
+    axs[1,1].plot(frames, image_nmi, 'g', linewidth=lwl)
+    axs[1,1].set_ylabel('Normalized Mutual Information')
+    axs[1,1].set_xlabel('Binned Frame #')
+    axs[1,1].grid(True)
+    axs[1,1].text(0.02, 0.04, 'NMI mean = {:.3f}   NMI median = {:.3f}  NMI STD = {:.3f}'.format(nmis[0], nmis[1], nmis[2]), transform=axs[1,1].transAxes, fontsize = fs-1)
+    
+    for ax in axs.ravel()[1:-1]:
+        ax.grid(True)
+        
+    fig.suptitle(stack_filename, fontsize = fs-2)
+    axs[0,0].text(-0.1, 1.04, Sample_ID + '    ' +  cond_str, transform=axs[0,0].transAxes)
+    fig.savefig(png_file, dpi=300)
+
+
+
 def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     '''
     Read and plot together multiple registration quality summaries.
@@ -2333,6 +2890,275 @@ def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
     for df in data_files:
         fl = os.path.join(data_dir, df)
         data = pd.read_csv(fl)
+        reg_datas.append(data)
+
+    lw0 = 0.5
+    lw1 = 1
+    
+    fs=12
+    fs2=10
+    fig1, axs1 = subplots(3,1, figsize=(7, 11), sharex=True)
+    fig1.subplots_adjust(left=0.1, bottom=0.05, right=0.99, top=0.96, wspace=0.2, hspace=0.1)
+
+    ax_nsad = axs1[0]
+    ax_ncc = axs1[1]
+    ax_nmi = axs1[2]
+    ax_nsad.set_ylabel('Normalized Sum of Abs. Differences', fontsize=fs)
+    ax_ncc.set_ylabel('Normalized Cross-Correlation', fontsize=fs)
+    ax_nmi.set_ylabel('Normalized Mutual Information', fontsize=fs)
+    ax_nmi.set_xlabel('Frame', fontsize=fs)
+
+    spreads=[]
+    my_cols = [get_cmap("gist_rainbow_r")((nfls-j)/(nfls)) for j in np.arange(nfls)]
+    my_cols[0] = 'grey'
+    my_cols[-1] = 'red'
+    my_cols = kwargs.get("colors", my_cols)
+
+    means = []
+    image_nsads= []
+    image_nccs= []
+    image_snrs= []
+    image_nmis = []
+    for j, reg_data in enumerate(tqdm(reg_datas, desc='generating the registration quality summary plots')):
+        #my_col = get_cmap("gist_rainbow_r")((nfls-j)/(nfls))
+        #my_cols.append(my_col)
+        my_col = my_cols[j]
+        pf = labels[j]
+        lw0 = linewidths[j]
+        image_nsad = np.array(reg_data['Image NSAD'])
+        image_nsads.append(image_nsad)
+        image_ncc = np.array(reg_data['Image NCC'])
+        image_nccs.append(image_ncc)
+        image_snr = image_ncc/(1.0-image_ncc)
+        image_snrs.append(image_snr)
+        image_nmi = np.array(reg_data['Image MI'])
+        image_nmis.append(image_nmi)
+
+        metrics = [image_nsad, image_ncc, image_snr, image_nmi]
+        spreads.append([get_spread(metr) for metr in metrics])
+        means.append([np.mean(metr) for metr in metrics])
+
+        ax_nsad.plot(image_nsad, c=my_col, linewidth=lw0)
+        ax_nsad.plot(image_nsad[0], c=my_col, linewidth=lw1, label=pf)
+        ax_ncc.plot(image_ncc, c=my_col, linewidth=lw0)
+        ax_ncc.plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
+        ax_nmi.plot(image_nmi, c=my_col, linewidth=lw0)
+        ax_nmi.plot(image_nmi[0], c=my_col, linewidth=lw1, label=pf)
+
+    for ax in axs1.ravel():
+        ax.grid(True)
+        ax.legend(fontsize=fs2)
+        
+    if nsad_bounds[0]==nsad_bounds[1]:
+        nsad_min, nsad_max = get_min_max_thresholds(np.concatenate(image_nsads),
+                                                    thr_min=1e-4, thr_max=1e-4,
+                                                    nbins=256, disp_res=False)
+    else:
+        nsad_min, nsad_max = nsad_bounds
+    ax_nsad.set_ylim(nsad_min, nsad_max)
+
+    if ncc_bounds[0]==ncc_bounds[1]:
+        ncc_min, ncc_max = get_min_max_thresholds(np.concatenate(image_nccs),
+                                                    thr_min=1e-4, thr_max=1e-4,
+                                                    nbins=256, disp_res=False)
+    else:
+        ncc_min, ncc_max = ncc_bounds
+    ax_ncc.set_ylim(ncc_min, ncc_max)
+
+    if nmi_bounds[0]==nmi_bounds[1]:
+        nmi_min, nmi_max = get_min_max_thresholds(np.concatenate(image_nmis),
+                                                    thr_min=1e-4, thr_max=1e-4,
+                                                    nbins=256, disp_res=False)
+    else:
+        nmi_min, nmi_max = nmi_bounds
+    ax_nmi.set_ylim(nmi_min, nmi_max)    
+    
+    ax_nsad.text(-0.05, 1.05, data_dir, transform=ax_nsad.transAxes, fontsize=10)
+    if save_res_png:
+        fig1.savefig(save_filename, dpi=300)
+        
+    # Generate the Cell Text
+    cell_text = []
+    fig2_data = []
+    limits = []
+    rows = labels
+    fst=9
+
+    for j, (mean, spread) in enumerate(zip(means, spreads)):
+        cell_text.append(['{:.4f}'.format(mean[0]), '{:.4f}'.format(spread[0]),
+                          '{:.4f}'.format(mean[1]), '{:.4f}'.format(spread[1]), '{:.4f}'.format(mean[2]),
+                          '{:.4f}'.format(mean[3]), '{:.4f}'.format(spread[3])])
+        fig2_data.append([mean[0], spread[0], mean[1], spread[1], mean[2], mean[3], spread[3]])
+        
+    # Generate the table
+    fig2, ax = subplots(1, 1, figsize=(9.5,1.3))
+    fig2.subplots_adjust(left=0.32, bottom=0.01, right=0.98, top=0.86, wspace=0.05, hspace=0.05)
+    ax.axis(False)
+    ax.text(-0.30, 1.07, 'SIFT Registration Comparisons:  ' + data_dir, fontsize=fst)
+    llw1=0.3
+    clw = [llw1, llw1]
+
+    columns = ['NSAD Mean', 'NSAD Spread', 'NCC Mean', 'NCC Spread', 'Mean SNR', 'NMI Mean', 'NMI Spread']
+
+    n_cols = len(columns)
+    n_rows = len(rows)
+
+    tbl = ax.table(cellText = cell_text,
+                   rowLabels = rows,
+                   colLabels = columns,
+                   cellLoc = 'center',
+                   colLoc = 'center',
+                   bbox = [0.01, 0, 0.995, 1.0],
+                  fontsize=16)
+    tbl.auto_set_column_width(col=3)
+
+    table_props = tbl.properties()
+    try:
+        table_cells = table_props['child_artists']
+    except:
+        table_cells = table_props['children']
+
+    tbl.auto_set_font_size(False)
+    for j, cell in enumerate(table_cells[0:n_cols*n_rows]):
+        cell.get_text().set_color(my_cols[j//n_cols])
+        cell.get_text().set_fontsize(fst)
+    for j, cell in enumerate(table_cells[n_cols*(n_rows+1):]):
+        cell.get_text().set_color(my_cols[j])
+    for cell in table_cells[n_cols*n_rows:]:
+    #    cell.get_text().set_fontweight('bold')
+        cell.get_text().set_fontsize(fst)
+    save_filename2 = save_filename.replace('.png', '_table.png')
+    if save_res_png:
+        fig2.savefig(save_filename2, dpi=300)   
+        
+    ysize_fig = 4
+    ysize_tbl = 0.25 * nfls
+    fst3 = 8
+    fig3, axs3 = subplots(2, 1, figsize=(7, ysize_fig+ysize_tbl),  gridspec_kw={"height_ratios" : [ysize_tbl, ysize_fig]})
+    fig3.subplots_adjust(left=0.10, bottom=0.10, right=0.98, top=0.96, wspace=0.05, hspace=0.05)
+
+    for j, reg_data in enumerate(reg_datas):
+        my_col = my_cols[j]
+        pf = labels[j]
+        lw0 = linewidths[j]
+        image_ncc = reg_data['Image NCC']
+        axs3[1].plot(image_ncc, c=my_col, linewidth=lw0)
+        axs3[1].plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
+    axs3[1].grid(True)
+    axs3[1].legend(fontsize=fs2)
+    axs3[1].set_ylabel('Normalized Cross-Correlation', fontsize=fs)
+    axs3[1].set_xlabel('Frame', fontsize=fs)
+    axs3[1].set_ylim(ncc_min, ncc_max)
+    axs3[0].axis(False)
+    axs3[0].text(-0.1, 1.07, 'SIFT Registration Comparisons:  ' + data_dir, fontsize=fst3)
+    llw1=0.3
+    clw = [llw1, llw1]
+
+    columns2 = ['NCC Mean', 'NCC Spread', 'SNR Mean', 'SNR Spread']
+    cell2_text = []
+    fig3_data = []
+    limits = []
+    rows = labels
+    
+    for j, (mean, spread) in enumerate(zip(means, spreads)):
+        cell2_text.append(['{:.4f}'.format(mean[1]), '{:.4f}'.format(spread[1]),
+                          '{:.4f}'.format(mean[2]), '{:.4f}'.format(spread[2])])
+    n_cols = len(columns2)
+    n_rows = len(rows)
+
+    tbl2 = axs3[0].table(cellText = cell2_text,
+                   rowLabels = rows,
+                   colLabels = columns2,
+                   cellLoc = 'center',
+                   colLoc = 'center',
+                   bbox = [0.38, 0, 0.55, 1.0],  # (left, bottom, width, height)
+                  fontsize=16)
+    rl = max([len(pf) for pf in labels])
+    #tbl2.auto_set_column_width(col=[rl+5, len(columns2[0]), len(columns2[1]), len(columns2[2]), len(columns2[3])])
+    tbl2.auto_set_column_width(col=list(range(len(columns2)+1)))
+    tbl2.auto_set_font_size(False)
+
+    table2_props = tbl2.properties()
+    try:
+        table2_cells = table2_props['child_artists']
+    except:
+        table2_cells = table2_props['children']
+
+    tbl.auto_set_font_size(False)
+    for j, cell in enumerate(table2_cells[0:n_cols*n_rows]):
+        cell.get_text().set_color(my_cols[j//n_cols])
+        cell.get_text().set_fontsize(fst3)
+    for j, cell in enumerate(table2_cells[n_cols*(n_rows+1):]):
+        cell.get_text().set_color(my_cols[j])
+    for cell in table2_cells[n_cols*n_rows:]:
+    #    cell.get_text().set_fontweight('bold')
+        cell.get_text().set_fontsize(fst3)
+    save_filename3 = save_filename.replace('.png', '_fig_and_table.png')
+    if save_res_png:
+        fig3.savefig(save_filename3, dpi=300)
+    
+    if save_res_png:
+        # Generate a single multi-page CSV file
+        xlsx_fname = save_filename.replace('.png', '.xlsx')
+        # Create a Pandas Excel writer using XlsxWriter as the engine.
+        writer = pd.ExcelWriter(xlsx_fname, engine='xlsxwriter')
+        fig2_df = pd.DataFrame(fig2_data, columns=columns)
+        fig2_df.insert(0, '', labels)
+        fig2_df.insert(1, 'Path', data_files)
+        fig2_df.to_excel(writer, index=None, sheet_name='Summary')
+        for reg_data, label in zip(tqdm(reg_datas, desc='saving the data into xlsx file'), labels):
+            data_fn = label[0:31]
+            reg_data.to_excel(writer, sheet_name=data_fn)
+        writer.save()
+    return xlsx_fname
+
+
+def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
+    '''
+    Read and plot together multiple registration quality summaries.
+    ©G.Shtengel, 04/2021. gleb.shtengel@gmail.com
+
+    Parameters:
+    data_files : array of str
+        Filenames (full paths) of the registration summaries (*.xlsx files)
+    labels : array of str
+        Labels (for each registration)
+
+    kwargs:
+    save_res_png : boolean
+        If True, the PNG's of summary plots as well as summary Excel notebook are saved 
+    save_filename : str
+        Filename (full path) to save the results (default is data_dir +'Regstration_Summary.png')
+    nsad_bounds : list of floats
+        Bounds for NSAD plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
+    ncc_bounds : list of floats
+        Bounds for NCC plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
+    nmi_bounds : list of floats
+        Bounds for NMI plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
+    colors : array or list of colors
+        Optional colors for each plot/file. If not provided, will be auto-generated.
+    linewidths : array of float
+        linewidths for individual files. If not provided, all linewidts are set to 0.5
+
+    Returns
+    xlsx_fname : str
+        Filename of the summary Excel notebook
+    '''
+    save_res_png  = kwargs.get("save_res_png", True )
+    linewidths = kwargs.get("linewidths", np.ones(len(data_files))*0.5)
+    data_dir = os.path.split(data_files[0])[0]
+    default_save_filename = os.path.join(data_dir, 'Regstration_Summary.png')
+    save_filename = kwargs.get("save_filename", default_save_filename)
+    nsad_bounds = kwargs.get("nsad_bounds", [0.0, 0.0])
+    ncc_bounds = kwargs.get("ncc_bounds", [0.0, 0.0])
+    nmi_bounds = kwargs.get("nmi_bounds", [0.0, 0.0])
+    
+    nfls = len(data_files)
+    reg_datas = []
+    for data_file in data_files:
+        # fl = os.path.join(data_dir, df)
+        # data = pd.read_csv(fl)
+        data = pd.read_excel(data_file, sheet_name='Registration Quality Statistics')
         reg_datas.append(data)
 
     lw0 = 0.5
@@ -5204,7 +6030,138 @@ def find_fit(tr_matr_cum, fit_params):
     s_fits = [s00_fit, s01_fit, s10_fit, s11_fit]
     return tr_matr_cum_new, s_fits
 
+
 def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_mean, **kwargs):
+    data_dir = kwargs.get("data_dir", '')
+    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
+    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
+    Sample_ID = kwargs.get("Sample_ID", '')
+
+    l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
+    l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
+    l2_matrix_default[2,2] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix_default[5,5] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix = kwargs.get("l2_matrix", l2_matrix_default)
+    targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
+    solver = kwargs.get("solver", 'RANSAC')
+    drmax = kwargs.get("drmax", 2.0)
+    max_iter = kwargs.get("max_iter", 1000)
+    BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
+    kp_max_num = kwargs.get("kp_max_num", -1)
+    save_res_png  = kwargs.get("save_res_png", True)
+
+    preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
+    fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+                                                            # window size 701, polynomial order 3
+    subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
+    #print("subtract_linear_fit:", subtract_linear_fit)
+    pad_edges =  kwargs.get("pad_edges", True)
+
+    tr_matr_cum = transformation_matrix.copy()   
+    prev_mt = np.eye(3,3)
+    for j, cur_mt in enumerate(tqdm(transformation_matrix, desc='Calculating Original Cummilative Transformation Matrix')):
+        prev_mt = np.matmul(cur_mt, prev_mt)
+        tr_matr_cum[j] = prev_mt
+    # Now insert identity matrix for the zero frame which does not need to be trasformed
+    tr_matr_cum = np.insert(tr_matr_cum, 0, np.eye(3,3), axis=0)  
+    
+    fr = np.arange(0, len(tr_matr_cum), dtype=np.double)
+    s00_cum_orig = tr_matr_cum[:, 0, 0].astype(np.double)
+    s01_cum_orig = tr_matr_cum[:, 0, 1].astype(np.double)
+    s10_cum_orig = tr_matr_cum[:, 1, 0].astype(np.double)
+    s11_cum_orig = tr_matr_cum[:, 1, 1].astype(np.double)
+    Xshift_cum_orig = tr_matr_cum[:, 0, 2].astype(np.double)
+    Yshift_cum_orig = tr_matr_cum[:, 1, 2].astype(np.double)
+
+    if preserve_scales:  # in case of ScaleShift Transform WITH scale perservation
+        #print('Recalculating the transformation matrix for preserved scales')
+        tr_matr_cum, s_fits = find_fit(tr_matr_cum, fit_params)
+        s00_fit, s01_fit, s10_fit, s11_fit = s_fits
+        txs = np.zeros(len(tr_matr_cum), dtype=float)
+        tys = np.zeros(len(tr_matr_cum), dtype=float)
+        
+        for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Recalculating the shifts for preserved scales: ')):
+            try:
+                src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
+
+                txs[j+1] = np.mean(tr_matr_cum[j, 0, 0] * dst_pts[:, 0] + tr_matr_cum[j, 0, 1] * dst_pts[:, 1]
+                                   - tr_matr_cum[j+1, 0, 0] * src_pts[:, 0] - tr_matr_cum[j+1, 0, 1] * src_pts[:, 1])
+                tys[j+1] = np.mean(tr_matr_cum[j, 1, 1] * dst_pts[:, 1] + tr_matr_cum[j, 1, 0] * dst_pts[:, 0]
+                                   - tr_matr_cum[j+1, 1, 1] * src_pts[:, 1] - tr_matr_cum[j+1, 1, 0] * src_pts[:, 0])
+            except:
+                txs[j+1] = 0.0
+                tys[j+1] = 0.0
+        txs_cum = np.cumsum(txs)
+        tys_cum = np.cumsum(tys)
+        tr_matr_cum[:, 0, 2] = txs_cum
+        tr_matr_cum[:, 1, 2] = tys_cum
+
+    Xshift_cum = tr_matr_cum[:, 0, 2].copy()
+    Yshift_cum = tr_matr_cum[:, 1, 2].copy()
+
+    # Subtract linear trends from offsets
+    if subtract_linear_fit[0]:
+        fr = np.arange(0, len(Xshift_cum))
+        pX = np.polyfit(fr, Xshift_cum, 1)
+        Xfit = np.polyval(pX, fr)
+        Xshift_residual = Xshift_cum - Xfit
+        #Xshift_residual0 = -np.polyval(pX, 0.0)
+    else:
+        Xshift_residual = Xshift_cum.copy()
+
+    if subtract_linear_fit[1]:
+        fr = np.arange(0, len(Yshift_cum))
+        pY = np.polyfit(fr, Yshift_cum, 1)
+        Yfit = np.polyval(pY, fr)
+        Yshift_residual = Yshift_cum - Yfit
+        #Yshift_residual0 = -np.polyval(pY, 0.0)
+    else:
+        Yshift_residual = Yshift_cum.copy()
+
+    # define new cumulative transformation matrix where the offests may have linear slopes subtracted
+    tr_matr_cum[:, 0, 2] = Xshift_residual
+    tr_matr_cum[:, 1, 2] = Yshift_residual
+    
+    # save the data
+    default_bin_file = os.path.join(data_dir, fnm_reg.replace('.mrc', '_transf_matrix.bin'))
+    transf_matrix_bin_file = kwargs.get("dump_file", default_bin_file)
+    transf_matrix_xlsx_file = default_bin_file.replace('.bin', '.xlsx')
+
+    xlsx_writer = pd.ExcelWriter(transf_matrix_xlsx_file, engine='xlsxwriter')
+    columns=['T00 (Sxx)', 'T01 (Sxy)', 'T02 (Tx)',  
+                 'T10 (Syx)', 'T11 (Syy)', 'T12 (Ty)', 
+                 'T20 (0.0)', 'T21 (0.0)', 'T22 (1.0)']
+    tr_mx_dt = pd.DataFrame(transformation_matrix.reshape((len(transformation_matrix), 9)), columns = columns, index = None)
+    tr_mx_dt.to_excel(xlsx_writer, index=None, sheet_name='Orig. Transformation Matrix')
+
+    tr_mx_cum_dt = pd.DataFrame(tr_matr_cum.reshape((len(tr_matr_cum), 9)), columns = columns, index = None)
+    tr_mx_cum_dt.to_excel(xlsx_writer, index=None, sheet_name='Cum. Transformation Matrix')
+
+    columns_shifts=['s00_cum_orig', 's00_fit', 's11_cum_orig', 's11_fit', 's01_cum_orig', 's01_fit', 's10_cum_orig', 's10_fit', 'Xshift_cum_orig', 'Yshift_cum_orig', 'Xshift_cum', 'Yshift_cum', 'Xfit', 'Yfit']
+    shifts_dt = pd.DataFrame(np.vstack((s00_cum_orig, s00_fit, s11_cum_orig, s11_fit, s01_cum_orig, s01_fit, s10_cum_orig, s10_fit, Xshift_cum_orig, Yshift_cum_orig, Xshift_cum, Yshift_cum, Xfit, Yfit)).T, columns = columns_shifts, index = None)
+    shifts_dt.to_excel(xlsx_writer, index=None, sheet_name='Intermediate Results')
+    
+    columns_reg_stat = ['Npts', 'Mean Abs Error']
+    reg_stat_dt = pd.DataFrame(np.vstack((npts, error_abs_mean)).T, columns = columns_reg_stat, index = None)
+    reg_stat_dt.to_excel(xlsx_writer, index=None, sheet_name='Reg. Stat. Info')
+
+    kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
+    kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
+
+    xlsx_writer.save()
+
+    DumpObject = [kwargs, npts, error_abs_mean,
+              transformation_matrix, s00_cum_orig, s11_cum_orig, s00_fit, s11_fit,
+              tr_matr_cum, s01_cum_orig, s10_cum_orig, s01_fit, s10_fit,
+              Xshift_cum_orig, Yshift_cum_orig, Xshift_cum, Yshift_cum, Yshift_cum, Xfit, Yfit]
+    with open(transf_matrix_bin_file,"wb") as f:
+        pickle.dump(DumpObject, f)
+    
+    return tr_matr_cum, transf_matrix_xlsx_file
+
+
+def process_transf_matrix_old(transformation_matrix, fnms_matches, npts, error_abs_mean, **kwargs):
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -5299,15 +6256,6 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
 
         tr_matr_cum, s_fits = find_fit(tr_matr_cum, fit_params)
         s00_fit, s01_fit, s10_fit, s11_fit = s_fits
-        '''
-        det_cum_intermed = (s00_cum_new*s11_cum_new - s01_cum_orig*s10_cum_orig)
-        slp_det = -1.0 * (np.sum(fr)-np.dot(det_cum_intermed,fr))/np.dot(fr,fr) # find the slope of a linear fit with forced first scale=1
-        det_fit = 1.0 + slp_det * fr
-        tr_matr_cum[:, 0, 0] = tr_matr_cum[:, 0, 0]/det_fit
-        tr_matr_cum[:, 0, 1] = tr_matr_cum[:, 0, 1]/det_fit
-        tr_matr_cum[:, 1, 0] = tr_matr_cum[:, 1, 0]/det_fit
-        tr_matr_cum[:, 1, 1] = tr_matr_cum[:, 1, 1]/det_fit
-        '''
         
         txs = np.zeros(len(tr_matr_cum), dtype=float)
         tys = np.zeros(len(tr_matr_cum), dtype=float)
@@ -6015,6 +6963,94 @@ def transform_frame(frame, tr_matr, **kwargs):
 def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
     '''
     Transform and save FIB-SEM data set. A new vesion, with variable zbin_factor option. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
+
+    Parameters
+    save_transformed_dataset : boolean
+        If true, the transformed data set will be saved into MRC file
+    frame_inds : int array
+        Array of frame indecis. If not set or set to np.array((-1)), all frames will be transformed
+    fls : array of strings
+        full array of filenames
+    tr_matr_cum_residual : array
+        transformation matrix
+    data_minmax : list containing the data bounds
+        [data_max_glob, data_min_glob, data_max_sliding, data_min_sliding]
+    npts : array
+        array of number of keypoints (only passed through to the output)
+    error_abs_mean: array
+        array of errors (only passed through to the output)
+    
+    kwargs
+    ---------
+    ftype : int
+        file type (0 - Shan Xu's .dat, 1 - tif)
+    data_dir : str
+        data direcory (path)
+    fnm_reg : str
+        filename for the final registed dataset
+    ImgB_fraction : float
+        fractional ratio of Image B to be used for constructing the fuksed image:
+        ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
+    Sample_ID : str
+        Sample ID
+    TransformType : object reference
+            Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
+            Choose from the following options:
+                ShiftTransform - only x-shift and y-shift
+                XScaleShiftTransform  -  x-scale, x-shift, y-shift
+                ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
+                AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
+                RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
+    l2_matrix : 2D float array
+        matrix of regularization (shrinkage) parameters
+    targ_vector = 1D float array
+        target vector for regularization
+    solver : str
+        Solver used for SIFT ('RANSAC' or 'LinReg')
+    drmax : float
+        In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
+        In the case of 'LinReg' - outlier threshold for iterative regression
+    max_iter : int
+        Max number of iterations in the iterative procedure above (RANSAC or LinReg)
+    BFMatcher : boolean
+        If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    save_matches : boolean
+        If True, matches will be saved into individual files
+    save_res_png  : boolean
+        Save PNG images of the intermediate processing statistics and final registration quality check
+    preserve_scales : boolean
+        If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
+    fit_params : list
+        Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
+        Other options are:
+            ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
+            ['PF', 2]  - use polynomial fit (in this case of order 2)
+    subtract_linear_fit : [boolean, boolean]
+        List of two Boolean values for two directions: X- and Y-.
+        If True, the linear slopes along X- and Y- directions (respectively)
+        will be subtracted from the cumulative shifts.
+        This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
+    pad_edges : boolean
+        If True, the data will be padded before transformation to avoid clipping.
+    perfrom_transformation : boolean
+        If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
+    invert_data : boolean
+        If True - the data is inverted.
+    evaluation_box : list of 4 int
+        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
+        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+    sliding_evaluation_box : boolean
+        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+    start_evaluation_box : list of 4 int
+        see above
+    stop_evaluation_box : list of 4 int
+        see above
+    
+    Returns:
+    reg_summary, reg_summary_xlsx
+        reg_summary : pandas DataFrame
+        reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
+        reg_summary_xlsx : name of the XLSX workbook containing the data
     '''
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
@@ -6051,13 +7087,14 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
     disp_res = kwargs.get("disp_res", True)
-
     dformat_save = 'I8' if mrc_mode==0 else 'I16'
 
     nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
     end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
     st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)    # starting frame for each z-bin
     nfrs_zbinned = len(st_frames)                                            # number of frames after z-ninning
+    #frames_new = np.arange(nfrs_zbinned-1)+st_frames[0]//zbin_factor
+    frames_new = np.arange(nfrs_zbinned-1)
     
     if invert_data:
         if test_frame.EightBit==0:
@@ -6111,7 +7148,10 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
 
     frame_img = np.zeros((ysz, xsz), dtype=float)
     prev_frame_img = frame_img.copy()
-
+    xi_evals = np.zeros((nfrs_zbinned-1), dtype=int16)
+    xa_evals = np.zeros((nfrs_zbinned-1), dtype=int16)
+    yi_evals = np.zeros((nfrs_zbinned-1), dtype=int16)
+    ya_evals = np.zeros((nfrs_zbinned-1), dtype=int16)
     image_nsad = np.zeros((nfrs_zbinned-1), dtype=float)
     image_ncc = np.zeros((nfrs_zbinned-1), dtype=float)
     image_mi = np.zeros((nfrs_zbinned-1), dtype=float)
@@ -6126,9 +7166,10 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
         dy_eval = 0
 
     if save_transformed_dataset:
-        print('Saving the registered and {:d}-x z-binned stack into the file: '.format(zbin_factor), fpath_reg)
-        #print('There will be {:d} frames in the saved stack'.format(nfrs_zbinned))
-        print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d}'.format(xsz, ysz, nfrs_zbinned))
+        if disp_res:
+            print('Saving the registered and {:d}-x z-binned stack into the file: '.format(zbin_factor), fpath_reg)
+            #print('There will be {:d} frames in the saved stack'.format(nfrs_zbinned))
+            print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d}'.format(xsz, ysz, nfrs_zbinned))
         # Make a new, empty memory-mapped MRC file
         mrc = mrcfile.new_mmap(fpath_reg, shape=(nfrs_zbinned, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
         # mode 0 -> uint8
@@ -6144,45 +7185,7 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     Subtr_Lin_Fit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
     Pad_Edg = 'ON' if  pad_edges else 'OFF'
 
-    if disp_res:
-        fs=12
-        lwl=1
-        if preserve_scales:
-            fit_method = fit_params[0]
-            if fit_method == 'LF':
-                fit_str = ', Meth: Linear Fit'
-                fm_string = 'linear'
-            else:
-                if fit_method == 'SG':
-                    fit_str = ', Meth: Sav.-Gol., ' + str(fit_params[1:])
-                    fm_string = 'Sav.-Gol.'
-                else:
-                    fit_str = ', Meth: ' + fit_method + ', ' + str(fit_params[1:])
-                    fm_string = fit_method
-            preserve_scales_string = 'Preserve Scales: ON' + fit_str
-        else:
-            preserve_scales_string = 'Preserve Scales: OFF'
-
-        cond_str = TransformType.__name__ + ' with ' + solver + ', drmax={:.1f},  '.format(drmax) + preserve_scales_string + '.    Subtract Linear Fit:' + Subtr_Lin_Fit + ',  Pad Edges:'+Pad_Edg
-        
-        fig4, axs4 = subplots(2,2, figsize=(12, 8), sharex=True)
-        fig4.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, wspace=0.18, hspace=0.04)
-        axs4[0,0].axis('off')
-        frames_new = np.arange(nfrs_zbinned-1)+st_frames[0]//zbin_factor
-        axs_fr0 = fig4.add_subplot(6,2,1)
-        axs_fr1 = fig4.add_subplot(6,2,3)
-        axs_fr2 = fig4.add_subplot(6,2,5)
-        axs_frms = [axs_fr0, axs_fr1, axs_fr2]
-
-       
-        if len(st_frames)//10*9 > 0:
-            ev_ind2 = st_frames[len(st_frames)//10*9]
-        else:
-            ev_ind2 = st_frames[len(st_frames)-1]
-        frame_eval_inds = [st_frames[len(st_frames)//10],  st_frames[len(st_frames)//2], ev_ind2]
-    
-    j_ax = 0
-    for j, st_frame in enumerate(tqdm(st_frames, desc = tq_desc, disable=(not disp_res))):
+    for j, st_frame in enumerate(tqdm(st_frames, desc = tq_desc, display = disp_res)):
         binned_fr_img = np.zeros((ysz, xsz), dtype=float)
         process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
         #print('Processing frames: ', process_frames)
@@ -6234,7 +7237,10 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
             I1c = cp.array(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
             I2c = cp.array(prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
             fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
-
+            xi_evals[j-1] = xi_eval
+            xa_evals[j-1] = xa_eval
+            yi_evals[j-1] = yi_eval
+            ya_evals[j-1] = ya_eval
             image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
             image_ncc[j-1] = Two_Image_NCC_SNR(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
             image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
@@ -6242,395 +7248,37 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
             image_npts[j-1] = np.mean(npts[st_frame:st_frame+zbin_factor])
             del I1c, I2c
         prev_binned_fr_img = binned_fr_img.copy()  # update the previous frame for future registration
-        
+
+    if save_transformed_dataset:
+        mrc.close()
+
+    # Generate a figure with analysis of registration quality - Image NSAD, NCC, NMI's vs. frames.
+    #image_nsad = image_nsad[1:-1]
+    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
+    #image_ncc = image_ncc[1:-1]
+    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
+    nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
+    
+    columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
+    reg_summary = pd.DataFrame(np.vstack((frames_new, xi_evals, xa_evals, yi_evals, ya_evals, image_npts, image_errors, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
+
+    if save_transformed_dataset:
+        registration_summary_xlsx = os.path.join(data_dir, fnm_reg).replace('.mrc', '_RegistrationQuality.xlsx')
         if disp_res:
-            if st_frame in frame_eval_inds:
-                ax = axs_frms[j_ax]
-                dmin, dmax = get_min_max_thresholds(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
-                if invert_data:
-                    ax.imshow(binned_fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
-                else:
-                    ax.imshow(binned_fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
-
-                ax.text(0.03, 1.01, 'Acquisition Frame={:d}'.format(st_frame), color='cyan', transform=ax.transAxes)
-                rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
-                ax.add_patch(rect_patch)
-                ax.axis('off')
-                j_ax = j_ax + 1
-
-    if save_transformed_dataset:
-        mrc.close()
-
-    # Generate a figure with analysis of registration quality - Image NSAD, NCC, NMI's vs. frames.
-    #image_nsad = image_nsad[1:-1]
-    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
-    #image_ncc = image_ncc[1:-1]
-    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
-    nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
-    
-        
-    if disp_res:
-        #axs4[0,0].plot(frames_new, image_errors, 'magenta', linewidth=lwl)
-        #axs4[0,0].text(0.02, 0.04, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs4[0,0].transAxes, fontsize = fs-1)
-        #axs4[0,0].set_ylabel('Mean Abs. Error (KeyPts)')
-
-        axs4[1,0].plot(frames_new, image_nsad, 'r', linewidth=lwl)
-        axs4[1,0].set_ylabel('Normalized Sum of Abs. Diff')
-        axs4[1,0].text(0.02, 0.04, 'NSAD mean = {:.3f}   NSAD median = {:.3f}  NSAD STD = {:.3f}'.format(nsads[0], nsads[1], nsads[2]), transform=axs4[1,0].transAxes, fontsize = fs-1)
-        axs4[1,0].set_xlabel('Binned Frame #')
-
-        axs4[0,1].plot(frames_new, image_ncc, 'b', linewidth=lwl)
-        axs4[0,1].set_ylabel('Normalized Cross-Correlation')
-        axs4[0,1].grid(True)
-        axs4[0,1].text(0.02, 0.04, 'NCC mean = {:.3f}   NCC median = {:.3f}  NCC STD = {:.3f}'.format(nccs[0], nccs[1], nccs[2]), transform=axs4[0,1].transAxes, fontsize = fs-1)
-
-        axs4[1,1].plot(frames_new, image_mi, 'g', linewidth=lwl)
-        axs4[1,1].set_ylabel('Normalized Mutual Information')
-        axs4[1,1].set_xlabel('Binned Frame #')
-        axs4[1,1].grid(True)
-        axs4[1,1].text(0.02, 0.04, 'NMI mean = {:.3f}   NMI median = {:.3f}  NMI STD = {:.3f}'.format(nmis[0], nmis[1], nmis[2]), transform=axs4[1,1].transAxes, fontsize = fs-1)
-
-        for ax in axs4.ravel()[1:-1]:
-            ax.grid(True)
-
-        if save_transformed_dataset:
-            fig4.suptitle(os.path.join(data_dir, fnm_reg), fontsize = fs-2)
-        if perfrom_transformation:
-            axs4[0,0].text(-0.1, 1.04, Sample_ID + '    ' +  cond_str, transform=axs4[0,0].transAxes)
-        else:
-            axs4[0,0].text(0.0, 1.04, Sample_ID, transform=axs4[0,0].transAxes)
-        if save_res_png :
-            fig4.savefig(os.path.join(data_dir, fnm_reg.replace('.mrc','_RegistrationQuality.png')), dpi=300)
-
-    registration_summary_fnm = os.path.join(data_dir, fnm_reg).replace('.mrc', '_RegistrationQuality.csv')
-    columns=['Frame', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
-    reg_summary = pd.DataFrame(np.vstack((frames_new, image_npts, image_errors, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
-    reg_summary.to_csv(registration_summary_fnm, index = None)
-    
-    return reg_summary
-
-
-
-def transform_and_save_dataset_old(save_transformed_dataset, frame_inds, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
-    ftype = kwargs.get("ftype", 0)
-    data_dir = kwargs.get("data_dir", '')
-    test_frame = FIBSEM_frame(fls[0], ftype=ftype)
-    XResolution = kwargs.get("XResolution", test_frame.XResolution)
-    YResolution = kwargs.get("YResolution", test_frame.YResolution)
-    #print('XResolution={:d}, YResolution={:d}'.format(XResolution, YResolution))
-    ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
-                                                           # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
-    if test_frame.DetB == 'None':
-        ImgB_fraction=0.0
-    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
-    Sample_ID = kwargs.get("Sample_ID", '')
-    pad_edges =  kwargs.get("pad_edges", True)
-    save_res_png  = kwargs.get("save_res_png", True)
-    save_asI8 =  kwargs.get("save_asI8", False)
-    dtp = kwargs.get("dtp", int16)
-    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
-    solver = kwargs.get("solver", 'RANSAC')
-    drmax = kwargs.get("drmax", 2.0)
-    max_iter = kwargs.get("max_iter", 1000)
-    BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-    mrc_mode = kwargs.get("mrc_mode", 0) 
-    zbin_2x =  kwargs.get("zbin_2x", True)
-    int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
-    preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
-    fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
-                                                            # window size 701, polynomial order 3
-    subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
-    perfrom_transformation =  kwargs.get("perfrom_transformation", True)
-    invert_data =  kwargs.get("invert_data", False)
-    evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])  #  [top, height, keft, width]
-    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
-    start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
-    stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
-    disp_res = kwargs.get("disp_res", True)
-
-    dformat_save = 'I8' if mrc_mode==0 else 'I16'
-    
-    if invert_data:
-        if test_frame.EightBit==0:
-            data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = np.negative(data_minmax)
-        else:
-            data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = [ uint8(255) - x for x in data_minmax]
+            print('Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
+        # Create a Pandas Excel writer using XlsxWriter as the engine.
+        xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
+        columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
+        reg_summary = pd.DataFrame(np.vstack((frames_new, xi_evals, xa_evals, yi_evals, ya_evals, image_npts, image_errors, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
+        reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
+        Stack_info = pd.DataFrame([{'Stack Filename' : fpath_reg}]).T # prepare to be save in transposed format
+        SIFT_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
+        Stack_info = Stack_info.append(SIFT_info)
+        Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
+        xlsx_writer.save()
     else:
-        data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
-
-    if pad_edges and perfrom_transformation:
-        #shape = [test_frame.YResolution, test_frame.XResolution]
-        shape = [YResolution, XResolution]
-        xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual, disp_res)
-        padx = int(xmx - xmn)
-        pady = int(ymx - ymn)
-        xi = int(np.max([xmx, 0]))
-        yi = int(np.max([ymx, 0]))
-        # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
-        # so that the transformed images are not clipped.
-        # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
-        # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
-        # those are calculated below base on the amount of padding calculated above
-        shift_matrix = np.array([[1.0, 0.0, xi],
-                                 [0.0, 1.0, yi],
-                                 [0.0, 0.0, 1.0]])
-        inv_shift_matrix = np.linalg.inv(shift_matrix)
-    else:
-        padx = 0
-        pady = 0
-        xi = 0
-        yi = 0
-        shift_matrix = np.eye(3,3)
-        inv_shift_matrix = np.eye(3,3)
- 
-    fpath_reg = os.path.join(data_dir, fnm_reg)
-    xsz = XResolution + padx
-    xa = xi + XResolution
-    ysz = YResolution + pady
-    ya = yi + YResolution
-    nfrs = len(fls)
-
-    xi_eval = xi + evaluation_box[2]
-    if evaluation_box[3] > 0:
-        xa_eval = xi_eval + evaluation_box[3]
-    else:
-        xa_eval = xa
-    yi_eval = yi + evaluation_box[0]
-    if evaluation_box[1] > 0:
-        ya_eval = yi_eval + evaluation_box[1]
-    else:
-        ya_eval = ya
-
-    frame0_img = np.zeros((ysz, xsz))
-    frame1_img = frame0_img.copy()
-    frame_img = frame0_img.copy()
-    prev_frame_img = frame0_img.copy()
-
-    image_nsad = np.zeros((len(frame_inds)-1), dtype=float)
-    image_ncc = np.zeros((len(frame_inds)-1), dtype=float)
-    image_mi = np.zeros((len(frame_inds)-1), dtype=float)
-
-    if sliding_evaluation_box:
-        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
-        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
-    else:
-        dx_eval = 0
-        dy_eval = 0
-
-    if zbin_2x:
-        if save_transformed_dataset:
-            print('Saving the registered and 2x z-binned stack into the file: ', fpath_reg)
-            # Make a new, empty memory-mapped MRC file
-            mrc = mrcfile.new_mmap(fpath_reg, shape=(len(frame_inds)//2, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
-            # mode 0 -> uint8
-            # mode 1 -> int16:
-            mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
-            tq_desc = 'Saving into ' + dformat_save + ' MRC File'
-        else:
-            tq_desc = 'Processing frames'
-        ind = np.arange(0,len(frame_inds)-1,2)
-        j0image = np.zeros((YResolution, XResolution), dtype=float)
-        j1image = np.zeros((YResolution, XResolution), dtype=float)
-        for j in tqdm(ind, desc = tq_desc, disable=(not disp_res)):
-            j0frame = FIBSEM_frame(fls[frame_inds[j]], ftype=ftype)
-            j1frame = FIBSEM_frame(fls[frame_inds[j+1]], ftype=ftype)
-            if ImgB_fraction < 1e-5:
-                j0image[0:j0frame.YResolution, 0:j0frame.XResolution] = j0frame.RawImageA.astype(float64)
-                j1image[0:j1frame.YResolution, 0:j1frame.XResolution] = j1frame.RawImageA.astype(float64)
-            else:
-                j0image[0:j0frame.YResolution, 0:j0frame.XResolution] = j0frame.RawImageA * (1.0 - ImgB_fraction) + j0frame.RawImageB * ImgB_fraction
-                j1image[0:j1frame.YResolution, 0:j1frame.XResolution] = j1frame.RawImageA * (1.0 - ImgB_fraction) + j1frame.RawImageB * ImgB_fraction
-
-            if invert_data:
-                if test_frame.EightBit==0:
-                    frame0_img[yi:ya, xi:xa] = np.negative(j0image)
-                    frame1_img[yi:ya, xi:xa] = np.negative(j1image)
-                else:
-                    frame0_img[yi:ya, xi:xa]  =  uint8(255) - j0image
-                    frame1_img[yi:ya, xi:xa]  =  uint8(255) - j1image    
-            else:
-                frame0_img[yi:ya, xi:xa]  = j0image
-                frame1_img[yi:ya, xi:xa]  = j1image
-
-            if perfrom_transformation:
-                transf0 = ProjectiveTransform(matrix = shift_matrix @ (tr_matr_cum_residual[frame_inds[j]] @ inv_shift_matrix))
-                frame0_img_reg = warp(frame0_img, transf0, order = int_order,  preserve_range=True)
-                transf1 = ProjectiveTransform(matrix = shift_matrix @ (tr_matr_cum_residual[frame_inds[j+1]] @ inv_shift_matrix))
-                frame1_img_reg = warp(frame1_img, transf1, order = int_order, preserve_range=True)
-            else:
-                frame0_img_reg = frame0_img.copy()
-                frame1_img_reg = frame1_img.copy()
-        
-            if (mrc_mode==0 and test_frame.EightBit==0):
-                curr_img = np.clip((((frame0_img_reg - data_min_glob)/2.0 + (frame1_img_reg - data_min_glob)/2.0)/(data_max_glob - data_min_glob)*255.0), 0, 255)
-            else:
-                curr_img = frame0_img_reg/2.0 + frame1_img_reg/2.0
-            if save_transformed_dataset:
-                mrc.data[j//2,:,:] = np.flip(curr_img.astype(dtp), axis=0)
-            if sliding_evaluation_box:
-                xi_eval = start_evaluation_box[2] + dx_eval*j//2//nfrs
-                yi_eval = start_evaluation_box[0] + dy_eval*j//2//nfrs
-                if start_evaluation_box[3] > 0:
-                    xa_eval = xi_eval + start_evaluation_box[3]
-                else:
-                    xa_eval = xsz
-                if start_evaluation_box[1] > 0:
-                    ya_eval = yi_eval + start_evaluation_box[1]
-                else:
-                    ya_eval = ysz
-            I1c = cp.array(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
-            if j>0:
-                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
-                #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
-                fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
-                image_ncc[j-1] = Two_Image_NCC_SNR(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
-                image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
-            I2c = cp.array(frame1_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
-            image_nsad[j] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
-            image_ncc[j] = Two_Image_NCC_SNR(frame0_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], frame1_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])[0]
-            image_mi[j] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
-            prev_frame_img = frame1_img_reg
-            del I1c, I2c
-    else:
-        # Execute this frame if 2x z-binning is NOT selected
-        if save_transformed_dataset:
-            print('Saving the registered stack into the file: ', fpath_reg)
-            # Make a new, empty memory-mapped MRC file
-            mrc = mrcfile.new_mmap(fpath_reg, shape=(len(frame_inds), ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
-            # mode 0 -> uint8
-            # mode 1 -> int16:
-            mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
-            tq_desc = 'Saving into ' + dformat_save + ' MRC File'
-        else:
-            tq_desc = 'Processing frames'
-        ind = np.arange(0,len(frame_inds))
-        j0image = np.zeros((YResolution, XResolution), dtype=float)
-        #print('Deafult Ffame Shape: ', np.shape(j0image), YResolution, XResolution)
-        for j in tqdm(ind, desc = tq_desc, disable=(not disp_res)):
-            j0frame = FIBSEM_frame(fls[frame_inds[j]], ftype=ftype)
-            if ImgB_fraction < 1e-5:
-                j0image[0:j0frame.YResolution, 0:j0frame.XResolution] = j0frame.RawImageA.astype(float64)
-                #j0image = FIBSEM_frame(fls[frame_inds[j]], ftype=ftype).RawImageA.astype(float64)
-            else:
-                j0image[0:j0frame.YResolution, 0:j0frame.XResolution] = j0frame.RawImageA * (1.0 - ImgB_fraction) + j0frame.RawImageB * ImgB_fraction
-
-            if invert_data:
-                if test_frame.EightBit==0:
-                    frame_img[yi:ya, xi:xa]  = np.negative(j0image)
-                else:
-                    frame_img[yi:ya, xi:xa]  =  uint8(255) - j0image    
-            else:
-                frame_img[yi:ya, xi:xa]  = j0image
-            if perfrom_transformation:
-                transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matr_cum_residual[frame_inds[j]] @ inv_shift_matrix))
-                frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True)
-            else:
-                frame_img_reg = frame_img.copy()
-            if (mrc_mode==0 and test_frame.EightBit==0):
-                curr_img = np.clip(((frame_img_reg - data_min_glob)/(data_max_glob - data_min_glob)*255.0), 0, 255)
-            else:
-                curr_img = frame_img_reg
-            if save_transformed_dataset:
-                mrc.data[j,:,:] = np.flip(curr_img.astype(dtp), axis=0)
-            if j>0:
-                if sliding_evaluation_box:
-                    xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
-                    yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
-                    if start_evaluation_box[3] > 0:
-                        xa_eval = xi_eval + start_evaluation_box[3]
-                    else:
-                        xa_eval = xsz
-                    if start_evaluation_box[1] > 0:
-                        ya_eval = yi_eval + start_evaluation_box[1]
-                    else:
-                        ya_eval = ysz
-                I1c = cp.array(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
-                I2c = cp.array(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
-                #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/cp.mean(I1c/2.0 + I2c/2.0 - data_min_glob))
-                fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
-                #print('cp results: ',cp.mean(cp.abs(I1c-I2c)), cp.mean(I1c/2.0 + I2c/2.0))
-                image_ncc[j-1] = Two_Image_NCC_SNR(prev_frame_img[yi_eval:ya_eval, xi_eval:xa_eval], frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])[0]
-                image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
-                del I1c, I2c
-            prev_frame_img = frame_img_reg
-    if save_transformed_dataset:
-        mrc.close()
-
-    # Generate a figure with analysis of registration quality - Image NSAD, NCC, NMI's vs. frames.
-    #image_nsad = image_nsad[1:-1]
-    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
-    #image_ncc = image_ncc[1:-1]
-    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
-    nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
-
-    Pres_scales = 'ON' if  preserve_scales else 'OFF'
-    Subtr_Lin_Fit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
-    Pad_Edg = 'ON' if  pad_edges else 'OFF'
-
-    if disp_res:
-        fs=12
-        lwl=1
-        if preserve_scales:
-            fit_method = fit_params[0]
-            if fit_method == 'LF':
-                fit_str = ', Meth: Linear Fit'
-                fm_string = 'linear'
-            else:
-                if fit_method == 'SG':
-                    fit_str = ', Meth: Sav.-Gol., ' + str(fit_params[1:])
-                    fm_string = 'Sav.-Gol.'
-                else:
-                    fit_str = ', Meth: ' + fit_method + ', ' + str(fit_params[1:])
-                    fm_string = fit_method
-            preserve_scales_string = 'Preserve Scales: ON' + fit_str
-        else:
-            preserve_scales_string = 'Preserve Scales: OFF'
-
-        cond_str = TransformType.__name__ + ' with ' + solver + ', drmax={:.1f},  '.format(drmax) + preserve_scales_string + '.    Subtract Linear Fit:' + Subtr_Lin_Fit + ',  Pad Edges:'+Pad_Edg
-
-        fig4, axs4 = subplots(2,2, figsize=(12, 8), sharex=True)
-        fig4.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, wspace=0.18, hspace=0.04)
-
-        axs4[0,0].plot(frame_inds[:-1], error_abs_mean[frame_inds[:-1]], 'magenta', linewidth=lwl)
-        axs4[0,0].text(0.02, 0.04, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs4[0,0].transAxes, fontsize = fs-1)
-        axs4[0,0].set_ylabel('Mean Abs. Error (KeyPts)')
-
-        axs4[1,0].plot(frame_inds[:-1], image_nsad, 'r', linewidth=lwl)
-        axs4[1,0].set_ylabel('Normalized Sum of Abs. Diff')
-        axs4[1,0].text(0.02, 0.04, 'NSAD mean = {:.3f}   NSAD median = {:.3f}  NSAD STD = {:.3f}'.format(nsads[0], nsads[1], nsads[2]), transform=axs4[1,0].transAxes, fontsize = fs-1)
-        axs4[1,0].set_xlabel('Frame #')
-
-        axs4[0,1].plot(frame_inds[:-1], image_ncc, 'b', linewidth=lwl)
-        axs4[0,1].set_ylabel('Normalized Cross-Correlation')
-        axs4[0,1].grid(True)
-        axs4[0,1].text(0.02, 0.04, 'NCC mean = {:.3f}   NCC median = {:.3f}  NCC STD = {:.3f}'.format(nccs[0], nccs[1], nccs[2]), transform=axs4[0,1].transAxes, fontsize = fs-1)
-
-        axs4[1,1].plot(frame_inds[:-1], image_mi, 'g', linewidth=lwl)
-        axs4[1,1].set_ylabel('Normalized Mutual Information')
-        axs4[1,1].set_xlabel('Frame #')
-        axs4[1,1].grid(True)
-        axs4[1,1].text(0.02, 0.04, 'NMI mean = {:.3f}   NMI median = {:.3f}  NMI STD = {:.3f}'.format(nmis[0], nmis[1], nmis[2]), transform=axs4[1,1].transAxes, fontsize = fs-1)
-
-        for ax in axs4.ravel():
-            ax.grid(True)
-
-        if save_transformed_dataset:
-            fig4.suptitle(os.path.join(data_dir, fnm_reg), fontsize = fs-2)
-        if perfrom_transformation:
-            axs4[0,0].text(-0.1, 1.04, Sample_ID + '    ' +  cond_str, transform=axs4[0,0].transAxes)
-        else:
-            axs4[0,0].text(0.0, 1.04, Sample_ID, transform=axs4[0,0].transAxes)
-        if save_res_png :
-            fig4.savefig(os.path.join(data_dir, fnm_reg.replace('.mrc','_RegistrationQuality.png')), dpi=300)
-
-    registration_summary_fnm = os.path.join(data_dir, fnm_reg).replace('.mrc', '_RegistrationQuality.csv')
-    columns=['Frame', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
-    reg_summary = pd.DataFrame(np.vstack((frame_inds[:-1], npts[frame_inds[:-1]], error_abs_mean[frame_inds[:-1]], image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
-    reg_summary.to_csv(registration_summary_fnm, index = None)
-    
-    return reg_summary
+        registration_summary_xlsx = 'Data Not Saved'
+    return reg_summary, registration_summary_xlsx
 
 
 def transform_and_save_dataset_DASK_old(DASK_client, save_transformed_dataset, indices_to_transform, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
@@ -6936,7 +7584,7 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
                 print('Frame to remove: {:d} : '.format(ind0+1) + ', File: ' + fls[ind0+1])
                 frame_to_remove  = FIBSEM_frame(fls[ind0+1], ftype=ftype)
                 frame_to_remove.save_snapshot(dpi=300)
-    print('Frames to remove:  ', frames_to_remove)
+        print('Frames to remove:  ', frames_to_remove)
 
     if len(frames_to_remove) == 0:
         print('No frames selected for removal')
@@ -7786,7 +8434,7 @@ class FIBSEM_dataset:
             If True, the data will be padded before transformation to avoid clipping.
     
         Returns:
-        tr_matr_cum_residual : list of 2D arrays of float
+        tr_matr_cum_residual, tr_matr_cum_xlsx_file : list of 2D arrays of float and the filename of the XLSX file with the transf matrix results
             Cumulative transformation matrices
         '''
         if len(self.transformation_matrix) == 0:
@@ -7796,6 +8444,11 @@ class FIBSEM_dataset:
             data_dir = kwargs.get("data_dir", self.data_dir)
             fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
             TransformType = kwargs.get("TransformType", self.TransformType)
+            SIFT_nfeatures = kwargs.get("SIFT_nfeatures", self.SIFT_nfeatures)
+            SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", self.SIFT_nOctaveLayers)
+            SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
+            SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
+            SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
             Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
             l2_matrix = kwargs.get("l2_matrix", self.l2_matrix)
             targ_vector = kwargs.get("targ_vector", self.targ_vector)
@@ -7814,6 +8467,11 @@ class FIBSEM_dataset:
             TM_kwargs = {'fnm_reg' : fnm_reg,
                             'data_dir' : data_dir,
                             'TransformType' : TransformType,
+                            'SIFT_nfeatures' : SIFT_nfeatures,
+                            'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
+                            'SIFT_contrastThreshold' : SIFT_contrastThreshold,
+                            'SIFT_edgeThreshold' : SIFT_edgeThreshold,
+                            'SIFT_sigma' : SIFT_sigma,
                             'Sample_ID' : Sample_ID,
                             'l2_matrix' : l2_matrix,
                             'targ_vector': targ_vector, 
@@ -7828,12 +8486,12 @@ class FIBSEM_dataset:
                             'fit_params' : fit_params,
                             'subtract_linear_fit' : subtract_linear_fit,
                             'pad_edges' : pad_edges}
-            self.tr_matr_cum_residual = process_transf_matrix(self.transformation_matrix,
+            self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transf_matrix(self.transformation_matrix,
                                              self.fnms_matches,
                                              self.npts,
                                              self.error_abs_mean,
                                              **TM_kwargs)
-        return self.tr_matr_cum_residual
+        return self.tr_matr_cum_residual, self.transf_matrix_xlsx_file
 
     def save_parameters(self, **kwargs):
         '''
@@ -7973,12 +8631,12 @@ class FIBSEM_dataset:
                             'fit_params' : fit_params,
                             'subtract_linear_fit' : subtract_linear_fit,
                             'pad_edges' : pad_edges}
-            self.tr_matr_cum_residual = process_transf_matrix(self.transformation_matrix,
+            self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transf_matrix(self.transformation_matrix,
                                              self.fnms_matches,
                                              self.npts,
                                              self.error_abs_mean,
                                              **TM_kwargs)
-        return self.tr_matr_cum_residual
+        return self.tr_matr_cum_residual, self.transf_matrix_xlsx_file
 
 
     def transform_and_save(self, save_transformed_dataset=True, frame_inds=np.array((-1)), **kwargs):
@@ -8056,8 +8714,10 @@ class FIBSEM_dataset:
             see above
         
         Returns:
-        reg_summary : pandas DataFrame
+        reg_summary, reg_summary_xlsx
+            reg_summary : pandas DataFrame
             reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
+            reg_summary_xlsx : name of the XLSX workbook containing the data
         '''
         if (frame_inds == np.array((-1))).all():
             frame_inds = np.arange(len(self.fls))
@@ -8135,16 +8795,16 @@ class FIBSEM_dataset:
                             'disp_res' : disp_res}
 
         if perfrom_transformation and hasattr(self, 'tr_matr_cum_residual'):
-            reg_summary = transform_and_save_dataset(save_transformed_dataset, frame_inds,
+            reg_summary, reg_summary_xlsx = transform_and_save_dataset(save_transformed_dataset, frame_inds,
                 self.fls, self.tr_matr_cum_residual, self.data_minmax, self.npts, self.error_abs_mean, **save_kwargs)
         else:
             error_abs_mean = np.zeros(len(self.fls)-1)
             npts = np.zeros(len(self.fls)-1)
             tr_matr_cum_residual = ''
-            reg_summary = transform_and_save_dataset(save_transformed_dataset, frame_inds,
+            reg_summary, reg_summary_xlsx = transform_and_save_dataset(save_transformed_dataset, frame_inds,
                 self.fls, tr_matr_cum_residual, self.data_minmax, npts, error_abs_mean, **save_kwargs)
 
-        return reg_summary
+        return reg_summary, reg_summary_xlsx
 
 
     def transform_and_save_DASK(self, DASK_client, frame_inds = np.array((-1)), save_transformed_dataset=True, **kwargs):
@@ -8655,6 +9315,7 @@ class FIBSEM_dataset:
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         nbr = len(ImgB_fractions)
+        kwargs['zbin_factor'] = 1
 
         br_results = []
         for ImgB_fraction in tqdm(ImgB_fractions, desc='Evaluating Img B fractions'):
@@ -8662,7 +9323,7 @@ class FIBSEM_dataset:
             kwargs['disp_res'] = False
             kwargs['evaluation_box'] = evaluation_box
             #print('evaluate_ImgB_fractions kwargs', kwargs)
-            br_res = self.transform_and_save(save_transformed_dataset=False, frame_inds=frame_inds, **kwargs)
+            br_res, br_res_xlsx = self.transform_and_save(save_transformed_dataset=False, frame_inds=frame_inds, **kwargs)
             br_results.append(br_res)
 
         fig, axs = subplots(3,1, figsize=(6,8))
@@ -8676,8 +9337,9 @@ class FIBSEM_dataset:
             my_col = get_cmap("gist_rainbow_r")((nbr-j)/(nbr-1))
             ncc = br_result['Image NCC']
             SNR = ncc / (1.0-ncc)
-            axs[0].plot(frame_inds[:-1], SNR, color=my_col, label = 'ImgB fraction = {:.2f}'.format(ImgB_fraction))
-            axs[1].plot(frame_inds[:-1], SNR/SNR0, color=my_col, label = 'ImgB fraction = {:.2f}'.format(ImgB_fraction))
+            frames_local = br_result['Frame']
+            axs[0].plot(frames_local, SNR, color=my_col, label = 'ImgB fraction = {:.2f}'.format(ImgB_fraction))
+            axs[1].plot(frames_local, SNR/SNR0, color=my_col, label = 'ImgB fraction = {:.2f}'.format(ImgB_fraction))
             SNR_impr.append(np.mean(SNR/SNR0))
             SNRs.append(np.mean(SNR))
 
