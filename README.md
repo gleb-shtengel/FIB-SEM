@@ -235,6 +235,8 @@ You will also need to have these packages installed:
         If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
     zbin_factor : int
         Bbinning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1
+    flipY : boolean
+        If True, the data will be flipped along Y-axis. Default is False.
     preserve_scales : boolean
         If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
     fit_params : list

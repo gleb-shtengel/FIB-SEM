@@ -7032,6 +7032,10 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
         This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
     pad_edges : boolean
         If True, the data will be padded before transformation to avoid clipping.
+    flipY : boolean
+        If True, the data will be flipped along Y-axis. Default is False.
+    zbin_factor : int
+        binning factor along Z-axis
     perfrom_transformation : boolean
         If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
     invert_data : boolean
@@ -7073,7 +7077,8 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-    mrc_mode = kwargs.get("mrc_mode", 0) 
+    mrc_mode = kwargs.get("mrc_mode", 0)
+    flipY = kwargs.get("flipY", False)
     zbin_factor =  kwargs.get("zbin_factor", 1)
     int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
     preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -7217,7 +7222,10 @@ def transform_and_save_dataset(save_transformed_dataset, frame_inds, fls, tr_mat
             binned_fr_img = binned_fr_img/zbin_factor
         if (mrc_mode==0 and test_frame.EightBit==1):
             binned_fr_img = np.clip(np.round((binned_fr_img - data_min_glob)/(data_max_glob - data_min_glob)*255.0), 0, 255)
-        binned_fr_img = np.flip(binned_fr_img.astype(dtp), axis=0)
+        if flipY:
+            binned_fr_img = np.flip(binned_fr_img.astype(dtp), axis=0)
+        else:
+            binned_fr_img = binned_fr_img.astype(dtp)
             
         if save_transformed_dataset:
             mrc.data[j,:,:] = binned_fr_img
@@ -7680,6 +7688,8 @@ class FIBSEM_dataset:
         If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
     zbin_factor : int
         binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
+    flipY : boolean
+        If True, the data will be flipped along Y-axis. Default is False.
     preserve_scales : boolean
         If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
     fit_params : list
@@ -8703,6 +8713,10 @@ class FIBSEM_dataset:
             If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
         invert_data : boolean
             If True - the data is inverted.
+        flipY : boolean
+            If True, the data will be flipped along Y-axis. Default is False.
+        zbin_factor : int
+            binning factor along Z-axis
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -8751,11 +8765,14 @@ class FIBSEM_dataset:
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         mrc_mode = kwargs.get("mrc_mode", self.mrc_mode) 
         zbin_factor =  kwargs.get("zbin_factor", self.zbin_factor)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
+        if hasattr(self, 'flipY'):
+            flipY = kwargs.get("flipY", self.flipY)
+        else:
+            flipY = kwargs.get("flipY", False)
         int_order = kwargs.get("int_order", self.int_order) 
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
         subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
-
         perfrom_transformation =  kwargs.get("perfrom_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
         invert_data =  kwargs.get("invert_data", False)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
@@ -8782,6 +8799,7 @@ class FIBSEM_dataset:
                             'BFMatcher' : BFMatcher,
                             'mrc_mode' : mrc_mode,
                             'zbin_factor' : zbin_factor,
+                            'flipY' : flipY,
                             'int_order' : int_order,                        
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
@@ -9002,6 +9020,8 @@ class FIBSEM_dataset:
             Save PNG images of the intermediate processing statistics and final registration quality check
         pad_edges : boolean
             If True, the data will be padded before transformation to avoid clipping.
+        flipY : boolean
+            If True, the data will be flipped along Y-axis. Default is False.
         frame_inds : list of int
             List oif frame indecis to use to display the evaluation box.
             Default are [nfrs//10, nfrs//2, nfrs//10*9]
@@ -9017,6 +9037,7 @@ class FIBSEM_dataset:
         int_order = kwargs.get("int_order", self.int_order) 
         perfrom_transformation =  kwargs.get("perfrom_transformation", True) and hasattr(self, 'tr_matr_cum_residual')
         invert_data =  kwargs.get("invert_data", False)
+        flipY = kwargs.get("flipY", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         fls = self.fls
@@ -9089,6 +9110,9 @@ class FIBSEM_dataset:
             else:
                 frame_img_reg = frame_img.copy()
 
+            if flipY:
+                frame_img_reg = np.flip(frame_img_reg, axis=0)
+
             if sliding_evaluation_box:
                 xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
                 yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
@@ -9139,6 +9163,8 @@ class FIBSEM_dataset:
             Save PNG images of the intermediate processing statistics and final registration quality check
         pad_edges : boolean
             If True, the data will be padded before transformation to avoid clipping.
+        flipY : boolean
+            If True, the data will be flipped along Y-axis. Default is False.
         
         '''
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
@@ -9150,6 +9176,7 @@ class FIBSEM_dataset:
         invert_data =  kwargs.get("invert_data", False)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         ImgB_fraction = kwargs.get("ImgB_fraction", 0.00 )
+        flipY = kwargs.get("flipY", False)
 
         fls = self.fls
         nfrs = len(fls)
@@ -9200,6 +9227,10 @@ class FIBSEM_dataset:
                 if self.DetB != 'None':
                     frame_imgB  = FIBSEM_frame(fls[j], ftype=ftype).RawImageB
 
+            if flipY:
+                frame_imgA = np.flip(frame_imgA, axis=0)
+                frame_imgB = np.flip(frame_imgB, axis=0)
+
             frame_imgA_eval = frame_imgA[yi_eval:ya_eval, xi_eval:xa_eval]
             ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval, save_res_png=False, img_label='Image A, frame={:d}'.format(j))
             xSNRAs.append(ImageA_xSNR)
@@ -9242,11 +9273,13 @@ class FIBSEM_dataset:
                         frame_imgA  =  uint8(255) - FIBSEM_frame(fls[j], ftype=ftype).RawImageA
                         if self.DetB != 'None':
                             frame_imgB  =  uint8(255) - FIBSEM_frame(fls[j], ftype=ftype).RawImageB
-                        
                 else:
                     frame_imgA  = FIBSEM_frame(fls[j], ftype=ftype).RawImageA
                     if self.DetB != 'None':
                         frame_imgB  = FIBSEM_frame(fls[j], ftype=ftype).RawImageB
+                if flipY:
+                    frame_imgA = np.flip(frame_imgA, axis=0)
+                    frame_imgB = np.flip(frame_imgB, axis=0)
 
                 frame_imgA_eval = frame_imgA[yi_eval:ya_eval, xi_eval:xa_eval]
                 frame_imgB_eval = frame_imgB[yi_eval:ya_eval, xi_eval:xa_eval]
