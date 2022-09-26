@@ -83,6 +83,8 @@ You will also need to have these packages installed:
 
 
 ## Helper Functions for Results Presentation
+    read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs)
+        Reads (SIFT processing) kwargs from XLSX file and returns them as dictionary.
     generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, *kwargs)
         Generate Report Plot for Transformation Matrix from XLSX spreadsheet file.
     generate_report_from_xls_registration_summary(file_xlsx, **kwargs)
