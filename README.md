@@ -238,7 +238,7 @@ You will also need to have these packages installed:
     zbin_factor : int
         Bbinning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1
     flipY : boolean
-        If True, the data will be flipped along Y-axis. Default is False.
+        If True, the registered data will be flipped along Y-axis when saved. Default is False.
     preserve_scales : boolean
         If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
     fit_params : list
