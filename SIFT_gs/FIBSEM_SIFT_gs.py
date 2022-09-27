@@ -162,8 +162,6 @@ def find_BW(fr, FSC, SNRt):
     while (j<npts-1) and FSC[j]>SNRt:
         j = j+1
     BW = fr[j-1] + (fr[j]-fr[j-1])*(SNRt-FSC[j-1])/(FSC[j]-FSC[j-1])
-    #print(fr[j-1], fr[j], FSC[j-1], FSC[j])
-    #print(BW, SNRt)
     return BW
 
 
@@ -227,7 +225,6 @@ def radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4):
             ind = np.concatenate((ind, np.squeeze((np.array(np.where((r_ang > ai) & (r_ang < aa)))))), axis=0)
     else:
         ind = np.squeeze(np.where((r_ang > astart) & (r_ang < astop)))
-        print(size(ind))
         
     rr = np.ravel(r)[ind]
     dd = np.ravel(data)[ind]
@@ -284,9 +281,8 @@ def smooth(x, window_len=11, window='hanning'):
     if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
         raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
 
-
     s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
-    #print(len(s))
+
     if window == 'flat': #moving average
         w=np.ones(window_len,'d')
     else:
@@ -417,7 +413,6 @@ def Single_Image_SNR(img, **kwargs):
     data_ACR_log = np.log(data_ACR)
     data_ACR = data_ACR / data_ACR_peak
     radial_ACR = radial_profile(data_ACR, [xsz//2, ysz//2])
-    #print(radial_ACR[0:10], radial_ACR[-10:-1])
     r_ACR = np.concatenate((radial_ACR[::-1], radial_ACR[1:-1]))
     
     #rsz = xsz
@@ -633,7 +628,8 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
     img_hist_filtered = img_filtered[yi:ya, xi:xa]
     
     range_analysis = get_min_max_thresholds(img_hist_filtered, thresholds_analysis[0], thresholds_analysis[1], nbins_analysis, False)
-    print('The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
+    if disp_res:
+        print('The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
     
     xy_ratio = img.shape[1]/img.shape[0]
@@ -859,10 +855,11 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     img = img[1:-1, 1:-1]
     
     range_disp = get_min_max_thresholds(img_filtered, thresholds_disp[0], thresholds_disp[1], nbins_disp)
-
-    print('The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
+    if disp_res:
+        print('The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
     range_analysis = get_min_max_thresholds(img_filtered, thresholds_analysis[0], thresholds_analysis[1], nbins_analysis, False)
-    print('The EM data range for noise analysis:     {:.1f} - {:.1f}'.format(range_analysis[0], range_analysis[1]))
+    if disp_res:
+        print('The EM data range for noise analysis:     {:.1f} - {:.1f}'.format(range_analysis[0], range_analysis[1]))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
 
     imdiff = (img-img_filtered)
@@ -947,14 +944,17 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     var_vals = np.squeeze(result[non_nan_ind, 1])
     try:
         popt = np.polyfit(mean_vals, var_vals, 1)
-        print('popt: ', popt)
+        if disp_res:
+            print('popt: ', popt)
         
         I_array = np.array((range_analysis[0], range_analysis[1], I_peak))
-        print('I_array: ', I_array)
+        if disp_res:
+            print('I_array: ', I_array)
         Var_array = np.polyval(popt, I_array)
         Var_peak = Var_array[2]
     except:
-        print("np.polyfit could not converge")
+        if disp_res:
+            print("np.polyfit could not converge")
         popt = np.array([np.var(imdiff)/np.mean(img_filtered-DarkCount), 0])
         I_array = np.array((range_analysis[0], range_analysis[1], I_peak))
         Var_peak = np.var(imdiff)
@@ -1865,8 +1865,8 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
     mrc_new.voxel_size = vx
 
     for j, st_frame in enumerate(tqdm(st_frames, desc='Binning MRC stack')):
-        #print(st_frame,(st_frame+zbin))
-        zbinnd_fr = np.mean(mrc_obj.data[st_frame:(st_frame+zbin_factor), yi:ya, xi:xa], axis=0)
+        # need to fix this
+        zbinnd_fr = np.mean(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
         mrc_new.data[j,:,:] = zbinnd_fr.astype(dt) 
    
     mrc_obj.close()
@@ -7494,8 +7494,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
                 image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
                 image_ncc[j-1] = Two_Image_NCC_SNR(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
                 image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
-                image_errors[j-1] = np.mean(error_abs_mean[st_frame:st_frame+zbin_factor])
-                image_npts[j-1] = np.mean(npts[st_frame:st_frame+zbin_factor])
+                image_errors[j-1] = np.mean(error_abs_mean[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
+                image_npts[j-1] = np.mean(npts[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
                 del I1c, I2c
             prev_binned_fr_img = binned_fr_img.copy()  # update the previous frame for future registration
 
@@ -9172,7 +9172,6 @@ class FIBSEM_dataset:
             kwargs['ImgB_fraction'] = ImgB_fraction
             kwargs['disp_res'] = False
             kwargs['evaluation_box'] = evaluation_box
-            #print('evaluate_ImgB_fractions kwargs', kwargs)
             DASK_client = ''
             br_res, br_res_xlsx = self.transform_and_save(DASK_client, save_transformed_dataset=False, save_registration_summary=False, frame_inds=frame_inds, use_DASK=False, **kwargs)
             br_results.append(br_res)
