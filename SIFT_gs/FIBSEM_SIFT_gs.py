@@ -1485,8 +1485,8 @@ def evaluate_registration_two_frames(params_mrc):
 
     xi_eval, xa_eval, yi_eval, ya_eval = evals
     if invert_data:
-        prev_frame = -1.0 * ((mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval]).astype(dt_mrc)).astype(float)
-        curr_frame = -1.0 * ((mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval]).astype(dt_mrc)).astype(float)
+        prev_frame = -1.0 * (((mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval]).astype(dt_mrc)).astype(float))
+        curr_frame = -1.0 * (((mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval]).astype(dt_mrc)).astype(float))
     else:
         prev_frame = (mrc_obj.data[fr-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
         curr_frame = (mrc_obj.data[fr, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
@@ -1515,6 +1515,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+    invert_data : boolean
+        If True, the data will be inverted
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -1532,6 +1534,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     Returns reg_summary : PD data frame, registration_summary_xlsx
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
+    use_DASK = kwargs.get("use_DASK", False)
+    invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", mrc_filename )
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
@@ -1547,9 +1551,6 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     else:
         print('Will use fixed evaluation box: ', evaluation_box)
 
-    use_DASK = kwargs.get("use_DASK", False)
-    invert_data =  kwargs.get("invert_data", False)
-   
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     mrc_mode = header.mode
@@ -1651,7 +1652,10 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                 ya_eval = yi_eval + start_evaluation_box[1]
             else:
                 ya_eval = ny
-        prev_frame =(mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
+        if invert_data:
+            prev_frame = -1.0 * ((mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float))
+        else:
+            prev_frame =(mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
         for j in tqdm(frame_inds, desc='Evaluating frame registration: '):
             if sliding_evaluation_box:
                 xi_eval = start_evaluation_box[2] + dx_eval*j//nf
@@ -1664,7 +1668,11 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                     ya_eval = yi_eval + start_evaluation_box[1]
                 else:
                     ya_eval = ny
-            curr_frame = (mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
+            
+            if invert_data:
+                curr_frame = -1.0 * ((mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float))
+            else:
+                curr_frame = (mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
             curr_frame_cp = cp.array(curr_frame)
             prev_frame_cp = cp.array(prev_frame)
             fr_mean = cp.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
@@ -1686,7 +1694,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Image NSAD', 'Image NCC', 'Image MI']
     reg_summary = pd.DataFrame(np.vstack((frame_inds, xi_evals, xa_evals, yi_evals, ya_evals, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
     reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
-    Stack_info = pd.DataFrame([{'Stack Filename' : mrc_filename, 'Sample_ID' : Sample_ID}]).T # prepare to be save in transposed format
+    Stack_info = pd.DataFrame([{'Stack Filename' : mrc_filename, 'Sample_ID' : Sample_ID, 'invert_data' : invert_data}]).T # prepare to be save in transposed format
     header_info = pd.DataFrame([header_dict]).T
     Stack_info = Stack_info.append(header_info)
     Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
@@ -2034,6 +2042,8 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+    invert_data :  boolean
+        If True, the data will be inverted
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -2270,22 +2280,23 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
         print('No stack info record present, using defaults')
     kwargs_dict = {}
     for key in kwargs_dict_initial:
-        if type(kwargs_dict_initial[key]) is str:
-            # treat as string
-            if 'TransformType' in key:
-                exec('kwargs_dict["TransformType"] = ' + kwargs_dict_initial[key].split('.')[-1].split("'")[0])
-            elif 'targ_vector' in key:
-                exec('kwargs_dict["targ_vector"] = np.array(' + kwargs_dict_initial[key].replace(' ', ',')+ ')')
-            elif 'l2_matrix' in key:
-                exec('kwargs_dict["l2_matrix"] = np.array(' + kwargs_dict_initial[key].replace(' ', ',') + ')')
-            elif 'fit_params' in key:
-                exec('kwargs_dict["fit_params"] = ' + kwargs_dict_initial[key])
-            elif 'subtract_linear_fit' in key:
-                exec('kwargs_dict["subtract_linear_fit"] = np.array(' + kwargs_dict_initial[key]+')')
-            else:
-                exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\n', ',') + '"')
+        if 'TransformType' in key:
+            exec('kwargs_dict["TransformType"] = ' + kwargs_dict_initial[key].split('.')[-1].split("'")[0])
+        elif 'targ_vector' in key:
+            exec('kwargs_dict["targ_vector"] = np.array(' + kwargs_dict_initial[key].replace(' ', ',')+ ')')
+        elif 'l2_matrix' in key:
+            exec('kwargs_dict["l2_matrix"] = np.array(' + kwargs_dict_initial[key].replace(' ', ',') + ')')
+        elif 'fit_params' in key:
+            exec('kwargs_dict["fit_params"] = ' + kwargs_dict_initial[key])
+        elif 'subtract_linear_fit' in key:
+            exec('kwargs_dict["subtract_linear_fit"] = np.array(' + kwargs_dict_initial[key]+')')
+        elif 'Stack Filename' in key:
+            exec('kwargs_dict["Stack Filename"] = str(kwargs_dict_initial[key])')
         else:
-            exec('kwargs_dict["'+str(key)+'"] = '+ str(kwargs_dict_initial[key]))
+            try:
+                exec('kwargs_dict["'+str(key)+'"] = '+ str(kwargs_dict_initial[key]))
+            except:
+                exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\n', ',') + '"')
     if 'dump_filename' in kwargs.keys():
         kwargs_dict['dump_filename'] = kwargs['dump_filename'] 
     return kwargs_dict
@@ -2703,11 +2714,12 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     png_file : str
         filename to save the results. Default is file_xlsx with extension '.xlsx' replaced with '.png'
     invert_data : bolean
+        If True, the representative data frames will use inverce LUT. 
 
     '''
     png_file_default = file_xlsx.replace('.xlsx','.png')
     png_file = kwargs.get("png_file", png_file_default)
-    invert_data =  kwargs.get("invert_data", False)
+    dump_filename = kwargs.get("dump_filename", '')
     
     Regisration_data = pd.read_excel(file_xlsx, sheet_name='Registration Quality Statistics')
     # columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
@@ -2722,26 +2734,22 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
     nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
     nmis = [np.mean(image_nmi), np.median(image_nmi), np.std(image_nmi)]
+
+    stack_info_dict = read_kwargs_xlsx(file_xlsx, 'Stack Info', **kwargs)
+    if 'dump_filename' in stack_info_dict.keys():
+        dump_filename = kwargs.get("dump_filename", stack_info_dict['dump_filename'])
+    else:
+        dump_filename = kwargs.get("dump_filename", '')
+    stack_info_dict['dump_filename'] = dump_filename
     
-    try:
-        print('Try loading using dump file', kwargs)
-        stack_info_dict = read_kwargs_xlsx(file_xlsx, 'Stack Info', **kwargs)
-    except:
-        print('No stack info record present, using defaults')
-        stack_info_dict = {}
-    
+    invert_data =  kwargs.get("invert_data", stack_info_dict['invert_data'])
+
+
     default_stack_name = file_xlsx.replace('_RegistrationQuality.xlsx','.mrc')
-    stack_filename = stack_info_dict.get('Stack Filename', default_stack_name)
+    stack_filename = os.path.normpath(stack_info_dict.get('Stack Filename', default_stack_name))
     data_dir = stack_info_dict.get('data_dir', '')
     ftype = stack_info_dict.get("ftype", 0)
-    if ftype == 0:
-        fls = sorted(glob.glob(os.path.join(data_dir,'*.dat')))
-        if len(fls) < 1:
-            fls = sorted(glob.glob(os.path.join(data_dir,'*/*.dat')))
-    if ftype == 1:
-        fls = sorted(glob.glob(os.path.join(data_dir,'*.tif')))
-        if len(fls) < 1:
-            fls = sorted(glob.glob(os.path.join(data_dir,'*/*.tif')))
+    
     zbin_factor = stack_info_dict.get("zbin_factor", 1)
     ImgB_fraction = stack_info_dict.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
                                                            # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
@@ -2759,7 +2767,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     perfrom_transformation =  stack_info_dict.get("perfrom_transformation", True)
     disp_res = stack_info_dict.get("disp_res", True)
     stack_exists = os.path.exists(stack_filename)
-    
+
     sample_data_available = True
     if stack_exists:
         print('Will load sample images from registered stack')
@@ -2786,8 +2794,16 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
             dt_mrc=uint16
     else:
         print('Will generate sample images from raw data')
-        print('Trying to recall the data from ', stack_info_dict['dump_filename'])
+        print('Trying to recall the data from ', dump_filename)
         try:
+            if ftype == 0:
+                fls = sorted(glob.glob(os.path.join(data_dir,'*.dat')))
+                if len(fls) < 1:
+                    fls = sorted(glob.glob(os.path.join(data_dir,'*/*.dat')))
+            if ftype == 1:
+                fls = sorted(glob.glob(os.path.join(data_dir,'*.tif')))
+                if len(fls) < 1:
+                    fls = sorted(glob.glob(os.path.join(data_dir,'*/*.tif')))
             raw_dataset = FIBSEM_dataset(fls, recall_parameters=True, **stack_info_dict)
             XResolution = raw_dataset.XResolution
             YResolution = raw_dataset.YResolution
