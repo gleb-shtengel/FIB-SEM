@@ -1622,10 +1622,10 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
             else:
                 ya_eval = ny
             evals = [xi_eval, xa_eval, yi_eval, ya_eval]
-            xi_evals[j] = xi_eval
-            xa_evals[j] = xa_eval
-            yi_evals[j] = yi_eval
-            ya_evals[j] = ya_eval
+        xi_evals[j] = xi_eval
+        xa_evals[j] = xa_eval
+        yi_evals[j] = yi_eval
+        ya_evals[j] = ya_eval
         params_mrc_mult.append([mrc_filename, fr, invert_data, evals])
         
     if use_DASK:
@@ -2740,6 +2740,11 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
         dump_filename = kwargs.get("dump_filename", stack_info_dict['dump_filename'])
     else:
         dump_filename = kwargs.get("dump_filename", '')
+    try:
+        if np.isnan(dump_filename):
+            dump_filename = ''
+    except:
+        pass
     stack_info_dict['dump_filename'] = dump_filename
     
     invert_data =  kwargs.get("invert_data", stack_info_dict['invert_data'])
@@ -2794,7 +2799,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
             dt_mrc=uint16
     else:
         print('Will generate sample images from raw data')
-        print('Trying to recall the data from ', dump_filename)
+        if os.path.exists(dump_filename):
+            print('Trying to recall the data from ', dump_filename)
         try:
             if ftype == 0:
                 fls = sorted(glob.glob(os.path.join(data_dir,'*.dat')))
@@ -2804,7 +2810,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 fls = sorted(glob.glob(os.path.join(data_dir,'*.tif')))
                 if len(fls) < 1:
                     fls = sorted(glob.glob(os.path.join(data_dir,'*/*.tif')))
-            raw_dataset = FIBSEM_dataset(fls, recall_parameters=True, **stack_info_dict)
+            raw_dataset = FIBSEM_dataset(fls, recall_parameters=os.path.exists(dump_filename), **stack_info_dict)
             XResolution = raw_dataset.XResolution
             YResolution = raw_dataset.YResolution
             if pad_edges and perfrom_transformation:
@@ -2882,7 +2888,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 dtp=float
                 chunk_frames = np.arange(eval_ind, min(eval_ind+zbin_factor, len(fls)-2))
                 frame_filenames = np.array(raw_dataset.fls)[chunk_frames]
-                tr_matrices = raw_dataset.tr_matr_cum_residual[chunk_frames]
+                tr_matrices = np.array(raw_dataset.tr_matr_cum_residual)[chunk_frames]
                 frame_img = transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype, dtp,
                         perfrom_transformation, tr_matrices, shift_matrix, inv_shift_matrix,
                         xi, xa, yi, ya,
@@ -7479,7 +7485,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         for j, st_frame in enumerate(tqdm(st_frames, desc = tq_desc, display = disp_res)):
             process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
             binned_fr_img = transform_chunk_of_frames(np.array(fls)[process_frames], xsz, ysz, ftype, dtp,
-                                perfrom_transformation, tr_matr_cum_residual[process_frames], shift_matrix, inv_shift_matrix,
+                                perfrom_transformation, np.array(tr_matr_cum_residual)[process_frames], shift_matrix, inv_shift_matrix,
                                 xi, xa, yi, ya,
                                 ImgB_fraction = ImgB_fraction,
                                 invert_data = invert_data,
@@ -7824,7 +7830,7 @@ class FIBSEM_dataset:
         print('Total Number of frames: ', self.nfrs)
         self.data_dir = data_dir
         self.ftype = kwargs.get("ftype", 0) # ftype=0 - Shan Xu's binary format  ftype=1 - tif files
-        mid_frame = FIBSEM_frame(fls[self.nfrs//2])
+        mid_frame = FIBSEM_frame(fls[self.nfrs//2], ftype = self.ftype)
         self.XResolution = kwargs.get("XResolution", mid_frame.XResolution)
         self.YResolution = kwargs.get("YResolution", mid_frame.YResolution)
         if hasattr(self, 'YResolution'):
@@ -7847,6 +7853,7 @@ class FIBSEM_dataset:
         self.nbins = kwargs.get("nbins", 256)
         self.sliding_minmax = kwargs.get("sliding_minmax", True)
         self.TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
+        self.tr_matr_cum_residual = [np.eye(3,3) for i in np.arange(self.nfrs)]  # placeholder - identity transformation matrix
         l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
         l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
         l2_matrix_default[2,2] = 0                                 # turn OFF the regularization on shifts
@@ -7864,9 +7871,7 @@ class FIBSEM_dataset:
         self.SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
         self.SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
         self.SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
-
         self.save_res_png  = kwargs.get("save_res_png", True)
-
         self.save_asI8 =  kwargs.get("save_asI8", False) 
         self.zbin_factor =  kwargs.get("zbin_factor", 1)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         self.flipY = kwargs.get("flipY", False)                     # If True, the registered data will be flipped along Y axis
@@ -8806,7 +8811,7 @@ class FIBSEM_dataset:
         else:
             error_abs_mean = np.zeros(len(self.fls)-1)
             npts = np.zeros(len(self.fls)-1)
-            tr_matr_cum_residual = ''
+            tr_matr_cum_residual = np.array([np.eye(3,3) for i in np.arange(len(self.fls))])
             reg_summary, reg_summary_xlsx = transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds,
                 self.fls, tr_matr_cum_residual, self.data_minmax, npts, error_abs_mean, **save_kwargs)
 
