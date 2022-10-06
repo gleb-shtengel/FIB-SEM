@@ -2257,7 +2257,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
 ##########################################
 
 
-def read_kwargs_xlsx1(file_xlsx, kwargs_sheet_name, **kwargs):
+def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
     '''
     Reads (SIFT processing) kwargs from XLSX file and returns them as dictionary. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
     
