@@ -1511,7 +1511,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     DASK client (needs to be initialized and running by this time)
 
     kwargs:
-     use_DASK : boolean
+    use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
@@ -1531,7 +1531,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     save_filename : str
         Path to the filename to save the results. If empty, mrc_filename+'_RegistrationQuality.csv' will be used
 
-    Returns reg_summary : PD data frame, registration_summary_xlsx
+    Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX workbook
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
     use_DASK = kwargs.get("use_DASK", False)
@@ -2257,7 +2257,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
 ##########################################
 
 
-def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
+def read_kwargs_xlsx1(file_xlsx, kwargs_sheet_name, **kwargs):
     '''
     Reads (SIFT processing) kwargs from XLSX file and returns them as dictionary. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
     
@@ -2298,7 +2298,59 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
             except:
                 exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\n', ',') + '"')
     if 'dump_filename' in kwargs.keys():
-        kwargs_dict['dump_filename'] = kwargs['dump_filename'] 
+        kwargs_dict['dump_filename'] = kwargs['dump_filename']
+    #correct for pandas mixed read failures
+    try:
+        if kwargs_dict['zbin_factor']:
+            kwargs_dict['zbin_factor']=1
+    except:
+        pass
+    try:
+        if kwargs_dict['mrc_mode']:
+            kwargs_dict['mrc_mode']=1
+    except:
+        pass
+    try:
+        if kwargs_dict['int_order']:
+            kwargs_dict['int_order']=1
+    except:
+        pass
+    try:
+        if kwargs_dict['flipY'] == 1:
+            kwargs_dict['flipY'] = True
+        else:
+            kwargs_dict['flipY'] = False
+    except:
+        pass
+    try:
+        if kwargs_dict['BFMatcher'] == 1:
+            kwargs_dict['BFMatcher'] = True
+        else:
+            kwargs_dict['BFMatcher'] = False
+    except:
+        pass
+    try:
+        if kwargs_dict['invert_data'] == 1:
+            kwargs_dict['invert_data'] = True
+        else:
+            kwargs_dict['invert_data'] = False
+    except:
+        pass
+    try:
+        if kwargs_dict['sliding_evaluation_box'] == 1:
+            kwargs_dict['sliding_evaluation_box'] = True
+        else:
+            kwargs_dict['sliding_evaluation_box'] = False
+    except:
+        pass
+    try:
+        if kwargs_dict['save_asI8'] == 1:
+            kwargs_dict['save_asI8'] = True
+        else:
+            kwargs_dict['save_asI8'] = False
+    except:
+        pass
+    
     return kwargs_dict
 
 
@@ -2714,7 +2766,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     png_file : str
         filename to save the results. Default is file_xlsx with extension '.xlsx' replaced with '.png'
     invert_data : bolean
-        If True, the representative data frames will use inverce LUT. 
+        If True, the representative data frames will use inverse LUT. 
 
     '''
     png_file_default = file_xlsx.replace('.xlsx','.png')
@@ -7661,6 +7713,26 @@ class FIBSEM_dataset:
         Key-points in every frame are indexed (in descending order) by the strength of the response.
         Only kp_max_num is kept for further processing.
         Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+    SIFT_nfeatures : int
+        SIFT libary default is 0. The number of best features to retain.
+        The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+    SIFT_nOctaveLayers : int
+        SIFT libary default  is 3. The number of layers in each octave.
+        3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+    SIFT_contrastThreshold : double
+        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        The larger the threshold, the less features are produced by the detector.
+        The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+        When nOctaveLayers is set to default and if you want to use the value used in
+        D. Lowe paper (0.03), set this argument to 0.09.
+    SIFT_edgeThreshold : double
+        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        Note that the its meaning is different from the contrastThreshold,
+        i.e. the larger the edgeThreshold, the less features are filtered out
+        (more features are retained).
+    SIFT_sigma : double
+        SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+        If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
     save_asI8 : boolean
@@ -7794,6 +7866,26 @@ class FIBSEM_dataset:
             Key-points in every frame are indexed (in descending order) by the strength of the response.
             Only kp_max_num is kept for further processing.
             Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+        SIFT_nfeatures : int
+            SIFT libary default is 0. The number of best features to retain.
+            The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+        SIFT_nOctaveLayers : int
+            SIFT libary default  is 3. The number of layers in each octave.
+            3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+        SIFT_contrastThreshold : double
+            SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+            The larger the threshold, the less features are produced by the detector.
+            The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+            When nOctaveLayers is set to default and if you want to use the value used in
+            D. Lowe paper (0.03), set this argument to 0.09.
+        SIFT_edgeThreshold : double
+            SIFT libary default  is 10. The threshold used to filter out edge-like features.
+            Note that the its meaning is different from the contrastThreshold,
+            i.e. the larger the edgeThreshold, the less features are filtered out
+            (more features are retained).
+        SIFT_sigma : double
+            SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+            If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         save_asI8 : boolean
