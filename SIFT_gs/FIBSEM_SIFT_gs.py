@@ -4280,14 +4280,18 @@ class FIBSEM_frame:
         '''
         ifDetB = (self.DetB != 'None')
         if ifDetB:
-            fig, axs = subplots(3, 1, figsize=(11,8))
-        else:
+            try:
+                dminB, dmaxB = self.get_image_min_max(image_name ='RawImageB', thr_min=thr_min, thr_max=thr_max, nbins=nbins, disp_res=False)
+                fig, axs = subplots(3, 1, figsize=(11,8))
+            except:
+                ifDetB = False
+                pass
+        if not ifDetB:
             fig, axs = subplots(2, 1, figsize=(7,8))
         fig.subplots_adjust(left=0.01, bottom=0.01, right=0.99, top=0.90, wspace=0.15, hspace=0.1)
         dminA, dmaxA = self.get_image_min_max(image_name ='RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins, disp_res=False)
         axs[1].imshow(self.RawImageA, cmap='Greys', vmin=dminA, vmax=dmaxA)
         if ifDetB:
-            dminB, dmaxB = self.get_image_min_max(image_name ='RawImageB', thr_min=thr_min, thr_max=thr_max, nbins=nbins, disp_res=False)
             axs[2].imshow(self.RawImageB, cmap='Greys', vmin=dminB, vmax=dmaxB)
         try:
             ttls = [self.Notes.strip('\x00'),
@@ -4295,9 +4299,9 @@ class FIBSEM_frame:
                 'Detector B:  '+ self.DetB.strip('\x00') + ',  Data Range:  {:.1f} ÷ {:.1f} with thr_min={:.1e}, thr_max={:.1e}'.format(dminB, dmaxB, thr_min, thr_max) + '    (Brightness: {:.1f}, Contrast: {:.1f})'.format(self.BrightnessB, self.ContrastB)]
         except:
             ttls = ['', 'Detector A', '']
-        for ax, ttl in zip(axs, ttls):
+        for j, ax in enumerate(axs):
             ax.axis(False)
-            ax.set_title(ttl, fontsize=10)
+            ax.set_title(ttls[j], fontsize=10)
         fig.suptitle(self.fname)
         
         if self.FileVersion > 8:
