@@ -2801,7 +2801,6 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     
     invert_data =  kwargs.get("invert_data", stack_info_dict['invert_data'])
 
-
     default_stack_name = file_xlsx.replace('_RegistrationQuality.xlsx','.mrc')
     stack_filename = os.path.normpath(stack_info_dict.get('Stack Filename', default_stack_name))
     data_dir = stack_info_dict.get('data_dir', '')
@@ -7254,7 +7253,7 @@ def transform_two_chunks(params):
 
 
 
-def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds, fls, tr_matr_cum_residual, data_minmax, npts, error_abs_mean, **kwargs):
+def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds, fls, tr_matr_cum_residual, npts, error_abs_mean, **kwargs):
     '''
     Transform and save FIB-SEM data set. A new vesion, with variable zbin_factor option. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
 
@@ -7268,8 +7267,6 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         full array of filenames
     tr_matr_cum_residual : array
         transformation matrix
-    data_minmax : list containing the data bounds
-        [data_max_glob, data_min_glob, data_max_sliding, data_min_sliding]
     npts : array
         array of number of keypoints (only passed through to the output)
     error_abs_mean: array
@@ -7400,14 +7397,6 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     #frames_new = np.arange(nfrs_zbinned-1)+st_frames[0]//zbin_factor
     frames_new = np.arange(nfrs_zbinned-1)
     
-    if invert_data:
-        if test_frame.EightBit==0:
-            data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = np.negative(data_minmax)
-        else:
-            data_max_glob, data_min_glob, data_max_sliding, data_min_sliding = [ uint8(255) - x for x in data_minmax]
-    else:
-        data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
-
     if pad_edges and perfrom_transformation:
         #shape = [test_frame.YResolution, test_frame.XResolution]
         shape = [YResolution, XResolution]
@@ -8903,13 +8892,13 @@ class FIBSEM_dataset:
 
         if perfrom_transformation and hasattr(self, 'tr_matr_cum_residual'):
             reg_summary, reg_summary_xlsx = transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds,
-                self.fls, self.tr_matr_cum_residual, self.data_minmax, self.npts, self.error_abs_mean, **save_kwargs)
+                self.fls, self.tr_matr_cum_residual, self.npts, self.error_abs_mean, **save_kwargs)
         else:
             error_abs_mean = np.zeros(len(self.fls)-1)
             npts = np.zeros(len(self.fls)-1)
             tr_matr_cum_residual = np.array([np.eye(3,3) for i in np.arange(len(self.fls))])
             reg_summary, reg_summary_xlsx = transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds,
-                self.fls, tr_matr_cum_residual, self.data_minmax, npts, error_abs_mean, **save_kwargs)
+                self.fls, tr_matr_cum_residual, npts, error_abs_mean, **save_kwargs)
 
         return reg_summary, reg_summary_xlsx
 
