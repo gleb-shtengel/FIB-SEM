@@ -7501,10 +7501,11 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
             chunk1_filenames = np.array(fls)[chunk1_frames]
             chunk0_tr_matrices = tr_matr_cum_residual[chunk0_frames]
             chunk1_tr_matrices = tr_matr_cum_residual[chunk1_frames]
-            xi_evals[chunk0_frames] = xi_eval
-            xa_evals[chunk0_frames] = xa_eval
-            yi_evals[chunk0_frames] = yi_eval
-            ya_evals[chunk0_frames] = ya_eval
+            chunk0_frames_tr = [i for i in chunk0_frames if i<(nfrs_zbinned-1)]
+            xi_evals[chunk0_frames_tr] = xi_eval
+            xa_evals[chunk0_frames_tr] = xa_eval
+            yi_evals[chunk0_frames_tr] = yi_eval
+            ya_evals[chunk0_frames_tr] = ya_eval
             chunk1_frames_tr = [i for i in chunk1_frames if i<(nfrs_zbinned-1)]
             xi_evals[chunk1_frames_tr] = xi_eval
             xa_evals[chunk1_frames_tr] = xa_eval
