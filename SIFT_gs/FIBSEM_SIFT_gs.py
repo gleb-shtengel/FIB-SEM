@@ -2,6 +2,7 @@ import numpy as np
 import cupy as cp
 import pandas as pd
 import os
+from pathlib import Path
 import time
 import glob
 import re
@@ -1823,20 +1824,26 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
 
 def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
     '''
-    Bins a 3D mrc stack along Z-direction and nd crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
+    Bins a 3D mrc stack along Z-direction (optional binning in X-Y plane as well) and crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
 
     Parameters:
         mrc_filename : str
             name (full path) of the mrc file to be binned
         zbin_factor : int
-            binning factor
+            binning factor in z-direction
     **kwargs:
+        xy_bin_factor : int
+            binning factor in xy-plane
+        mode  : str
+            Binning mode. Default is 'mean', otheroption is 'sum'
         frmax : int
             Maximum frame to bin. If not present, the entire file is binned
         binned_mrc_filename : str
             name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
     
     '''
+    xy_bin_factor = kwargs.get("xy_bin_factor", 1)      # binning factor in xy-plane
+    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', otheroption is 'sum'
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     header = mrc_obj.header
     '''
@@ -1846,17 +1853,7 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
         mode 4 -> complex64
         mode 6 -> uint16
     '''
-    mrc_mode = mrc_obj.header.mode
-    if mrc_mode==0:
-        dt_mrc=uint8
-    if mrc_mode==1:
-        dt_mrc=int16
-    if mrc_mode==2:
-        dt_mrc=float32
-    if mrc_mode==4:
-        dt_mrc=complex64
-    if mrc_mode==6:
-        dt_mrc=uint16
+    mrc_mode = mrc_obj.header.mode  
     vx = mrc_obj.voxel_size
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
     frmax = kwargs.get('frmax', nz)
@@ -1864,17 +1861,28 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
     xa = kwargs.get('xa', nx)
     yi = kwargs.get('yi', 0)
     ya = kwargs.get('ya', ny)
+    nx_binned = (xa-xi)//xy_bin_factor
+    ny_binned = (ya-yi)//xy_bin_factor
+    xa = xi + nx_binned * xy_bin_factor
+    ya = yi + ny_binned * xy_bin_factor
     binned_mrc_filename_default = mrc_filename.replace('.mrc', '_zbin{:d}_crop.mrc'.format(zbin_factor))
     binned_mrc_filename = kwargs.get('binned_mrc_filename', binned_mrc_filename_default)
     dt = type(mrc_obj.data[0,0,0])
-    
+    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    if mode == 'sum':
+        mrc_mode = 1
+        dt = int16
+    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(0, frmax, zbin_factor)
-    mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), (ya-yi), (xa-xi)), mrc_mode=mrc_mode, overwrite=True)
+    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
+    mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
     mrc_new.voxel_size = vx
 
     for j, st_frame in enumerate(tqdm(st_frames, desc='Binning MRC stack')):
         # need to fix this
         zbinnd_fr = np.mean(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
+        if xy_bin_factor > 1:
+            zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, xy_bin_factor, nx_binned, xy_bin_factor), axis=3), axis=1)
         mrc_new.data[j,:,:] = zbinnd_fr.astype(dt) 
    
     mrc_obj.close()
@@ -2038,11 +2046,11 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     DASK client (needs to be initialized and running by this time)
 
     kwargs:
-     use_DASK : boolean
+    use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
-    invert_data :  boolean
+    invert_data : boolean
         If True, the data will be inverted
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
@@ -2058,15 +2066,18 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     save_filename : str
         Path to the filename to save the results. If empty, tif_filename+'_RegistrationQuality.csv' will be used
 
-    Returns reg_summary : PD data frame
+    Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX workbook
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
+    use_DASK = kwargs.get("use_DASK", False)
+    invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", tif_filename )
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
     sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+    registration_summary_xlsx = save_filename.replace('.mrc', '_RegistrationQuality.xlsx')
 
     if sliding_evaluation_box:
         print('Will use sliding (linearly) evaluation box')
@@ -2075,16 +2086,20 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     else:
         print('Will use fixed evaluation box: ', evaluation_box)
 
-    use_DASK = kwargs.get("use_DASK", False)
-    invert_data =  kwargs.get("invert_data", False)
-   
     with tiff.TiffFile(tif_filename) as tif:
         tif_tags = {}
         for tag in tif.pages[0].tags.values():
             name, value = tag.name, tag.value
             tif_tags[name] = value
-    shape = eval(tif_tags['ImageDescription'])
-    nz, ny, nx = shape['shape']
+    #print(tif_tags)
+    try:
+        shape = eval(tif_tags['ImageDescription'])
+        nz, ny, nx = shape['shape']
+    except:
+        fr0 = tiff.imread(tif_filename, key=0)
+        ny, nx = np.shape(fr0)
+        nz = eval(tif_tags['nimages'])
+    header_dict = {'nx' : nx, 'ny' : ny, 'nz' : nz }
 
     xi_eval = evaluation_box[2]
     if evaluation_box[3] > 0:
@@ -2104,7 +2119,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     if frame_inds[0]==0:
         frame_inds = frame_inds+1
     print('Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
-    print('Will save the data into '+os.path.splitext(save_filename)[0] + '_RegistrationQuality.csv')
+    print('Will save the data into ' + registration_summary_xlsx)
     if sliding_evaluation_box:
         dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
         dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
@@ -2112,7 +2127,11 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
         dx_eval = 0
         dy_eval = 0
     
-    params_mrc_mult = []
+    params_tif_mult = []
+    xi_evals = np.zeros(nf, dtype=int16)
+    xa_evals = np.zeros(nf, dtype=int16)
+    yi_evals = np.zeros(nf, dtype=int16)
+    ya_evals = np.zeros(nf, dtype=int16)
     for j, fr in enumerate(frame_inds):
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
@@ -2126,12 +2145,15 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
             else:
                 ya_eval = ny
             evals = [xi_eval, xa_eval, yi_eval, ya_eval]
-        params_mrc_mult.append([tif_filename, fr, invert_data, evals])
-    #params_mrc_mult = [[tif_filename, fr, evals] for fr in frame_inds]
+        xi_evals[j] = xi_eval
+        xa_evals[j] = xa_eval
+        yi_evals[j] = yi_eval
+        ya_evals[j] = ya_eval
+        params_tif_mult.append([tif_filename, fr, invert_data, evals])
         
     if use_DASK:
         print('Using DASK distributed')
-        futures = DASK_client.map(evaluate_registration_two_frames_tif, params_mrc_mult)
+        futures = DASK_client.map(evaluate_registration_two_frames_tif, params_tif_mult)
         dask_results = DASK_client.gather(futures)
         image_nsad = np.array([res[0] for res in dask_results])
         image_ncc = np.array([res[1] for res in dask_results])
@@ -2152,8 +2174,13 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
                 ya_eval = yi_eval + start_evaluation_box[1]
             else:
                 ya_eval = ny
-        frame0 = tiff.imread(tif_filename, key=frame_inds[0]-1) 
-        prev_frame = frame0[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
+
+        frame0 = tiff.imread(tif_filename, key=frame_inds[0]-1)
+        if invert_data:
+            prev_frame = -1.0 * (frame0[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
+        else:
+            prev_frame = frame0[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
+
         for j in tqdm(frame_inds, desc='Evaluating frame registration: '):
             if sliding_evaluation_box:
                 xi_eval = start_evaluation_box[2] + dx_eval*j//nf
@@ -2166,8 +2193,11 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
                     ya_eval = yi_eval + start_evaluation_box[1]
                 else:
                     ya_eval = ny
-            frame1 = tiff.imread(tif_filename, key=j) 
-            curr_frame = frame1[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
+            frame1 = tiff.imread(tif_filename, key=j)
+            if invert_data:
+                curr_frame = -1.0 * (frame1[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
+            else:
+                curr_frame = frame1[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
             curr_frame_cp = cp.array(curr_frame)
             prev_frame_cp = cp.array(prev_frame)
             fr_mean = np.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
@@ -2182,73 +2212,18 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
     nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
 
-    fs=12
-    lwl=1
-    fig, axs = subplots(2,2, figsize=(12, 8), sharex=True)
-    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, wspace=0.18, hspace=0.04)
-    axs[0,0].axis(False)
+    print('Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
+    xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
+    columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Image NSAD', 'Image NCC', 'Image MI']
+    reg_summary = pd.DataFrame(np.vstack((frame_inds, xi_evals, xa_evals, yi_evals, ya_evals, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
+    reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
+    Stack_info = pd.DataFrame([{'Stack Filename' : tif_filename, 'Sample_ID' : Sample_ID, 'invert_data' : invert_data}]).T # prepare to be save in transposed format
+    header_info = pd.DataFrame([header_dict]).T
+    Stack_info = Stack_info.append(header_info)
+    Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
+    xlsx_writer.save()
 
-    axs[1,0].plot(image_nsad, 'r', linewidth=lwl)
-    axs[1,0].set_ylabel('Normalized Sum of Abs. Diff')
-    axs[1,0].text(0.02, 0.04, 'NSAD mean = {:.3f}   NSAD median = {:.3f}  NSAD STD = {:.3f}'.format(nsads[0], nsads[1], nsads[2]), transform=axs[1,0].transAxes, fontsize = fs-1)
-    axs[1,0].set_xlabel('Frame #')
-
-    axs[0,1].plot(image_ncc, 'b', linewidth=lwl)
-    axs[0,1].set_ylabel('Normalized Cross-Correlation')
-    axs[0,1].grid(True)
-    axs[0,1].text(0.02, 0.04, 'NCC mean = {:.3f}   NCC median = {:.3f}  NCC STD = {:.3f}'.format(nccs[0], nccs[1], nccs[2]), transform=axs[0,1].transAxes, fontsize = fs-1)
-
-    axs[1,1].plot(image_mi, 'g', linewidth=lwl)
-    axs[1,1].set_ylabel('Normalized Mutual Information')
-    axs[1,1].set_xlabel('Frame #')
-    axs[1,1].grid(True)
-    axs[1,1].text(0.02, 0.04, 'NMI mean = {:.3f}   NMI median = {:.3f}  NMI STD = {:.3f}'.format(nmis[0], nmis[1], nmis[2]), transform=axs[1,1].transAxes, fontsize = fs-1)
-
-    for ax in axs.ravel():
-        ax.grid(True)
-
-    # show three frames with eval box
-    axs_fr0 = fig.add_subplot(6,2,1)
-    axs_fr1 = fig.add_subplot(6,2,3)
-    axs_fr2 = fig.add_subplot(6,2,5)
-    axs_frms = [axs_fr0, axs_fr1, axs_fr2]
-    frame_inds = [frame_inds[nf//10],  frame_inds[nf//2], frame_inds[nf//10*9]]
-   
-    for fr, ax in zip(frame_inds, axs_frms):
-        eval_frame = tiff.imread(tif_filename, key=fr).astype(float)
-        #eval_frame = mrc_obj.data[fr, :, :].astype(float)
-        if sliding_evaluation_box:
-            xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
-            yi_eval = start_evaluation_box[0] + dy_eval*(fr-frame_inds[0])//nf
-            if start_evaluation_box[3] > 0:
-                xa_eval = xi_eval + start_evaluation_box[3]
-            else:
-                xa_eval = nx
-            if start_evaluation_box[1] > 0:
-                ya_eval = yi_eval + start_evaluation_box[1]
-            else:
-                ya_eval = ny
-        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
-        if invert_data:
-            ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
-        else:
-            ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
-
-        ax.text(0.03, 0.75, Sample_ID +'  frame={:d}'.format(fr), color='cyan', transform=ax.transAxes)
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=0.5, edgecolor='yellow',facecolor='none')
-        ax.add_patch(rect_patch)
-        ax.axis('off')
-    
-    fig.suptitle(tif_filename, fontsize = fs-4)
-    if save_res_png :
-        fig.savefig(os.path.splitext(save_filename)[0] +'_RegistrationQuality.png', dpi=300)
-
-    registration_summary_fnm = os.path.splitext(save_filename)[0] + '_RegistrationQuality.csv'
-    columns=['Image NSAD', 'Image NCC', 'Image MI']
-    reg_summary = pd.DataFrame(np.vstack((image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
-    reg_summary.to_csv(registration_summary_fnm, index = None)
-    
-    return reg_summary
+    return reg_summary, registration_summary_xlsx
 
 
 
@@ -2354,13 +2329,72 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
     return kwargs_dict
 
 
+
+def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
+    '''
+    Generate Report Plot for data Min-Max from XLSX spreadsheet file. ©G.Shtengel 10/2022 gleb.shtengel@gmail.com
+    
+    Parameters:
+    minmax_xlsx_file : str
+        Path to the xlsx workbook containing Min-Max data
+
+    '''
+    print('Loading SIFT kwarg Data')
+    saved_kwargs = read_kwargs_xlsx(minmax_xlsx_file, 'kwargs Info', **kwargs)
+    data_dir = saved_kwargs.get("data_dir", '')
+    fnm_reg = saved_kwargs.get("fnm_reg", 'Registration_file.mrc')
+    Sample_ID = saved_kwargs.get("Sample_ID", '')
+    preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
+    fit_params =  saved_kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+                                                            # window size 701, polynomial order 3
+    
+    print('Loading MinMax Data')
+    int_results = pd.read_excel(minmax_xlsx_file, sheet_name='MinMax Data')
+    frames = int_results['Frame']
+    frame_min = int_results['Min']
+    frame_max = int_results['Max']
+    data_min_glob  = np.min(frame_min)
+    data_max_glob  = np.max(frame_max)
+    sliding_min = int_results['Sliding Min']
+    sliding_max = int_results['Sliding Max']
+
+    print('Generating Plot')
+    fs = 12
+    fig0, ax0 = subplots(1,1,figsize=(6,4))
+    fig0.subplots_adjust(left=0.14, bottom=0.11, right=0.99, top=0.94)
+    ax0.plot(frame_min, 'b', linewidth=1, label='Frame Minima')
+    ax0.plot(sliding_min, 'b', linewidth=2, linestyle = 'dotted', label='Sliding Minima')
+    ax0.plot(frame_max, 'r', linewidth=1, label='Frame Maxima')
+    ax0.plot(sliding_max, 'r', linewidth=2, linestyle = 'dotted', label='Sliding Maxima')
+    ax0.legend()
+    ax0.grid(True)
+    ax0.set_xlabel('Frame')
+    ax0.set_ylabel('Minima and Maxima Values')
+    dxn = (data_max_glob - data_min_glob)*0.1
+    ax0.set_ylim((data_min_glob - dxn, data_max_glob+dxn))
+    # if needed, display the data in a narrower range
+    #ax0.set_ylim((-4500, -1500))
+    xminmax = [0, len(frame_min)]
+    y_min = [data_min_glob, data_min_glob]
+    y_max = [data_max_glob, data_max_glob]
+    ax0.plot(xminmax, y_min, 'b', linestyle = '--')
+    ax0.plot(xminmax, y_max, 'r', linestyle = '--')
+    ax0.text(len(frame_min)/20.0, data_min_glob-dxn/1.75, 'data_min_glob={:.1f}'.format(data_min_glob), fontsize = fs-2, c='b')
+    ax0.text(len(frame_min)/20.0, data_max_glob+dxn/2.25, 'data_max_glob={:.1f}'.format(data_max_glob), fontsize = fs-2, c='r')
+    ldm = 50
+    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
+    fig0.suptitle(Sample_ID + '    ' +  data_dir_short, fontsize = fs-2)
+    fig0.savefig(os.path.join(data_dir, minmax_xlsx_file.replace('.xlsx','.png')), dpi=300)
+
+
+
 def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     '''
     Generate Report Plot for Transformation Matrix from XLSX spreadsheet file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
     
     Parameters:
     transf_matrix_xlsx_file : str
-        Path to the binary dump file
+        Path to the xlsx workbook containing Transformation Matrix data
 
     '''
     print('Loading SIFT kwarg Data')
@@ -2827,27 +2861,27 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     sample_data_available = True
     if stack_exists:
         print('Will load sample images from registered stack')
-        mrc_obj = mrcfile.mmap(stack_filename, mode='r')
-        stack_exists = True
-        header = mrc_obj.header 
-        mrc_mode = header.mode
-        '''
-        mode 0 -> uint8
-        mode 1 -> int16
-        mode 2 -> float32
-        mode 4 -> complex64
-            mode 6 -> uint16
-        '''
-        if mrc_mode==0:
-            dt_mrc=uint8
-        if mrc_mode==1:
-            dt_mrc=int16
-        if mrc_mode==2:
-            dt_mrc=float32
-        if mrc_mode==4:
-            dt_mrc=complex64
-        if mrc_mode==6:
-            dt_mrc=uint16
+        if Path(stack_filename).suffix == '.mrc':
+            mrc_obj = mrcfile.mmap(stack_filename, mode='r')
+            header = mrc_obj.header 
+            mrc_mode = header.mode
+            '''
+            mode 0 -> uint8
+            mode 1 -> int16
+            mode 2 -> float32
+            mode 4 -> complex64
+                mode 6 -> uint16
+            '''
+            if mrc_mode==0:
+                dt_mrc=uint8
+            if mrc_mode==1:
+                dt_mrc=int16
+            if mrc_mode==2:
+                dt_mrc=float32
+            if mrc_mode==4:
+                dt_mrc=complex64
+            if mrc_mode==6:
+                dt_mrc=uint16
     else:
         print('Will generate sample images from raw data')
         if os.path.exists(dump_filename):
@@ -2934,7 +2968,10 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
         ax = axs_frms[j]
         if sample_data_available:
             if stack_exists:
-                frame_img =(mrc_obj.data[frames[eval_ind], :, :].astype(dt_mrc)).astype(float)
+                if Path(stack_filename).suffix == '.mrc':
+                    frame_img = (mrc_obj.data[frames[eval_ind], :, :].astype(dt_mrc)).astype(float)
+                if Path(stack_filename).suffix == '.tif':
+                    frame_img = tiff.imread(stack_filename, key=eval_ind)
             else:
                 dtp=float
                 chunk_frames = np.arange(eval_ind, min(eval_ind+zbin_factor, len(fls)-2))
@@ -5736,7 +5773,7 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
     fnms : str array
         array of paths to the files containing Key-Points and Descriptors
     '''
-    data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
+    data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, minmax_xlsx = data_minmax
     sliding_minmax = kwargs.get("sliding_minmax", True)
     use_DASK = kwargs.get("use_DASK", False)
     if sliding_minmax:
@@ -6107,9 +6144,10 @@ def build_filename(fname, **kwargs):
 
     frame = FIBSEM_frame(fname, ftype=ftype)
     dformat_read = 'I8' if frame.EightBit else 'I16'
-    save_asI8_save = save_asI8 or frame.EightBit==1
+    #save_asI8_save = save_asI8 or frame.EightBit==1
 
-    if save_asI8_save:
+    #if save_asI8_save:
+    if save_asI8:
         dtp = uint8
         dformat_save = 'I8'
         mrc_mode = 0
@@ -6962,7 +7000,8 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
     threshold_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     sliding_minmax = kwargs.get("sliding_minmax", True)
-    save_res_png  = kwargs.get("save_res_png", True)
+    disp_res = kwargs.get("disp_res", True)
+    minmax_xlsx = kwargs.get('minmax_xlsx', 'Data_MinMax.xlsx')
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     if EightBit == 1:
@@ -6971,6 +7010,8 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
         data_max_glob =  uint8(255)
         data_min_sliding = np.zeros(nfrs, dtype=uint8)
         data_max_sliding = np.zeros(nfrs, dtype=uint8)+ uint8(255)
+        data_minmax_glob = np.zeros((2,nfrs), dtype=uint8)
+        data_minmax_glob[1, :] = uint8(255)
     else:
         params_s2 = [[fl, kwargs] for fl in fls]
 
@@ -6992,38 +7033,18 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
         data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
         data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
 
-        # if needed, change the global data range
-        #data_min_glob = -4300
-        #data_max_glob = -1500
-        if save_res_png :
-            fs = 12
-            fig0, ax0 = subplots(1,1,figsize=(6,4))
-            fig0.subplots_adjust(left=0.14, bottom=0.11, right=0.99, top=0.94)
-            ax0.plot(data_minmax_glob[:, 0], 'b', linewidth=1, label='Frame Minima')
-            ax0.plot(data_min_sliding, 'b', linewidth=2, linestyle = 'dotted', label='Sliding Minima')
-            ax0.plot(data_minmax_glob[:, 1], 'r', linewidth=1, label='Frame Maxima')
-            ax0.plot(data_max_sliding, 'r', linewidth=2, linestyle = 'dotted', label='Sliding Maxima')
-            ax0.legend()
-            ax0.grid(True)
-            ax0.set_xlabel('Frame')
-            ax0.set_ylabel('Minima and Maxima Values')
-            dxn = (data_max_glob - data_min_glob)*0.1
-            ax0.set_ylim((data_min_glob - dxn, data_max_glob+dxn))
-            # if needed, display the data in a narrower range
-            #ax0.set_ylim((-4500, -1500))
-            xminmax = [0, len(data_minmax_glob)]
-            y_min = [data_min_glob, data_min_glob]
-            y_max = [data_max_glob, data_max_glob]
-            ax0.plot(xminmax, y_min, 'b', linestyle = '--')
-            ax0.plot(xminmax, y_max, 'r', linestyle = '--')
-            ax0.text(len(data_minmax_glob)/20.0, data_min_glob-dxn/1.75, 'data_min_glob={:.1f}'.format(data_min_glob), fontsize = fs-2, c='b')
-            ax0.text(len(data_minmax_glob)/20.0, data_max_glob+dxn/2.25, 'data_max_glob={:.1f}'.format(data_max_glob), fontsize = fs-2, c='r')
-            ldm = 50
-            data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
-            fig0.suptitle(Sample_ID + '    ' +  data_dir_short, fontsize = fs-2)
-            fig0.savefig(os.path.join(data_dir, fnm_reg.replace('.mrc','_DataBounds.png')), dpi=300)
+    if disp_res:
+        print('Saving the Data Min/Max Statistics into the file: ', minmax_xlsx)
+        # Create a Pandas Excel writer using XlsxWriter as the engine.
+    xlsx_writer = pd.ExcelWriter(minmax_xlsx, engine='xlsxwriter')
+    columns=['Frame', 'Min', 'Max', 'Sliding Min', 'Sliding Max']
+    minmax_df = pd.DataFrame(np.vstack((np.arange(len(fls)).T, data_minmax_glob.T, data_min_sliding, data_max_sliding)).T, columns = columns, index = None)
+    minmax_df.to_excel(xlsx_writer, index=None, sheet_name='MinMax Data')
+    kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
+    kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
+    xlsx_writer.save()
            
-    return [data_min_glob, data_max_glob, data_min_sliding, data_max_sliding]
+    return [data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, minmax_xlsx]
 
 
 def transform_frame(frame, tr_matr, **kwargs):
@@ -7078,17 +7099,17 @@ def transform_frame(frame, tr_matr, **kwargs):
 
     if ImgB_fraction < 1e-5 or (not hasattr(frame, 'RawImageB')):
         if flatten_image:
-            image = (frame.RawImageA.astype(float64) -  frame.Scaling[1,0])*Image_correction[0] + frame.Scaling[1,0]
+            image = (frame.RawImageA.astype(float) -  frame.Scaling[1,0])*Image_correction[0] + frame.Scaling[1,0]
         else:
-            image = frame.RawImageA.astype(float64)
+            image = frame.RawImageA.astype(float)
 
     else:
         if flatten_image:
-            ImgA_flattened = (frame.RawImageA.astype(float64) -  frame.Scaling[1,0])*Image_correction[0] + frame.Scaling[1,0]
-            ImgB_flattened = (frame.RawImageB.astype(float64) -  frame.Scaling[1,1])*Image_correction[1] + frame.Scaling[1,1]
+            ImgA_flattened = (frame.RawImageA.astype(float) -  frame.Scaling[1,0])*Image_correction[0] + frame.Scaling[1,0]
+            ImgB_flattened = (frame.RawImageB.astype(float) -  frame.Scaling[1,1])*Image_correction[1] + frame.Scaling[1,1]
             image = ImgA_flattened * (1.0 - ImgB_fraction) + ImgB_flattened * ImgB_fraction
         else:
-            image = frame.RawImageA * (1.0 - ImgB_fraction) + frame.RawImageB * ImgB_fraction
+            image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
         
     if invert_data:
         if test_frame.EightBit==0:
@@ -7169,10 +7190,13 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype, dtp,
             image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
 
         if invert_data:
+            frame_img[yi:ya, xi:xa] = np.negative(image)
+            '''
             if frame.EightBit==0:
                 frame_img[yi:ya, xi:xa] = np.negative(image)
             else:
                 frame_img[yi:ya, xi:xa]  =  uint8(255) - image
+            '''
         else:
             frame_img[yi:ya, xi:xa]  = image
 
@@ -7189,9 +7213,10 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype, dtp,
 
     if flipY:
         transformed_img = np.flip(transformed_img, axis=0)
-
+    '''
     if frame.EightBit==1:
         transformed_img = np.clip(np.round(transformed_img) , 0, 255)
+    '''
 
     return transformed_img
 
@@ -7367,13 +7392,13 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     save_res_png  = kwargs.get("save_res_png", True)
     save_asI8 =  kwargs.get("save_asI8", False)
     dtp = kwargs.get("dtp", int16)
+    mrc_mode = kwargs.get("mrc_mode", 1)
     #print('will use data type: ', dtp)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
     solver = kwargs.get("solver", 'RANSAC')
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-    mrc_mode = kwargs.get("mrc_mode", 0)
     flipY = kwargs.get("flipY", False)
     zbin_factor =  kwargs.get("zbin_factor", 1)
     int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
@@ -7462,7 +7487,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         if disp_res:
             print('Saving the registered and {:d}-x z-binned stack into the file: '.format(zbin_factor), fpath_reg)
             #print('There will be {:d} frames in the saved stack'.format(nfrs_zbinned))
-            print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d}'.format(xsz, ysz, nfrs_zbinned))
+            print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d},  data type:'.format(xsz, ysz, nfrs_zbinned), dtp)
         # Make a new, empty memory-mapped MRC file
         mrc = mrcfile.new_mmap(fpath_reg, shape=(nfrs_zbinned, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
         # mode 0 -> uint8
@@ -8224,6 +8249,8 @@ class FIBSEM_dataset:
                 min data values (one per file) for I8 conversion
             data_max_sliding : float array
                 max data values (one per file) for I8 conversion
+            data_minmax_glob : 2D float array
+                min and max data values without sliding averaging
         '''
         use_DASK = kwargs.get("use_DASK", self.use_DASK)
         ftype = kwargs.get("ftype", self.ftype)
@@ -8243,6 +8270,7 @@ class FIBSEM_dataset:
                                 Sample_ID = Sample_ID,
                                 data_dir = data_dir,
                                 fnm_reg = fnm_reg,
+                                minmax_xlsx = os.path.join(data_dir, 'Data_MinMax.xlsx'),
                                 EightBit = EightBit,
                                 threshold_min = threshold_min,
                                 threshold_max = threshold_max,
@@ -8319,7 +8347,7 @@ class FIBSEM_dataset:
             SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
             SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
 
-            data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
+            data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, minmax_xlsx = data_minmax
             kpt_kwargs = {'ftype' : ftype,
                         'threshold_min' : threshold_min,
                         'threshold_max' : threshold_max,
@@ -8830,13 +8858,13 @@ class FIBSEM_dataset:
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         save_asI8 =  kwargs.get("save_asI8", self.save_asI8)
+        mrc_mode = kwargs.get("mrc_mode", self.mrc_mode) 
         dtp = kwargs.get("dtp", self.dtp)
         TransformType = kwargs.get("TransformType", self.TransformType)
         solver = kwargs.get("solver", self.solver)
         drmax = kwargs.get("drmax", self.drmax)
         max_iter = kwargs.get("max_iter", self.max_iter)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
-        mrc_mode = kwargs.get("mrc_mode", self.mrc_mode) 
         zbin_factor =  kwargs.get("zbin_factor", self.zbin_factor)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         if hasattr(self, 'flipY'):
             flipY = kwargs.get("flipY", self.flipY)
@@ -8871,12 +8899,12 @@ class FIBSEM_dataset:
                             'dump_filename' : dump_filename,
                             'save_asI8' : save_asI8,
                             'dtp' : dtp,
+                            'mrc_mode' : mrc_mode,
                             'TransformType' : TransformType,
                             'solver' : solver,
                             'drmax' : drmax,
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
-                            'mrc_mode' : mrc_mode,
                             'zbin_factor' : zbin_factor,
                             'flipY' : flipY,
                             'int_order' : int_order,                        
@@ -9021,12 +9049,15 @@ class FIBSEM_dataset:
             frame_img = np.zeros((ysz, xsz))
 
             if invert_data:
+                frame_img[yi:ya, xi:xa] = np.negative(frame.RawImageA.astype(float))
+                '''
                 if frame.EightBit==0:
                     frame_img[yi:ya, xi:xa] = np.negative(frame.RawImageA)
                 else:
                     frame_img[yi:ya, xi:xa]  =  uint8(255) - frame.RawImageA
+                '''
             else:
-                frame_img[yi:ya, xi:xa]  = frame.RawImageA
+                frame_img[yi:ya, xi:xa]  = frame.RawImageA.astype(float)
 
             if perfrom_transformation:
                 transf = ProjectiveTransform(matrix = shift_matrix @ (self.tr_matr_cum_residual[j] @ inv_shift_matrix))
@@ -9228,7 +9259,8 @@ class FIBSEM_dataset:
         ax.set_xlabel('Frame')
         ax.set_ylabel('SNR')
         if save_res_png :
-            fig.savefig(os.path.splitext(fnm_reg)[0]+'SNR_evaluation_mult_frame.png', dpi=300)
+            fig_filename = os.path.join(data_dir, os.path.splitext(fnm_reg)[0]+'SNR_evaluation_mult_frame.png')
+            fig.savefig(fig_filename, dpi=300)
 
         return ImgB_fraction_xSNR, ImgB_fraction_ySNR, ImgB_fraction_rSNR
 
