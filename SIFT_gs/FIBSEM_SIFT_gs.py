@@ -7010,7 +7010,7 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
         data_max_glob =  uint8(255)
         data_min_sliding = np.zeros(nfrs, dtype=uint8)
         data_max_sliding = np.zeros(nfrs, dtype=uint8)+ uint8(255)
-        data_minmax_glob = np.zeros((2,nfrs), dtype=uint8)
+        data_minmax_glob = np.zeros((nfrs, 2), dtype=uint8)
         data_minmax_glob[1, :] = uint8(255)
     else:
         params_s2 = [[fl, kwargs] for fl in fls]
