@@ -4,6 +4,8 @@ Merlin*.dat
 *.ai
 *.tmp
 *.doc
+*.docx
+*.xlsx
 Test_data
 FSC.py
 RL_gs.py
@@ -49,8 +51,6 @@ Read_Analyze_registrations_LID556.ipynb
 Read_Analyze_registrations_Shirish.ipynb
 Read_Analyze_registrations_v0.ipynb
 Read_ZRDs.ipynb
-OpenOrganelle - Hess data to upload.xlsx
-Compare the registration results obtained using FIB-SEM_gs python code and Render pipeline.docx
 .ipynb_checkpoints
 __pycache__
 dask-worker-space
