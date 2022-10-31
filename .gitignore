@@ -27,6 +27,7 @@ Register_FIB-SEM_stack_DASK_v1_Weinberg_sample1.ipynb
 Register_FIB-SEM_stack_DASK_v1_Weinberg_sample2.ipynb
 Register_FIB-SEM_stack_DASK_v1_Pietro WT-DS-8.ipynb
 Register_FIB-SEM_stack_DASK_v1_Z1215-01m_n1.ipynb
+Register_FIB-SEM_stack_DASK_v1_Z0517-51m_VNC_Sec16.ipynb
 Register_FIB-SEM_stack_DASK_v1_AMST.ipynb
 Register_FIB-SEM_stack_DASK_v1_LID277_Cell11.ipynb
 Register_FIB-SEM_stack_DASK_v1_LID214_Cell2.ipynb
@@ -43,11 +44,13 @@ MRC_stack_analysis.ipynb
 FIB-SEM_resolution_J6_03112020_Smoothing_Noise_Richardson_Lucy_EM.ipynb
 PolynomialFeatures_regression_evaluation.ipynb
 pysift.py
+Read_Plot_FIJI_TransformationMatrix.ipynb
 Read_Analyze_registrations_LID556.ipynb
 Read_Analyze_registrations_Shirish.ipynb
 Read_Analyze_registrations_v0.ipynb
 Read_ZRDs.ipynb
 OpenOrganelle - Hess data to upload.xlsx
+Compare the registration results obtained using FIB-SEM_gs python code and Render pipeline.docx
 .ipynb_checkpoints
 __pycache__
 dask-worker-space
