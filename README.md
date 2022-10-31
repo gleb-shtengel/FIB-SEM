@@ -82,7 +82,7 @@ You will also need to have these packages installed:
         Read TIF stack and display the eval box for each frame from the list.
 
 
-## Helper Functions for Results Presentation
+## Helper Functions for analysis of transformation matrix produced by FiJi-based workflow
     read_transformation_matrix_from_xf_file(xf_filename):
         Reads transformation matrix created by FiJi-based workflow from *.xf file
     analyze_transformation_matrix(transformation_matrix, xf_filename):
