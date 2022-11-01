@@ -2506,6 +2506,8 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     data_dir = saved_kwargs.get("data_dir", '')
     fnm_reg = saved_kwargs.get("fnm_reg", 'Registration_file.mrc')
     Sample_ID = saved_kwargs.get("Sample_ID", '')
+    threshold_min = saved_kwargs.get("threshold_min", 0.0)
+    threshold_max = saved_kwargs.get("threshold_min", 0.0)
     preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
     fit_params =  saved_kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
@@ -2543,6 +2545,8 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     ax0.plot(xminmax, y_max, 'r', linestyle = '--')
     ax0.text(len(frame_min)/20.0, data_min_glob-dxn/1.75, 'data_min_glob={:.1f}'.format(data_min_glob), fontsize = fs-2, c='b')
     ax0.text(len(frame_min)/20.0, data_max_glob+dxn/2.25, 'data_max_glob={:.1f}'.format(data_max_glob), fontsize = fs-2, c='r')
+    ax0.text(len(frame_min)/20.0, data_min_glob+dxn*4.5, 'threshold_min={:.1e}'.format(threshold_min), fontsize = fs-2, c='b')
+    ax0.text(len(frame_min)/20.0, data_min_glob+dxn*5.5, 'threshold_max={:.1e}'.format(threshold_max), fontsize = fs-2, c='r')
     ldm = 50
     data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
     fig0.suptitle(Sample_ID + '    ' +  data_dir_short, fontsize = fs-2)
