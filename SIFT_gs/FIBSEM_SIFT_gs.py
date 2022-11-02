@@ -1941,8 +1941,17 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
         for tag in tif.pages[0].tags.values():
             name, value = tag.name, tag.value
             tif_tags[name] = value
-    shape = eval(tif_tags['ImageDescription'])
-    nz, ny, nx = shape['shape']
+    try:
+        shape = eval(tif_tags['ImageDescription'])
+        nz, ny, nx = shape['shape']
+    except:
+        try:
+            shape = eval(tif_tags['image_description'])
+            nz, ny, nx = shape['shape']
+        except:
+            fr0 = tiff.imread(tif_filename, key=0)
+            ny, nx = np.shape(fr0)
+            nz = eval(tif_tags['nimages'])
 
     frame_inds = kwargs.get("frame_inds", [nz//10,  nz//2, nz//10*9] )
     
@@ -2017,8 +2026,8 @@ def evaluate_registration_two_frames_tif(params_tif):
     tif_filename, fr, invert_data, evals = params_tif
     xi_eval, xa_eval, yi_eval, ya_eval = evals
     
-    frame0 = tiff.imread(tif_filename, key=fr-1).astype(float)
-    frame1 = tiff.imread(tif_filename, key=fr).astype(float)
+    frame0 = tiff.imread(tif_filename, key=int(fr-1)).astype(float)
+    frame1 = tiff.imread(tif_filename, key=int(fr)).astype(float)
     
     if invert_data:
         prev_frame = -1.0 * frame0[yi_eval:ya_eval, xi_eval:xa_eval]
@@ -2096,9 +2105,13 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
         shape = eval(tif_tags['ImageDescription'])
         nz, ny, nx = shape['shape']
     except:
-        fr0 = tiff.imread(tif_filename, key=0)
-        ny, nx = np.shape(fr0)
-        nz = eval(tif_tags['nimages'])
+        try:
+            shape = eval(tif_tags['image_description'])
+            nz, ny, nx = shape['shape']
+        except:
+            fr0 = tiff.imread(tif_filename, key=0)
+            ny, nx = np.shape(fr0)
+            nz = eval(tif_tags['nimages'])
     header_dict = {'nx' : nx, 'ny' : ny, 'nz' : nz }
 
     xi_eval = evaluation_box[2]
@@ -2163,6 +2176,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
         image_nsad = np.zeros((nf), dtype=float)
         image_ncc = np.zeros((nf), dtype=float)
         image_mi = np.zeros((nf), dtype=float)
+        '''
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*frame_inds[0]//nf
             yi_eval = start_evaluation_box[0] + dy_eval*frame_inds[0]//nf
@@ -2175,7 +2189,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
             else:
                 ya_eval = ny
 
-        frame0 = tiff.imread(tif_filename, key=frame_inds[0]-1)
+        frame0 = tiff.imread(tif_filename, key=int(frame_inds[0]-1))
         if invert_data:
             prev_frame = -1.0 * (frame0[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
         else:
@@ -2193,7 +2207,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
                     ya_eval = yi_eval + start_evaluation_box[1]
                 else:
                     ya_eval = ny
-            frame1 = tiff.imread(tif_filename, key=j)
+            frame1 = tiff.imread(tif_filename, key=int(j))
             if invert_data:
                 curr_frame = -1.0 * (frame1[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
             else:
@@ -2206,6 +2220,16 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
             image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(prev_frame_cp.ravel(), curr_frame_cp.ravel(), sigma=1.0, bin=2048, normalized=True))
             prev_frame = curr_frame.copy()
             del curr_frame_cp, prev_frame_cp
+        '''
+        results = []
+        for params_tif_mult_pair in tqdm(params_tif_mult, desc='Evaluating frame registration: '):
+            print(params_tif_mult_pair)
+            [tif_filename, fr, invert_data, evals] = params_tif_mult_pair
+            print(fr)
+            results.append(evaluate_registration_two_frames_tif(params_tif_mult_pair))
+        image_nsad = np.array([res[0] for res in results])
+        image_ncc = np.array([res[1] for res in results])
+        image_mi = np.array([res[2] for res in results])
     
     nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
     #image_ncc = image_ncc[1:-1]
@@ -2224,6 +2248,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     xlsx_writer.save()
 
     return reg_summary, registration_summary_xlsx
+
 
 ##########################################
 #         helper functions for analysis of FiJi registration
@@ -3163,7 +3188,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
         ax.axis('off')
         
     if stack_exists:
-        mrc_obj.close()
+        if Path(stack_filename).suffix == '.mrc':
+            mrc_obj.close()
     
     axs[1,0].plot(frames, image_nsad, 'r', linewidth=lwl)
     axs[1,0].set_ylabel('Normalized Sum of Abs. Diff')
