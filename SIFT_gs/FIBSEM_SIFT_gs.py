@@ -2533,9 +2533,9 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     Sample_ID = saved_kwargs.get("Sample_ID", '')
     threshold_min = saved_kwargs.get("threshold_min", 0.0)
     threshold_max = saved_kwargs.get("threshold_min", 0.0)
+    fit_params_saved = saved_kwargs.get("fit_params", ['SG', 101, 3])
+    fit_params = kwargs.get("fit_params", fit_params_saved)
     preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
-    fit_params =  saved_kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
-                                                            # window size 701, polynomial order 3
     
     print('Loading MinMax Data')
     int_results = pd.read_excel(minmax_xlsx_file, sheet_name='MinMax Data')
@@ -2544,8 +2544,12 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     frame_max = int_results['Max']
     data_min_glob  = np.min(frame_min)
     data_max_glob  = np.max(frame_max)
+    '''
     sliding_min = int_results['Sliding Min']
     sliding_max = int_results['Sliding Max']
+    '''
+    sliding_min = savgol_filter(frame_min.astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
+    sliding_max = savgol_filter(frame_max.astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
 
     print('Generating Plot')
     fs = 12
@@ -2576,7 +2580,6 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
     fig0.suptitle(Sample_ID + '    ' +  data_dir_short, fontsize = fs-2)
     fig0.savefig(os.path.join(data_dir, minmax_xlsx_file.replace('.xlsx','.png')), dpi=300)
-
 
 
 def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
