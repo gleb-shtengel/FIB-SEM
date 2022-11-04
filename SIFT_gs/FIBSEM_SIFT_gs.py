@@ -8199,7 +8199,10 @@ class FIBSEM_dataset:
                                                                     #    - 5: Bi-quintic
         self.subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
         self.pad_edges =  kwargs.get("pad_edges", True)
-        self.fnm_reg, self.mrc_mode, self.dtp = build_filename(fls[0], **kwargs)
+        build_fnm_reg, build_mrc_mode, build_dtp = build_filename(fls[0], **kwargs)
+        self.fnm_reg = kwargs.get("fnm_reg", build_fnm_reg)
+        self.mrc_mode = kwargs.get("mrc_mode", build_mrc_mode)
+        self.dtp = kwargs.get("dtp", build_dtp)
         print('Registered data will be saved into: ', self.fnm_reg)
 
 
