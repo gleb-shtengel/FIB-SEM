@@ -6496,6 +6496,7 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
         #Xshift_residual0 = -np.polyval(pX, 0.0)
     else:
         Xshift_residual = Xshift_cum.copy()
+        Xfit = np.zeros(len(Xshift_cum))
 
     if subtract_linear_fit[1]:
         fr = np.arange(0, len(Yshift_cum))
@@ -6505,6 +6506,7 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
         #Yshift_residual0 = -np.polyval(pY, 0.0)
     else:
         Yshift_residual = Yshift_cum.copy()
+        Yfit = np.zeros(len(Yshift_cum))
 
     # define new cumulative transformation matrix where the offests may have linear slopes subtracted
     tr_matr_cum[:, 0, 2] = Xshift_residual
