@@ -1023,6 +1023,8 @@ def Perform_2D_fit(img, estimator, **kwargs):
     kwargs:
     bins : int
         binsize for image binning. If not provided, bins=10
+    Analysis_ROIs : list of lists: [[left, right, top, bottom]]
+        list of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the parabolic fit.
     calc_corr : boolean
         If True - the full image correction is calculated
     ignore_Y  : boolean
@@ -1032,7 +1034,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
     save_res_png : boolean
         save the analysis output into a PNG file (default is False)
     res_fname : string
-        filename for the sesult image ('2D_Parabolic_Fit.png')
+        filename for the result image ('Image_Flattening.png')
     label : string
         optional image label
     dpi : int
@@ -1048,17 +1050,38 @@ def Perform_2D_fit(img, estimator, **kwargs):
     Ysect = kwargs.get("Ysect", ysz//2)
     disp_res = kwargs.get("disp_res", True)
     bins = kwargs.get("bins", 10) #bins = 10
+    Analysis_ROIs = kwargs.get("Analysis_ROIs", [])
     save_res_png = kwargs.get("save_res_png", False)
-    res_fname = kwargs.get("res_fname", '2D_Parabolic_Fit.png')
+    res_fname = kwargs.get("res_fname", 'Image_Flattening.png')
     dpi = kwargs.get("dpi", 300)
     
     img_binned = img.astype(float).reshape(ysz//bins, bins, xsz//bins, bins).sum(3).sum(1)/bins/bins
+    if len(Analysis_ROIs)>0:
+            Analysis_ROIs_binned = [[ind//bins for ind in Analysis_ROI] for Analysis_ROI in Analysis_ROIs]
+    else: 
+        Analysis_ROIs_binned = []
     vmin, vmax = get_min_max_thresholds(img_binned)
     yszb, xszb = img_binned.shape
     yb, xb = np.indices(img_binned.shape)
-    img_1D = img_binned.ravel()
-    xb_1d = xb.ravel()
-    yb_1d = yb.ravel()
+    if len(Analysis_ROIs_binned)>0:
+        img_1D_list = []
+        xb_1d_list = []
+        yb_1d_list = []
+        for Analysis_ROI_binned in Analysis_ROIs_binned:
+            #Analysis_ROI : list of [left, right, top, bottom]
+            img_1D_list = img_1D_list + img_binned[Analysis_ROI_binned[2]:Analysis_ROI_binned[3], Analysis_ROI_binned[0]:Analysis_ROI_binned[1]].ravel().tolist()
+            xb_1d_list  = xb_1d_list + xb[Analysis_ROI_binned[2]:Analysis_ROI_binned[3], Analysis_ROI_binned[0]:Analysis_ROI_binned[1]].ravel().tolist()
+            yb_1d_list  = yb_1d_list + yb[Analysis_ROI_binned[2]:Analysis_ROI_binned[3], Analysis_ROI_binned[0]:Analysis_ROI_binned[1]].ravel().tolist()
+        img_1D = np.array(img_1D_list)
+        xb_1d = np.array(xb_1d_list)
+        yb_1d = np.array(yb_1d_list)
+    else:
+        img_1D = img_binned.ravel()
+        xb_1d = xb.ravel()
+        yb_1d = yb.ravel()
+
+    img_binned_1D = img_binned.ravel()
+    X_binned = np.vstack((xb.ravel(), yb.ravel())).T
     X = np.vstack((xb_1d, yb_1d)).T
     
     ysz, xsz = img.shape
@@ -1086,7 +1109,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
     img_fit_1d = model.predict(X)
     scr = model.score(X, img_1D)
     mse = mean_squared_error(img_fit_1d, img_1D)
-    img_fit = img_fit_1d.reshape(yszb, xszb)
+    img_fit = model.predict(X_binned).reshape(yszb, xszb)
     if calc_corr:
         img_full_correction = np.mean(img_fit_1d) / model.predict(Xf).reshape(ysz, xsz)
     else:
@@ -1101,10 +1124,19 @@ def Perform_2D_fit(img, estimator, **kwargs):
         axs[0, 0].grid(True)
         axs[0, 0].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
         axs[0, 0].plot([0, xszb], [Ysect//bins, Ysect//bins], 'cyan', linewidth = 0.5)
+        if len(Analysis_ROIs_binned)>0:
+            col_ROIs = 'yellow'
+            axs[0, 0].text(0.3, 0.9, 'with Analysis ROIs', color=col_ROIs, transform=axs[0, 0].transAxes)
+            for Analysis_ROI_binned in Analysis_ROIs_binned:
+            #Analysis_ROI : list of [left, right, top, bottom]
+                xi, xa, yi, ya = Analysis_ROI_binned
+                ROI_patch = patches.Rectangle((xi,yi),abs(xa-xi)-2,abs(ya-yi)-2, linewidth=0.75, edgecolor=col_ROIs,facecolor='none')
+                axs[0, 0].add_patch(ROI_patch)
+
         axs[0, 0].set_xlim((0, xszb))
         axs[0, 0].set_ylim((yszb, 0))
         axs[0, 0].set_title('{:d}-x Binned Original Image'.format(bins))
-  
+
         axs[0, 1].imshow(img_fit, cmap='Greys', vmin=vmin, vmax=vmax)
         axs[0, 1].grid(True)
         axs[0, 1].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
@@ -3051,6 +3083,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     perfrom_transformation =  stack_info_dict.get("perfrom_transformation", True)
     disp_res = stack_info_dict.get("disp_res", True)
     stack_exists = os.path.exists(stack_filename)
+    flatten_image = stack_info_dict.get("flatten_image", False)
+    image_correction_file = stack_info_dict.get("image_correction_file", '')
 
     sample_data_available = True
     if stack_exists:
@@ -3171,7 +3205,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 chunk_frames = np.arange(eval_ind, min(eval_ind+zbin_factor, len(fls)-2))
                 frame_filenames = np.array(raw_dataset.fls)[chunk_frames]
                 tr_matrices = np.array(raw_dataset.tr_matr_cum_residual)[chunk_frames]
-                frame_img = transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype, dtp,
+                frame_img = transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
+                        flatten_image, image_correction_file,
                         perfrom_transformation, tr_matrices, shift_matrix, inv_shift_matrix,
                         xi, xa, yi, ya,
                         ImgB_fraction=0.0,
@@ -3498,6 +3533,8 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         Labels (for each registration)
 
     kwargs:
+    frame_inds : array or list of int
+        Array or list oif frame indecis to use to azalyze the data.
     save_res_png : boolean
         If True, the PNG's of summary plots as well as summary Excel notebook are saved 
     save_filename : str
@@ -3525,6 +3562,8 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     nsad_bounds = kwargs.get("nsad_bounds", [0.0, 0.0])
     ncc_bounds = kwargs.get("ncc_bounds", [0.0, 0.0])
     nmi_bounds = kwargs.get("nmi_bounds", [0.0, 0.0])
+    frame_inds = kwargs.get("frame_inds", [])
+
     
     nfls = len(data_files)
     reg_datas = []
@@ -3567,24 +3606,32 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         my_col = my_cols[j]
         pf = labels[j]
         lw0 = linewidths[j]
-        image_nsad = np.array(reg_data['Image NSAD'])
+        if len(frame_inds)>0:
+            image_nsad = np.array(reg_data['Image NSAD'])[frame_inds]
+            image_ncc = np.array(reg_data['Image NCC'])[frame_inds]
+            image_nmi = np.array(reg_data['Image MI'])[frame_inds]
+        else:
+            image_nsad = np.array(reg_data['Image NSAD'])
+            image_ncc = np.array(reg_data['Image NCC'])
+            image_nmi = np.array(reg_data['Image MI'])
+            frame_inds = np.arange(len(image_ncc))
+        fr_i = min(frame_inds) - (max(frame_inds) - min(frame_inds))*0.05
+        fr_a = max(frame_inds) + (max(frame_inds) - min(frame_inds))*0.05
         image_nsads.append(image_nsad)
-        image_ncc = np.array(reg_data['Image NCC'])
         image_nccs.append(image_ncc)
         image_snr = image_ncc/(1.0-image_ncc)
         image_snrs.append(image_snr)
-        image_nmi = np.array(reg_data['Image MI'])
         image_nmis.append(image_nmi)
 
         metrics = [image_nsad, image_ncc, image_snr, image_nmi]
         spreads.append([get_spread(metr) for metr in metrics])
         means.append([np.mean(metr) for metr in metrics])
 
-        ax_nsad.plot(image_nsad, c=my_col, linewidth=lw0)
+        ax_nsad.plot(frame_inds, image_nsad, c=my_col, linewidth=lw0)
         ax_nsad.plot(image_nsad[0], c=my_col, linewidth=lw1, label=pf)
-        ax_ncc.plot(image_ncc, c=my_col, linewidth=lw0)
+        ax_ncc.plot(frame_inds, image_ncc, c=my_col, linewidth=lw0)
         ax_ncc.plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
-        ax_nmi.plot(image_nmi, c=my_col, linewidth=lw0)
+        ax_nmi.plot(frame_inds, image_nmi, c=my_col, linewidth=lw0)
         ax_nmi.plot(image_nmi[0], c=my_col, linewidth=lw1, label=pf)
 
     for ax in axs1.ravel():
@@ -3613,7 +3660,9 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
                                                     nbins=256, disp_res=False)
     else:
         nmi_min, nmi_max = nmi_bounds
-    ax_nmi.set_ylim(nmi_min, nmi_max)    
+    ax_nmi.set_ylim(nmi_min, nmi_max)
+    ax_nmi.set_xlim(fr_i, fr_a)
+
     
     ax_nsad.text(-0.05, 1.05, data_dir, transform=ax_nsad.transAxes, fontsize=10)
     if save_res_png:
@@ -3683,14 +3732,19 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         my_col = my_cols[j]
         pf = labels[j]
         lw0 = linewidths[j]
-        image_ncc = reg_data['Image NCC']
-        axs3[1].plot(image_ncc, c=my_col, linewidth=lw0)
+        if len(frame_inds)>0:
+            image_ncc = np.array(reg_data['Image NCC'])[frame_inds]
+        else:
+            image_ncc = np.array(reg_data['Image NCC'])
+
+        axs3[1].plot(frame_inds, image_ncc, c=my_col, linewidth=lw0)
         axs3[1].plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
     axs3[1].grid(True)
     axs3[1].legend(fontsize=fs2)
     axs3[1].set_ylabel('Normalized Cross-Correlation', fontsize=fs)
     axs3[1].set_xlabel('Frame', fontsize=fs)
     axs3[1].set_ylim(ncc_min, ncc_max)
+    axs3[1].set_xlim(fr_i, fr_a)
     axs3[0].axis(False)
     axs3[0].text(-0.1, 1.07, 'SIFT Registration Comparisons:  ' + data_dir, fontsize=fst3)
     llw1=0.3
@@ -4088,7 +4142,7 @@ class FIBSEM_frame:
             fid.close
             # finish reading raw data
      
-            Raw = np.asarray(Raw).reshape(self.YResolution, self.XResolution, self.ChanNum)
+            Raw = np.array(Raw).reshape(self.YResolution, self.XResolution, self.ChanNum)
             #print(shape(Raw), type(Raw), type(Raw[0,0]))
 
             #data = np.asarray(datab).reshape(self.YResolution,self.XResolution,ChanNum)
@@ -4479,7 +4533,7 @@ class FIBSEM_frame:
             dt = ((np.clip(self.RawImageB, data_min, data_max) - data_min)/(data_max-data_min)*255.0).astype(np.uint8)
         return dt, data_min, data_max
     
-    def save_snapshot(self, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256, disp_res = True, dpi=300):
+    def save_snapshot(self, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256, disp_res = True, dpi=300, **kwargs):
         '''
         Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
 
@@ -4499,6 +4553,10 @@ class FIBSEM_frame:
             If True display the results
         dpi : int
             Default is 300
+
+        kwargs:
+        snapshot_name : string
+            the name of the image to perform this operations (defaulut is frame_name + '_snapshot.png').
         
         Returns
         dt, data_min, data_max
@@ -4509,6 +4567,9 @@ class FIBSEM_frame:
             data_max : float
                 value used as high bound for I8 data conversion
         '''
+
+        snapshot_name = kwargs.get('snapshot_name', os.path.splitext(self.fname)[0] + '_snapshot.png')
+
         ifDetB = (self.DetB != 'None')
         if ifDetB:
             try:
@@ -4587,7 +4648,7 @@ class FIBSEM_frame:
                            #bbox = [0.45, 1.02, 2.8, 0.55],
                            zorder=10)
 
-        fig.savefig(os.path.splitext(self.fname)[0] + '_snapshot.png', dpi=dpi)
+        fig.savefig(snapshot_name, dpi=dpi)
         if disp_res == False:
             plt.close(fig)
     
@@ -4976,6 +5037,8 @@ class FIBSEM_frame:
                     HuberRegressor()
         bins : int
             binsize for image binning. If not provided, bins=10
+        Analysis_ROIs : list of lists: [[left, right, top, bottom]]
+            list of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the parabolic fit.
         calc_corr : boolean
             If True - the full image correction is calculated
         ignore_Y  : boolean
@@ -4984,8 +5047,10 @@ class FIBSEM_frame:
             (default is False) - to plot/ display the results
         save_res_png : boolean
             save the analysis output into a PNG file (default is False)
+        save_correction_binary = boolean
+            save the mage)name and img_full_correction data into a binary file
         res_fname : string
-            filename for the sesult image ('2D_Parabolic_Fit.png')
+            filename for the result image ('**_Image_Flattening.png'). The binary image is derived from the same root, e.g. '**_Image_Flattening.bin'
         label : string
             optional image label
         dpi : int
@@ -5001,8 +5066,10 @@ class FIBSEM_frame:
         lbl = kwargs.get("label", '')
         disp_res = kwargs.get("disp_res", True)
         bins = kwargs.get("bins", 10) #bins = 10
+        Analysis_ROIs = kwargs.get("Analysis_ROIs", [])
         save_res_png = kwargs.get("save_res_png", False)
-        res_fname = kwargs.get("res_fname", '2D_Parabolic_Fit.png')
+        res_fname = kwargs.get("res_fname", os.path.splitext(self.fname)[0]+'_Image_Flattening.png')
+        save_correction_binary = kwargs.get("save_correction_binary", False)
         dpi = kwargs.get("dpi", 300)
 
         if image_name == 'RawImageA':
@@ -5022,6 +5089,11 @@ class FIBSEM_frame:
         if calc_corr:
             self.image_correction_source = image_name
             self.img_full_correction = img_full_correction
+            if save_correction_binary:
+                bin_fname = res_fname.replace('png', 'bin')
+                pickle.dump([image_name, img_full_correction], open(bin_fname, 'wb')) # saves source name and correction array into the binary file
+                self.image_correction_file = res_fname.replace('png', 'bin')
+                print('Image Flattening Info saved into the binary file: ', self.image_correction_file)
         self.intercept = intercept
         self.coefs = coefs
         return intercept, coefs, mse, img_full_correction
@@ -5029,37 +5101,69 @@ class FIBSEM_frame:
         
     def flatten_image(self, **kwargs):
         '''
-        Flatten the image. Imah=ge flattening parameters must be determined (determine_field_fattening_parameters)
+        Flatten the image. Image flattening parameters must be determined (determine_field_fattening_parameters)
 
         Parameters
         ----------
         kwargs:
         image_name : str
+            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
+        image_correction_file : str
+            full path to a binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
+            if image_correction_file exists, the data is loaded from it.
+        image_correction_file : str
+            optional binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
+        image_correction_source : str
+            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
+        img_full_correction : 2D array
+            array containing field flatteting info
 
         Returns:
         flattened_image : 2D array
         '''
         image_name = kwargs.get("image_name", 'RawImageA')
 
-        if hasattr(self, 'image_correction_source') and hasattr(self, 'img_full_correction'):
-            if image_name == self.image_correction_source:
+
+        if hasattr(self, 'image_correction_file'):
+            image_correction_file = kwargs.get("image_correction_file", self.image_correction_file)
+        else:
+            image_correction_file = kwargs.get("image_correction_file", '')
+
+        try:
+            # try loading the image correction data from the binary file
+            with open(image_correction_file, "rb") as f:
+                [image_correction_source,  img_full_correction] = pickle.load(f)
+        except:
+            #  if that did not work, see if the correction data was provided directly
+            if hasattr(self, 'image_correction_source'):
+                image_correction_source = kwargs.get("image_correction_source", self.image_correction_source)
+            else:
+                image_correction_source = kwargs.get("image_correction_source", False)
+
+            if hasattr(self, 'img_full_correction'):
+                img_full_correction = kwargs.get("img_full_correction", self.img_full_correction)
+            else:
+                img_full_correction = kwargs.get("img_full_correction", False)
+
+        if (image_correction_source is not False) and (img_full_correction is not False):
+            if image_name == image_correction_source:
                 if image_name == 'RawImageA':
-                    flattened_image = (self.RawImageA - self.Scaling[1,0])*self.img_full_correction + self.Scaling[1,0]
+                    flattened_image = (self.RawImageA - self.Scaling[1,0])*img_full_correction + self.Scaling[1,0]
                 if image_name == 'RawImageB':
-                    flattened_image = (self.RawImageB - self.Scaling[1,1])*self.img_full_correction + self.Scaling[1,1]
+                    flattened_image = (self.RawImageB - self.Scaling[1,1])*img_full_correction + self.Scaling[1,1]
                 if image_name == 'ImageA':
-                    flattened_image = self.ImageA*self.img_full_correction
+                    flattened_image = self.ImageA*img_full_correction
                 if image_name == 'ImageB':
-                    flattened_image = self.ImageB*self.img_full_correction
+                    flattened_image = self.ImageB*img_full_correction
                 flattened=True
             else:
-                print('Inconsistent Image='+ image_name + ' and Image Correction Source='+self.image_correction_source)
-                print('Image flattening not performed')
+                #print('Inconsistent Image='+ image_name + ' and Image Correction Source='+image_correction_source)
+                #print('Image flattening not performed')
                 flattened=False
         else:
-            print('Image Correction Parameters not Determined')
-            print('execute method determine_field_fattening_parameters()')
-            print('Image flattening not performed')
+            #print('Image Correction Parameters not Determined')
+            #print('execute method determine_field_fattening_parameters()')
+            #print('Image flattening not performed')
             flattened=False
 
         if not flattened:
@@ -6258,7 +6362,6 @@ def determine_transformations_dataset(fnms, DASK_client, **kwargs):
     return results_s4
 
 
-
 def transform_and_save_single_frame(params_tss):
     '''
     Transforms a single EM frame with known transformation parameters and saves the new image into TIF file
@@ -6274,6 +6377,7 @@ def transform_and_save_single_frame(params_tss):
             Transformation matrix
     tr_args : list
         tr_args = ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, save_asI8, data_min_glob, data_max_glob, ftype, dtp
+        # should be  tr_args = ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype
 
 
     Returns:
@@ -6282,6 +6386,7 @@ def transform_and_save_single_frame(params_tss):
     '''
     fname_orig, fname_transformed, tr_matrix, tr_args = params_tss
     ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, save_asI8, data_min_glob, data_max_glob, ftype, dtp = tr_args
+    # ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype = tr_args
     EMimage_padded = np.zeros((ysz, xsz), dtype=dtp)
     EMframe = FIBSEM_frame(fname_orig, ftype=ftype)
 
@@ -6549,225 +6654,6 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
     
     return tr_matr_cum, transf_matrix_xlsx_file
 
-
-def process_transf_matrix_old(transformation_matrix, fnms_matches, npts, error_abs_mean, **kwargs):
-    data_dir = kwargs.get("data_dir", '')
-    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
-    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
-    Sample_ID = kwargs.get("Sample_ID", '')
-
-    l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
-    l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
-    l2_matrix_default[2,2] = 0                                 # turn OFF the regularization on shifts
-    l2_matrix_default[5,5] = 0                                 # turn OFF the regularization on shifts
-    l2_matrix = kwargs.get("l2_matrix", l2_matrix_default)
-    targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
-    solver = kwargs.get("solver", 'RANSAC')
-    drmax = kwargs.get("drmax", 2.0)
-    max_iter = kwargs.get("max_iter", 1000)
-    BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-    save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    kp_max_num = kwargs.get("kp_max_num", -1)
-    save_res_png  = kwargs.get("save_res_png", True)
-
-    preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
-    fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
-                                                            # window size 701, polynomial order 3
-    subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
-    #print("subtract_linear_fit:", subtract_linear_fit)
-    pad_edges =  kwargs.get("pad_edges", True)
-
-    tr_matr_cum = transformation_matrix.copy()   
-    prev_mt = np.eye(3,3)
-    for j, cur_mt in enumerate(tqdm(transformation_matrix, desc='Calculating Original Cummilative Transformation Matrix')):
-        prev_mt = np.matmul(cur_mt, prev_mt)
-        tr_matr_cum[j] = prev_mt
-    # Now insert identity matrix for the zero frame which does not need to be trasformed
-    tr_matr_cum = np.insert(tr_matr_cum, 0, np.eye(3,3), axis=0)  
-    
-    fr = np.arange(0, len(tr_matr_cum), dtype=np.double)
-    s00_cum_orig = tr_matr_cum[:, 0, 0].astype(np.double)
-    s01_cum_orig = tr_matr_cum[:, 0, 1].astype(np.double)
-    s10_cum_orig = tr_matr_cum[:, 1, 0].astype(np.double)
-    s11_cum_orig = tr_matr_cum[:, 1, 1].astype(np.double)
-    Xshift_cum_orig = tr_matr_cum[:, 0, 2].astype(np.double)
-    Yshift_cum_orig = tr_matr_cum[:, 1, 2].astype(np.double)
-    
-    fs = 14
-    lwf = 2
-    lwl = 1
-    fig5, axs5 = subplots(4,3, figsize=(18, 16), sharex=True)
-    fig5.subplots_adjust(left=0.07, bottom=0.03, right=0.99, top=0.95)
-    # display the info
-    axs5[0,0].axis(False)
-    axs5[0,0].text(-0.1, 0.9, Sample_ID, fontsize = fs + 4)
-    #axs5[0,0].text(-0.1, 0.73, 'Global Data Range:  Min={:.2f}, Max={:.2f}'.format(data_min_glob, data_max_glob), transform=axs5[0,0].transAxes, fontsize = fs)
-    
-    if TransformType == RegularizedAffineTransform:
-        tstr = ['{:d}'.format(x) for x in targ_vector] 
-        otext = 'Reg.Aff.Transf., λ= {:.1e}, t=['.format(l2_matrix[0,0]) + ' '.join(tstr) + '], w/' + solver
-    else:
-        otext = TransformType.__name__ + ' with ' + solver + ' solver'
-
-    axs5[0,0].text(-0.1, 0.56, otext, transform=axs5[0,0].transAxes, fontsize = fs)
-
-    sbtrfit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
-    axs5[0,0].text(-0.1, 0.39, 'drmax={:.1f}, Max # of KeyPts={:d}, Max # of Iter.={:d}'.format(drmax, kp_max_num, max_iter), transform=axs5[0,0].transAxes, fontsize = fs)
-    padedges = 'ON' if pad_edges else 'OFF'
-    if preserve_scales:
-        fit_method = fit_params[0]
-        if fit_method == 'LF':
-            fit_str = ', Meth: Linear Fit'
-            fm_string = 'linear'
-        else:
-            if fit_method == 'SG':
-                fit_str = ', Meth: Sav.-Gol., ' + str(fit_params[1:])
-                fm_string = 'Sav.-Gol.'
-            else:
-                fit_str = ', Meth: Pol.Fit, ord.={:d}'.format(fit_params[1])
-                fm_string = 'polyn.'
-        preserve_scales_string = 'Pres. Scls: ON' + fit_str
-    else:
-        preserve_scales_string = 'Preserve Scales: OFF'
-    axs5[0,0].text(-0.1, 0.22, preserve_scales_string, transform=axs5[0,0].transAxes, fontsize = fs)
-    axs5[0,0].text(-0.1, 0.05, 'Subtract Shift Fit: ' + sbtrfit + ', Pad Edges: ' + padedges, transform=axs5[0,0].transAxes, fontsize = fs)
-    # plot number of keypoints
-    axs5[0, 1].plot(npts, 'g', linewidth = lwl, label = '# of key-points per frame')
-    axs5[0, 1].set_title('# of key-points per frame')
-    axs5[0, 1].text(0.03, 0.2, 'Mean # of kpts= {:.0f}   Median # of kpts= {:.0f}'.format(np.mean(npts), np.median(npts)), transform=axs5[0, 1].transAxes, fontsize = fs-1)
-    # plot Standard deviations
-    axs5[0, 2].plot(error_abs_mean, 'magenta', linewidth = lwl, label = 'Mean Abs Error over keyponts per frame')
-    axs5[0, 2].set_title('Mean Abs Error keyponts per frame')  
-    axs5[0, 2].text(0.03, 0.2, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
-    
-    if preserve_scales:  # in case of ScaleShift Transform WITH scale perservation
-        print('Recalculating the transformation matrix for preserved scales')
-
-        tr_matr_cum, s_fits = find_fit(tr_matr_cum, fit_params)
-        s00_fit, s01_fit, s10_fit, s11_fit = s_fits
-        
-        txs = np.zeros(len(tr_matr_cum), dtype=float)
-        tys = np.zeros(len(tr_matr_cum), dtype=float)
-        
-        for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Recalculating the shifts for preserved scales: ')):
-            try:
-                src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
-
-                txs[j+1] = np.mean(tr_matr_cum[j, 0, 0] * dst_pts[:, 0] + tr_matr_cum[j, 0, 1] * dst_pts[:, 1]
-                                   - tr_matr_cum[j+1, 0, 0] * src_pts[:, 0] - tr_matr_cum[j+1, 0, 1] * src_pts[:, 1])
-                tys[j+1] = np.mean(tr_matr_cum[j, 1, 1] * dst_pts[:, 1] + tr_matr_cum[j, 1, 0] * dst_pts[:, 0]
-                                   - tr_matr_cum[j+1, 1, 1] * src_pts[:, 1] - tr_matr_cum[j+1, 1, 0] * src_pts[:, 0])
-            except:
-                txs[j+1] = 0.0
-                tys[j+1] = 0.0
-        txs_cum = np.cumsum(txs)
-        tys_cum = np.cumsum(tys)
-        tr_matr_cum[:, 0, 2] = txs_cum
-        tr_matr_cum[:, 1, 2] = tys_cum
-
-    Xshift_cum = tr_matr_cum[:, 0, 2].copy()
-    Yshift_cum = tr_matr_cum[:, 1, 2].copy()
-
-    # Subtract linear trends from offsets
-    if subtract_linear_fit[0]:
-        fr = np.arange(0, len(Xshift_cum))
-        pX = np.polyfit(fr, Xshift_cum, 1)
-        Xfit = np.polyval(pX, fr)
-        Xshift_residual = Xshift_cum - Xfit
-        #Xshift_residual0 = -np.polyval(pX, 0.0)
-    else:
-        Xshift_residual = Xshift_cum.copy()
-
-    if subtract_linear_fit[1]:
-        fr = np.arange(0, len(Yshift_cum))
-        pY = np.polyfit(fr, Yshift_cum, 1)
-        Yfit = np.polyval(pY, fr)
-        Yshift_residual = Yshift_cum - Yfit
-        #Yshift_residual0 = -np.polyval(pY, 0.0)
-    else:
-        Yshift_residual = Yshift_cum.copy()
-
-    # define new cumulative transformation matrix where the offests may have linear slopes subtracted
-    tr_matr_cum[:, 0, 2] = Xshift_residual
-    tr_matr_cum[:, 1, 2] = Yshift_residual
-    
-    # plot scales terms
-    axs5[1, 0].plot(transformation_matrix[:, 0, 0], 'r', linewidth = lwl, label = 'Sxx frame-to-frame')
-    axs5[1, 0].plot(transformation_matrix[:, 1, 1], 'b', linewidth = lwl, label = 'Syy frame-to-frame')
-    axs5[1, 0].set_title('Frame-to-Frame Scale Change', fontsize = fs)
-    axs5[2, 0].plot(s00_cum_orig, 'r', linewidth = lwl, linestyle='dotted', label = 'Sxx cum.')
-    axs5[2, 0].plot(s11_cum_orig, 'b', linewidth = lwl, linestyle='dotted', label = 'Syy cum.')
-    if preserve_scales:
-        axs5[2, 0].plot(s00_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxx cum. - '+fm_string+' fit')
-        axs5[2, 0].plot(s11_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syy cum. - '+fm_string+' fit')
-    axs5[2, 0].set_title('Cumulative Scale', fontsize = fs)
-    yi10,ya10 = axs5[1, 0].get_ylim()
-    dy0 = (ya10-yi10)/2.0
-    yi20,ya20 = axs5[2, 0].get_ylim()
-    if (ya20-yi20)<0.01*dy0:
-        axs5[2, 0].set_ylim((yi20-dy0, ya20+dy0))
-    axs5[3, 0].plot(tr_matr_cum[:, 0, 0], 'r', linewidth = lwl, label = 'Sxx cum. - residual')
-    axs5[3, 0].plot(tr_matr_cum[:, 1, 1], 'b', linewidth = lwl, label = 'Syy cum. - residual')
-    axs5[3, 0].set_title('Residual Cumulative Scale', fontsize = fs)
-    axs5[3, 0].set_xlabel('Frame', fontsize = fs+1)
-    yi30,ya30 = axs5[3, 0].get_ylim()
-    if (ya30-yi30)<0.01*dy0:
-        axs5[3, 0].set_ylim((yi30-dy0, ya30+dy0))
-
-    # plot shear terms
-    axs5[1, 1].plot(transformation_matrix[:, 0, 1], 'r', linewidth = lwl, label = 'Sxy frame-to-frame')
-    axs5[1, 1].plot(transformation_matrix[:, 1, 0], 'b', linewidth = lwl, label = 'Syx frame-to-frame')
-    axs5[1, 1].set_title('Frame-to-Frame Shear Change', fontsize = fs)
-    axs5[2, 1].plot(s01_cum_orig, 'r', linewidth = lwl, linestyle='dotted', label = 'Sxy cum.')
-    axs5[2, 1].plot(s10_cum_orig, 'b', linewidth = lwl, linestyle='dotted', label = 'Syx cum.')
-    if preserve_scales:
-        axs5[2, 1].plot(s01_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxy cum. - '+fm_string+' fit')
-        axs5[2, 1].plot(s10_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syx cum. - '+fm_string+' fit')
-    axs5[2, 1].set_title('Cumulative Shear', fontsize = fs)
-    yi11,ya11 = axs5[1, 1].get_ylim()
-    dy1 = (ya11-yi11)/2.0
-    yi21,ya21 = axs5[2, 1].get_ylim()
-    if (ya21-yi21)<0.01*dy1:
-        axs5[2, 1].set_ylim((yi21-dy1, ya21+dy1))
-    axs5[3, 1].plot(tr_matr_cum[:, 0, 1], 'r', linewidth = lwl, label = 'Sxy cum. - residual')
-    axs5[3, 1].plot(tr_matr_cum[:, 1, 0], 'b', linewidth = lwl, label = 'Syx cum. - residual')
-    axs5[3, 1].set_title('Residual Cumulative Shear', fontsize = fs)
-    axs5[3, 1].set_xlabel('Frame', fontsize = fs+1)
-    yi31,ya31 = axs5[3, 1].get_ylim()
-    if (ya31-yi21)<0.01*dy1:
-        axs5[3, 1].set_ylim((yi31-dy1, ya31+dy1))
-
-    # plot shifts
-    axs5[1, 2].plot(transformation_matrix[:, 0, 2], 'r', linewidth = lwl, label = 'Tx fr.-to-fr.')
-    axs5[1, 2].plot(transformation_matrix[:, 1, 2], 'b', linewidth = lwl, label = 'Ty fr.-to-fr.')
-    axs5[1, 2].set_title('Frame-to-Frame Shift', fontsize = fs)
-    if preserve_scales:
-        axs5[2, 2].plot(Xshift_cum_orig, 'r', linewidth = lwl, label = 'Tx cum. - orig.')
-        axs5[2, 2].plot(Yshift_cum_orig, 'b', linewidth = lwl, label = 'Ty cum. - orig.')
-        axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum. - pres. scales')
-        axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum. - pres. scales')
-    else:
-        axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum.')
-        axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum.')
-    if subtract_linear_fit[0]:
-        axs5[2, 2].plot(Xfit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Tx cum. - lin. fit')
-    if subtract_linear_fit[1]:
-        axs5[2, 2].plot(Yfit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Ty cum. - lin. fit')
-    axs5[2, 2].set_title('Cumulative Shift', fontsize = fs)
-    axs5[3, 2].plot(tr_matr_cum[:, 0, 2], 'r', linewidth = lwl, label = 'Tx cum. - residual')
-    axs5[3, 2].plot(tr_matr_cum[:, 1, 2], 'b', linewidth = lwl, label = 'Ty cum. - residual')
-    axs5[3, 2].set_title('Residual Cumulative Shift', fontsize = fs)
-    axs5[3, 2].set_xlabel('Frame', fontsize = fs+1)
-
-    for ax in axs5.ravel()[1:]:
-        ax.grid(True)
-        ax.legend(fontsize = fs-1)
-    fn = os.path.join(data_dir, fnm_reg)
-    fig5.suptitle(fn, fontsize = fs)
-    if save_res_png :
-        fig5.savefig(fn.replace('.mrc', '_Transform_Summary.png'), dpi=300)
-        
-    return tr_matr_cum
 
 def determine_pad_offsets(shape, tr_matr, disp_res):
     ysz, xsz = shape
@@ -7249,90 +7135,8 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
     return [data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, minmax_xlsx]
 
 
-def transform_frame(frame, tr_matr, **kwargs):
-    '''
-    Transforms single frame
-
-    Parameters:
-        frame : instance of FIBSEM_frame object
-        tr_matr : transformation matrix
-    **kwargs:
-        ImgB_fraction : Image B (ESB image) fraction for image fusion
-        pad_edges : boolean
-            default is True
-        xy_limits : list of 4 indices: [xi, xa, yi, ya]  paddind range
-            default is [0, -1, 0, -1]
-        perfrom_transformation : boolean
-            default is True
-        invert_data : boolean
-            default is False
-        flatten_image : boolean
-            default is False
-        Image_correction : list of two full-size image corrections
-
-    Returns:
-        transformed_img : 2D array
-
-    '''
-    ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
-                                                           # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
-    if test_frame.DetB == 'None':
-        ImgB_fraction=0.0
-    pad_edges =  kwargs.get("pad_edges", True)
-    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
-    int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
-    perfrom_transformation =  kwargs.get("perfrom_transformation", True)
-    invert_data =  kwargs.get("invert_data", False)
-    xy_limits = kwargs.get("xy_limits", [0, -1, 0, -1])
-    xi, xa, yi, ya = xy_limits
-    flatten_image =  kwargs.get("flatten_image", False)
-    Image_correction =  kwargs.get("Image_correction", [np.ones(frame.RawImageA.shape), np.ones(frame.RawImageA.shape)])
-
-    if pad_edges and perfrom_transformation:
-        shift_matrix = np.array([[1.0, 0.0, xi],
-                                 [0.0, 1.0, yi],
-                                 [0.0, 0.0, 1.0]])
-        inv_shift_matrix = np.linalg.inv(shift_matrix)
-    else:
-        xi = 0
-        yi = 0
-        shift_matrix = np.eye(3,3)
-        inv_shift_matrix = np.eye(3,3)
-
-    if ImgB_fraction < 1e-5 or (not hasattr(frame, 'RawImageB')):
-        if flatten_image:
-            image = (frame.RawImageA.astype(float) -  frame.Scaling[1,0])*Image_correction[0] + frame.Scaling[1,0]
-        else:
-            image = frame.RawImageA.astype(float)
-
-    else:
-        if flatten_image:
-            ImgA_flattened = (frame.RawImageA.astype(float) -  frame.Scaling[1,0])*Image_correction[0] + frame.Scaling[1,0]
-            ImgB_flattened = (frame.RawImageB.astype(float) -  frame.Scaling[1,1])*Image_correction[1] + frame.Scaling[1,1]
-            image = ImgA_flattened * (1.0 - ImgB_fraction) + ImgB_flattened * ImgB_fraction
-        else:
-            image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
-        
-    if invert_data:
-        if test_frame.EightBit==0:
-            padded_img[yi:ya, xi:xa] = np.negative(image)
-
-        else:
-            padded_img[yi:ya, xi:xa]  =  uint8(255) - image   
-    else:
-        padded_img[yi:ya, xi:xa]  = image
-
-    if perfrom_transformation:
-        transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matr @ inv_shift_matrix))
-        transformed_img = warp(padded_img, transf, order = int_order,  preserve_range=True)
-
-    else:
-        transformed_img = padded_img
-
-    return transformed_img
-
-
-def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype, dtp,
+def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
+                        flatten_image, image_correction_file,
                         perfrom_transformation, tr_matrices, shift_matrix, inv_shift_matrix,
                         xi, xa, yi, ya,
                         ImgB_fraction=0.0,
@@ -7351,6 +7155,12 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype, dtp,
         Y-size (pixels)
     ftype : int
         File Type. 0 for Shan's .dat files, 1 for tif files
+    dtp : data type
+        python data type for the output data
+    flatten_image : bolean
+        perform image flattening
+    image_correction_file : str
+        full path to a binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
     xi : int
         Low X-axis bound for placing the transformed frame into the image before transformation
     xa : int
@@ -7387,9 +7197,11 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype, dtp,
         frame = FIBSEM_frame(frame_filename, ftype=ftype)
 
         if ImgB_fraction < 1e-5:
-            image = frame.RawImageA.astype(float)
+            #image = frame.RawImageA.astype(float)
+            image = (frame.flatten_image(image_name = 'RawImageA', image_correction_file = image_correction_file)).astype(float)
         else:
-            image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
+            #image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
+            image = (frame.flatten_image(image_name = 'RawImageA', image_correction_file = image_correction_file)).astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
 
         if invert_data:
             frame_img[yi:ya, xi:xa] = np.negative(image)
@@ -7443,7 +7255,7 @@ def transform_two_chunks(params):
         inv_shift_matrix : 2d array
             inverse shift matrix
     tr_args : list
-        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, perfrom_transformation, ftype, dtp]
+        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype]
 
     Returns:
     registration_stat : list
@@ -7451,15 +7263,17 @@ def transform_two_chunks(params):
     '''
     # first, unpack the parameters
     chunk0_filenames, chunk1_filenames, chunk0_tr_matrices, chunk1_tr_matrices, shift_matrix, inv_shift_matrix, xi_eval, xa_eval, yi_eval, ya_eval, tr_args = params
-    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, perfrom_transformation, ftype, dtp = tr_args
-    binned_fr_img0 = transform_chunk_of_frames(chunk0_filenames, xsz, ysz, ftype, dtp,
+    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype = tr_args
+    binned_fr_img0 = transform_chunk_of_frames(chunk0_filenames, xsz, ysz, ftype,
+                                flatten_image, image_correction_file,
                                 perfrom_transformation, chunk0_tr_matrices, shift_matrix, inv_shift_matrix,
                                 xi, xa, yi, ya,
                                 ImgB_fraction = ImgB_fraction,
                                 invert_data = invert_data,
                                 int_order = int_order,
                                 flipY=flipY)
-    binned_fr_img1 = transform_chunk_of_frames(chunk1_filenames, xsz, ysz, ftype, dtp,
+    binned_fr_img1 = transform_chunk_of_frames(chunk1_filenames, xsz, ysz, ftype,
+                                flatten_image, image_correction_file,
                                 perfrom_transformation, chunk1_tr_matrices, shift_matrix, inv_shift_matrix,
                                 xi, xa, yi, ya,
                                 ImgB_fraction = ImgB_fraction,
@@ -7559,6 +7373,10 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         binning factor along Z-axis
     perfrom_transformation : boolean
         If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
+    flatten_image : bolean
+        perform image flattening
+    image_correction_file : str
+        full path to a binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
     invert_data : boolean
         If True - the data is inverted.
     evaluation_box : list of 4 int
@@ -7608,6 +7426,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
+    flatten_image = kwargs.get("flatten_image", False)
+    image_correction_file = kwargs.get("image_correction_file", '')
     perfrom_transformation =  kwargs.get("perfrom_transformation", True)
     invert_data =  kwargs.get("invert_data", False)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])  #  [top, height, keft, width]
@@ -7708,7 +7528,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     if use_DASK:
         if disp_res:
             print('Will perform distributed computations using DASK')
-        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, perfrom_transformation, ftype, dtp]
+        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype]
         tr_params = []
         for j, st_frame in enumerate(tqdm(st_frames[0:-1], desc='Setting up DASK parameter sets', display=disp_res)):
             if sliding_evaluation_box:
@@ -7757,7 +7577,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
             print('Will perform local computations')
         for j, st_frame in enumerate(tqdm(st_frames, desc = tq_desc, display = disp_res)):
             process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
-            binned_fr_img = transform_chunk_of_frames(np.array(fls)[process_frames], xsz, ysz, ftype, dtp,
+            binned_fr_img = transform_chunk_of_frames(np.array(fls)[process_frames], xsz, ysz, ftype,
+                                flatten_image, image_correction_file,
                                 perfrom_transformation, np.array(tr_matr_cum_residual)[process_frames], shift_matrix, inv_shift_matrix,
                                 xi, xa, yi, ya,
                                 ImgB_fraction = ImgB_fraction,
@@ -9018,6 +8839,10 @@ class FIBSEM_dataset:
             If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
         invert_data : boolean
             If True - the data is inverted.
+        flatten_image : bolean
+            perform image flattening
+        image_correction_file : str
+            full path to a binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
         flipY : boolean
             If True, the data will be flipped along Y-axis. Default is False.
         zbin_factor : int
@@ -9083,6 +8908,14 @@ class FIBSEM_dataset:
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
         subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
+        if hasattr(self, 'flatten_image'):
+            flatten_image = kwargs.get("flatten_image", self.flatten_image)
+        else:
+            flatten_image = kwargs.get("flatten_image", False)
+        if hasattr(self, 'image_correction_file'):
+            image_correction_file = kwargs.get("image_correction_file", self.image_correction_file)
+        else:
+            image_correction_file = kwargs.get("image_correction_file", '')
         perfrom_transformation =  kwargs.get("perfrom_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
         invert_data =  kwargs.get("invert_data", False)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
@@ -9116,6 +8949,8 @@ class FIBSEM_dataset:
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
                             'subtract_linear_fit' : subtract_linear_fit,
+                            'flatten_image' : flatten_image,
+                            'image_correction_file' : image_correction_file,
                             'perfrom_transformation' : perfrom_transformation,
                             'invert_data' : invert_data,
                             'evaluation_box' : evaluation_box,

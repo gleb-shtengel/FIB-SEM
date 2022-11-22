@@ -158,9 +158,9 @@ You will also need to have these packages installed:
     show_eval_box(**kwargs):
         Show the box used for evaluating the noise
     determine_field_fattening_parameters(image_name = 'ImageA', **kwargs):
-        Perfrom 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
+        Perfroms 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
     flatten_image(image_name = 'ImageA', **kwargs):
-        Flatten the image
+        Flattens the image
 
 
 ## class FIBSEM_dataset: 
@@ -300,6 +300,6 @@ You will also need to have these packages installed:
         Show the box used for evaluating the registration quality
     estimate_SNRs(**kwargs):
         Estimate SNRs in Image A and Image B based on single-image SNR calculation.
-    def evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs):
+    evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs):
         Calculate NCC and SNR vs Image B fraction over a set of frames.
 
