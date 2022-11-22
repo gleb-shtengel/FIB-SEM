@@ -1040,7 +1040,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
     dpi : int
 
     Returns:
-    intercept, coefs, mse, img_full_correction
+    intercept, coefs, mse, img_correction_array
     '''
     ysz, xsz = img.shape
     calc_corr = kwargs.get("calc_corr", False)
@@ -1111,9 +1111,9 @@ def Perform_2D_fit(img, estimator, **kwargs):
     mse = mean_squared_error(img_fit_1d, img_1D)
     img_fit = model.predict(X_binned).reshape(yszb, xszb)
     if calc_corr:
-        img_full_correction = np.mean(img_fit_1d) / model.predict(Xf).reshape(ysz, xsz)
+        img_correction_array = np.mean(img_fit_1d) / model.predict(Xf).reshape(ysz, xsz)
     else:
-        img_full_correction = img * 0.0
+        img_correction_array = img * 0.0
         
     if disp_res:
         print('Estimator coefficients ( 1  x  y  x^2  x*y  y^2): ', coefs)
@@ -1161,7 +1161,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
         if save_res_png:
             fig.savefig(res_fname, dpi=dpi)
             print('results saved into the file: '+res_fname)
-    return intercept, coefs, mse, img_full_correction
+    return intercept, coefs, mse, img_correction_array
 
 
 
@@ -5048,7 +5048,7 @@ class FIBSEM_frame:
         save_res_png : boolean
             save the analysis output into a PNG file (default is False)
         save_correction_binary = boolean
-            save the mage)name and img_full_correction data into a binary file
+            save the mage)name and img_correction_array data into a binary file
         res_fname : string
             filename for the result image ('**_Image_Flattening.png'). The binary image is derived from the same root, e.g. '**_Image_Flattening.bin'
         label : string
@@ -5056,7 +5056,7 @@ class FIBSEM_frame:
         dpi : int
 
         Returns:
-        intercept, coefs, mse, img_full_correction
+        intercept, coefs, mse, img_correction_array
         '''
         image_name = kwargs.get("image_name", 'RawImageA')
         estimator = kwargs.get("estimator", LinearRegression())
@@ -5085,18 +5085,18 @@ class FIBSEM_frame:
         Xsect = kwargs.get("Xsect", xsz//2)
         Ysect = kwargs.get("Ysect", ysz//2)
 
-        intercept, coefs, mse, img_full_correction = Perform_2D_fit(img, estimator, **kwargs)
+        intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, **kwargs)
         if calc_corr:
             self.image_correction_source = image_name
-            self.img_full_correction = img_full_correction
+            self.img_correction_array = img_correction_array
             if save_correction_binary:
                 bin_fname = res_fname.replace('png', 'bin')
-                pickle.dump([image_name, img_full_correction], open(bin_fname, 'wb')) # saves source name and correction array into the binary file
+                pickle.dump([image_name, img_correction_array], open(bin_fname, 'wb')) # saves source name and correction array into the binary file
                 self.image_correction_file = res_fname.replace('png', 'bin')
                 print('Image Flattening Info saved into the binary file: ', self.image_correction_file)
         self.intercept = intercept
         self.coefs = coefs
-        return intercept, coefs, mse, img_full_correction
+        return intercept, coefs, mse, img_correction_array
 
         
     def flatten_image(self, **kwargs):
@@ -5109,13 +5109,13 @@ class FIBSEM_frame:
         image_name : str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         image_correction_file : str
-            full path to a binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
+            full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
             if image_correction_file exists, the data is loaded from it.
         image_correction_file : str
-            optional binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
+            optional binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
         image_correction_source : str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
-        img_full_correction : 2D array
+        img_correction_array : 2D array
             array containing field flatteting info
 
         Returns:
@@ -5132,7 +5132,7 @@ class FIBSEM_frame:
         try:
             # try loading the image correction data from the binary file
             with open(image_correction_file, "rb") as f:
-                [image_correction_source,  img_full_correction] = pickle.load(f)
+                [image_correction_source,  img_correction_array] = pickle.load(f)
         except:
             #  if that did not work, see if the correction data was provided directly
             if hasattr(self, 'image_correction_source'):
@@ -5140,21 +5140,21 @@ class FIBSEM_frame:
             else:
                 image_correction_source = kwargs.get("image_correction_source", False)
 
-            if hasattr(self, 'img_full_correction'):
-                img_full_correction = kwargs.get("img_full_correction", self.img_full_correction)
+            if hasattr(self, 'img_correction_array'):
+                img_correction_array = kwargs.get("img_correction_array", self.img_correction_array)
             else:
-                img_full_correction = kwargs.get("img_full_correction", False)
+                img_correction_array = kwargs.get("img_correction_array", False)
 
-        if (image_correction_source is not False) and (img_full_correction is not False):
+        if (image_correction_source is not False) and (img_correction_array is not False):
             if image_name == image_correction_source:
                 if image_name == 'RawImageA':
-                    flattened_image = (self.RawImageA - self.Scaling[1,0])*img_full_correction + self.Scaling[1,0]
+                    flattened_image = (self.RawImageA - self.Scaling[1,0])*img_correction_array + self.Scaling[1,0]
                 if image_name == 'RawImageB':
-                    flattened_image = (self.RawImageB - self.Scaling[1,1])*img_full_correction + self.Scaling[1,1]
+                    flattened_image = (self.RawImageB - self.Scaling[1,1])*img_correction_array + self.Scaling[1,1]
                 if image_name == 'ImageA':
-                    flattened_image = self.ImageA*img_full_correction
+                    flattened_image = self.ImageA*img_correction_array
                 if image_name == 'ImageB':
-                    flattened_image = self.ImageB*img_full_correction
+                    flattened_image = self.ImageB*img_correction_array
                 flattened=True
             else:
                 #print('Inconsistent Image='+ image_name + ' and Image Correction Source='+image_correction_source)
@@ -7160,7 +7160,7 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
     flatten_image : bolean
         perform image flattening
     image_correction_file : str
-        full path to a binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
+        full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
     xi : int
         Low X-axis bound for placing the transformed frame into the image before transformation
     xa : int
@@ -7198,10 +7198,15 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
 
         if ImgB_fraction < 1e-5:
             #image = frame.RawImageA.astype(float)
-            image = (frame.flatten_image(image_name = 'RawImageA', image_correction_file = image_correction_file)).astype(float)
+            if flatten_image:
+                image = (frame.flatten_image(image_name = 'RawImageA', image_correction_file = image_correction_file)).astype(float)
+            else:
+                image = frame.RawImageA.astype(float)
         else:
-            #image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
-            image = (frame.flatten_image(image_name = 'RawImageA', image_correction_file = image_correction_file)).astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
+            if flatten_image:
+                image = (frame.flatten_image(image_name = 'RawImageA', image_correction_file = image_correction_file)).astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
+            else:
+                image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
 
         if invert_data:
             frame_img[yi:ya, xi:xa] = np.negative(image)
@@ -7376,7 +7381,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     flatten_image : bolean
         perform image flattening
     image_correction_file : str
-        full path to a binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
+        full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
     invert_data : boolean
         If True - the data is inverted.
     evaluation_box : list of 4 int
@@ -8842,7 +8847,7 @@ class FIBSEM_dataset:
         flatten_image : bolean
             perform image flattening
         image_correction_file : str
-            full path to a binary filename that contains source name (image_correction_source) and correction array (img_full_correction)
+            full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
         flipY : boolean
             If True, the data will be flipped along Y-axis. Default is False.
         zbin_factor : int
