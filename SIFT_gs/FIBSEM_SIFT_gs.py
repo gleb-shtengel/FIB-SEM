@@ -3612,7 +3612,7 @@ class FIBSEM_frame:
     RawImageB_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
             Convert the Image B into 8-bit array
 
-    save_snapshot(display = True, dpi=300, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256):
+    save_snapshot(display = True, dpi=300, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256, **kwargs):
         Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
 
     analyze_noise_ROIs(**kwargs):
@@ -4276,16 +4276,16 @@ class FIBSEM_frame:
             dt = ((np.clip(self.RawImageB, data_min, data_max) - data_min)/(data_max-data_min)*255.0).astype(np.uint8)
         return dt, data_min, data_max
     
-    def save_snapshot(self, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256, disp_res = True, dpi=300, **kwargs):
+    def save_snapshot(self, **kwargs):
         '''
         Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
 
-        Parameters
-        ----------
+        kwargs:
+         ----------
         thr_min : float
-            lower CDF threshold for determining the minimum data value
+            lower CDF threshold for determining the minimum data value. Default is 1.0e-3
         thr_max : float
-            upper CDF threshold for determining the maximum data value
+            upper CDF threshold for determining the maximum data value. Default is 1.0e-3
         data_min : float
             If different from data_max, this value will be used as low bound for I8 data conversion
         data_max : float
@@ -4296,11 +4296,11 @@ class FIBSEM_frame:
             If True display the results
         dpi : int
             Default is 300
-
-        kwargs:
         snapshot_name : string
             the name of the image to perform this operations (defaulut is frame_name + '_snapshot.png').
         
+
+
         Returns
         dt, data_min, data_max
             dt : 2D uint8 array
@@ -4310,7 +4310,11 @@ class FIBSEM_frame:
             data_max : float
                 value used as high bound for I8 data conversion
         '''
-
+        thr_min = kwargs.get('thr_min', 1.0e-3)
+        thr_max = kwargs.get('thr_max', 1.0e-3)
+        nbins = kwargs.get('nbins', 256)
+        disp_res = kwargs.get('disp_res', True)
+        dpi = kwargs.get('dpi', 300)
         snapshot_name = kwargs.get('snapshot_name', os.path.splitext(self.fname)[0] + '_snapshot.png')
 
         ifDetB = (self.DetB != 'None')

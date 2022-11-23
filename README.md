@@ -157,9 +157,9 @@ You will also need to have these packages installed:
         Estimates SNR using auto-correlation analysis of a single image.
     show_eval_box(**kwargs):
         Show the box used for evaluating the noise
-    determine_field_fattening_parameters(image_name = 'ImageA', **kwargs):
+    determine_field_fattening_parameters(image_name = 'RawImageA', **kwargs):
         Performs 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
-    flatten_image(image_name = 'ImageA', **kwargs):
+    flatten_image(image_name = 'RawImageA', **kwargs):
         Flattens the image
 
 
