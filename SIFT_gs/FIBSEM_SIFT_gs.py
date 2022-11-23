@@ -2495,11 +2495,6 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
         kwargs_dict['dump_filename'] = kwargs['dump_filename']
     #correct for pandas mixed read failures
     try:
-        if kwargs_dict['zbin_factor']:
-            kwargs_dict['zbin_factor']=1
-    except:
-        pass
-    try:
         if kwargs_dict['mrc_mode']:
             kwargs_dict['mrc_mode']=1
     except:
@@ -3046,7 +3041,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
     nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
     nmis = [np.mean(image_nmi), np.median(image_nmi), np.std(image_nmi)]
-
+    num_frames = len(frames)
+    
     stack_info_dict = read_kwargs_xlsx(file_xlsx, 'Stack Info', **kwargs)
     if 'dump_filename' in stack_info_dict.keys():
         dump_filename = kwargs.get("dump_filename", stack_info_dict['dump_filename'])
@@ -3085,10 +3081,12 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     stack_exists = os.path.exists(stack_filename)
     flatten_image = stack_info_dict.get("flatten_image", False)
     image_correction_file = stack_info_dict.get("image_correction_file", '')
+    zbin_factor = stack_info_dict.get("zbin_factor", 1)
 
     sample_data_available = True
     if stack_exists:
         print('Will use sample images from the registered stack')
+        use_raw_data = False
         if Path(stack_filename).suffix == '.mrc':
             mrc_obj = mrcfile.mmap(stack_filename, mode='r')
             header = mrc_obj.header 
@@ -3115,6 +3113,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
         if os.path.exists(dump_filename):
             print('Trying to recall the data from ', dump_filename)
         try:
+            print('Looking for the raw data in the directory', data_dir)
             if ftype == 0:
                 fls = sorted(glob.glob(os.path.join(data_dir,'*.dat')))
                 if len(fls) < 1:
@@ -3123,6 +3122,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 fls = sorted(glob.glob(os.path.join(data_dir,'*.tif')))
                 if len(fls) < 1:
                     fls = sorted(glob.glob(os.path.join(data_dir,'*/*.tif')))
+            num_frames = len(fls)
+            stack_info_dict['disp_res']=False
             raw_dataset = FIBSEM_dataset(fls, recall_parameters=os.path.exists(dump_filename), **stack_info_dict)
             XResolution = raw_dataset.XResolution
             YResolution = raw_dataset.YResolution
@@ -3154,8 +3155,10 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
             xa = xi + XResolution
             ysz = YResolution + pady
             ya = yi + YResolution
+            use_raw_data = True
         except:
-            sample_data_available=False
+            sample_data_available = False
+            use_raw_data = False
     if sample_data_available:
         print('Sample data is available')
     else:
@@ -3185,11 +3188,12 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     axs_fr2 = fig.add_subplot(6,2,5)
     axs_frms = [axs_fr0, axs_fr1, axs_fr2]
     
-    if len(frames)//10*9 > 0:
-        ev_ind2 = len(frames)//10*9
+    
+    if num_frames//10*9 > 0:
+        ev_ind2 = num_frames//10*9
     else:
-        ev_ind2 = len(frames)-1
-    eval_inds = [len(frames)//10,  len(frames)//2, ev_ind2]
+        ev_ind2 = num_frames-1
+    eval_inds = [num_frames//10,  num_frames//2, ev_ind2]
     #print(eval_inds)
     
     for j, eval_ind in enumerate(eval_inds):
@@ -3214,12 +3218,14 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                         int_order=1,
                         flipY = raw_dataset.flipY)
             #print(eval_ind, np.shape(frame_img), yi_evals[eval_ind], ya_evals[eval_ind], xi_evals[eval_ind], xa_evals[eval_ind])
+            if use_raw_data:
+                eval_ind = eval_ind//zbin_factor
             dmin, dmax = get_min_max_thresholds(frame_img[yi_evals[eval_ind]:ya_evals[eval_ind], xi_evals[eval_ind]:xa_evals[eval_ind]], 1e-3, 1e-3, 256, False)
             if invert_data:
                 ax.imshow(frame_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
             else:
                 ax.imshow(frame_img, cmap='Greys', vmin=dmin, vmax=dmax)
-
+            
             ax.text(0.03, 1.01, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frames[eval_ind], image_nsad[eval_ind], image_ncc[eval_ind], image_nmi[eval_ind]), color='red', transform=ax.transAxes)
             rect_patch = patches.Rectangle((xi_evals[eval_ind], yi_evals[eval_ind]),abs(xa_evals[eval_ind]-xi_evals[eval_ind])-2,abs(ya_evals[eval_ind]-yi_evals[eval_ind])-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
             ax.add_patch(rect_patch)
@@ -3251,274 +3257,6 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     fig.suptitle(stack_filename, fontsize = fs-2)
     axs[0,0].text(-0.1, 1.04, Sample_ID + '    ' +  cond_str, transform=axs[0,0].transAxes)
     fig.savefig(png_file, dpi=300)
-
-
-def plot_registrtion_quality_csvs(data_files, labels, **kwargs):
-    '''
-    Read and plot together multiple registration quality summaries.
-    ©G.Shtengel, 04/2021. gleb.shtengel@gmail.com
-
-    Parameters:
-    data_files : array of str
-        Filenames (full paths) of the registration summaries (*.csv files)
-    labels : array of str
-        Labels (for each registration)
-
-    kwargs:
-    save_res_png : boolean
-        If True, the PNG's of summary plots as well as summary Excel notebook are saved 
-    save_filename : str
-        Filename (full path) to save the results (default is data_dir +'Regstration_Summary.png')
-    nsad_bounds : list of floats
-        Bounds for NSAD plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
-    ncc_bounds : list of floats
-        Bounds for NCC plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
-    nmi_bounds : list of floats
-        Bounds for NMI plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
-    colors : array or list of colors
-        Optional colors for each plot/file. If not provided, will be auto-generated.
-    linewidths : array of float
-        linewidths for individual files. If not provided, all linewidts are set to 0.5
-
-    Returns
-    xlsx_fname : str
-        Filename of the summary Excel notebook
-    '''
-    save_res_png  = kwargs.get("save_res_png", True )
-    linewidths = kwargs.get("linewidths", np.ones(len(data_files))*0.5)
-    data_dir = os.path.split(data_files[0])[0]
-    default_save_filename = os.path.join(data_dir, 'Regstration_Summary.png')
-    save_filename = kwargs.get("save_filename", default_save_filename)
-    nsad_bounds = kwargs.get("nsad_bounds", [0.0, 0.0])
-    ncc_bounds = kwargs.get("ncc_bounds", [0.0, 0.0])
-    nmi_bounds = kwargs.get("nmi_bounds", [0.0, 0.0])
-    
-    nfls = len(data_files)
-    reg_datas = []
-    for df in data_files:
-        fl = os.path.join(data_dir, df)
-        data = pd.read_csv(fl)
-        reg_datas.append(data)
-
-    lw0 = 0.5
-    lw1 = 1
-    
-    fs=12
-    fs2=10
-    fig1, axs1 = subplots(3,1, figsize=(7, 11), sharex=True)
-    fig1.subplots_adjust(left=0.1, bottom=0.05, right=0.99, top=0.96, wspace=0.2, hspace=0.1)
-
-    ax_nsad = axs1[0]
-    ax_ncc = axs1[1]
-    ax_nmi = axs1[2]
-    ax_nsad.set_ylabel('Normalized Sum of Abs. Differences', fontsize=fs)
-    ax_ncc.set_ylabel('Normalized Cross-Correlation', fontsize=fs)
-    ax_nmi.set_ylabel('Normalized Mutual Information', fontsize=fs)
-    ax_nmi.set_xlabel('Frame', fontsize=fs)
-
-    spreads=[]
-    my_cols = [get_cmap("gist_rainbow_r")((nfls-j)/(nfls)) for j in np.arange(nfls)]
-    my_cols[0] = 'grey'
-    my_cols[-1] = 'red'
-    my_cols = kwargs.get("colors", my_cols)
-
-    means = []
-    image_nsads= []
-    image_nccs= []
-    image_snrs= []
-    image_nmis = []
-    for j, reg_data in enumerate(tqdm(reg_datas, desc='generating the registration quality summary plots')):
-        #my_col = get_cmap("gist_rainbow_r")((nfls-j)/(nfls))
-        #my_cols.append(my_col)
-        my_col = my_cols[j]
-        pf = labels[j]
-        lw0 = linewidths[j]
-        image_nsad = np.array(reg_data['Image NSAD'])
-        image_nsads.append(image_nsad)
-        image_ncc = np.array(reg_data['Image NCC'])
-        image_nccs.append(image_ncc)
-        image_snr = image_ncc/(1.0-image_ncc)
-        image_snrs.append(image_snr)
-        image_nmi = np.array(reg_data['Image MI'])
-        image_nmis.append(image_nmi)
-
-        metrics = [image_nsad, image_ncc, image_snr, image_nmi]
-        spreads.append([get_spread(metr) for metr in metrics])
-        means.append([np.mean(metr) for metr in metrics])
-
-        ax_nsad.plot(image_nsad, c=my_col, linewidth=lw0)
-        ax_nsad.plot(image_nsad[0], c=my_col, linewidth=lw1, label=pf)
-        ax_ncc.plot(image_ncc, c=my_col, linewidth=lw0)
-        ax_ncc.plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
-        ax_nmi.plot(image_nmi, c=my_col, linewidth=lw0)
-        ax_nmi.plot(image_nmi[0], c=my_col, linewidth=lw1, label=pf)
-
-    for ax in axs1.ravel():
-        ax.grid(True)
-        ax.legend(fontsize=fs2)
-        
-    if nsad_bounds[0]==nsad_bounds[1]:
-        nsad_min, nsad_max = get_min_max_thresholds(np.concatenate(image_nsads),
-                                                    thr_min=1e-4, thr_max=1e-4,
-                                                    nbins=256, disp_res=False)
-    else:
-        nsad_min, nsad_max = nsad_bounds
-    ax_nsad.set_ylim(nsad_min, nsad_max)
-
-    if ncc_bounds[0]==ncc_bounds[1]:
-        ncc_min, ncc_max = get_min_max_thresholds(np.concatenate(image_nccs),
-                                                    thr_min=1e-4, thr_max=1e-4,
-                                                    nbins=256, disp_res=False)
-    else:
-        ncc_min, ncc_max = ncc_bounds
-    ax_ncc.set_ylim(ncc_min, ncc_max)
-
-    if nmi_bounds[0]==nmi_bounds[1]:
-        nmi_min, nmi_max = get_min_max_thresholds(np.concatenate(image_nmis),
-                                                    thr_min=1e-4, thr_max=1e-4,
-                                                    nbins=256, disp_res=False)
-    else:
-        nmi_min, nmi_max = nmi_bounds
-    ax_nmi.set_ylim(nmi_min, nmi_max)    
-    
-    ax_nsad.text(-0.05, 1.05, data_dir, transform=ax_nsad.transAxes, fontsize=10)
-    if save_res_png:
-        fig1.savefig(save_filename, dpi=300)
-        
-    # Generate the Cell Text
-    cell_text = []
-    fig2_data = []
-    limits = []
-    rows = labels
-    fst=9
-
-    for j, (mean, spread) in enumerate(zip(means, spreads)):
-        cell_text.append(['{:.4f}'.format(mean[0]), '{:.4f}'.format(spread[0]),
-                          '{:.4f}'.format(mean[1]), '{:.4f}'.format(spread[1]), '{:.4f}'.format(mean[2]),
-                          '{:.4f}'.format(mean[3]), '{:.4f}'.format(spread[3])])
-        fig2_data.append([mean[0], spread[0], mean[1], spread[1], mean[2], mean[3], spread[3]])
-        
-    # Generate the table
-    fig2, ax = subplots(1, 1, figsize=(9.5,1.3))
-    fig2.subplots_adjust(left=0.32, bottom=0.01, right=0.98, top=0.86, wspace=0.05, hspace=0.05)
-    ax.axis(False)
-    ax.text(-0.30, 1.07, 'SIFT Registration Comparisons:  ' + data_dir, fontsize=fst)
-    llw1=0.3
-    clw = [llw1, llw1]
-
-    columns = ['NSAD Mean', 'NSAD Spread', 'NCC Mean', 'NCC Spread', 'Mean SNR', 'NMI Mean', 'NMI Spread']
-
-    n_cols = len(columns)
-    n_rows = len(rows)
-
-    tbl = ax.table(cellText = cell_text,
-                   rowLabels = rows,
-                   colLabels = columns,
-                   cellLoc = 'center',
-                   colLoc = 'center',
-                   bbox = [0.01, 0, 0.995, 1.0],
-                  fontsize=16)
-    tbl.auto_set_column_width(col=3)
-
-    table_props = tbl.properties()
-    try:
-        table_cells = table_props['child_artists']
-    except:
-        table_cells = table_props['children']
-
-    tbl.auto_set_font_size(False)
-    for j, cell in enumerate(table_cells[0:n_cols*n_rows]):
-        cell.get_text().set_color(my_cols[j//n_cols])
-        cell.get_text().set_fontsize(fst)
-    for j, cell in enumerate(table_cells[n_cols*(n_rows+1):]):
-        cell.get_text().set_color(my_cols[j])
-    for cell in table_cells[n_cols*n_rows:]:
-    #    cell.get_text().set_fontweight('bold')
-        cell.get_text().set_fontsize(fst)
-    save_filename2 = save_filename.replace('.png', '_table.png')
-    if save_res_png:
-        fig2.savefig(save_filename2, dpi=300)   
-        
-    ysize_fig = 4
-    ysize_tbl = 0.25 * nfls
-    fst3 = 8
-    fig3, axs3 = subplots(2, 1, figsize=(7, ysize_fig+ysize_tbl),  gridspec_kw={"height_ratios" : [ysize_tbl, ysize_fig]})
-    fig3.subplots_adjust(left=0.10, bottom=0.10, right=0.98, top=0.96, wspace=0.05, hspace=0.05)
-
-    for j, reg_data in enumerate(reg_datas):
-        my_col = my_cols[j]
-        pf = labels[j]
-        lw0 = linewidths[j]
-        image_ncc = reg_data['Image NCC']
-        axs3[1].plot(image_ncc, c=my_col, linewidth=lw0)
-        axs3[1].plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
-    axs3[1].grid(True)
-    axs3[1].legend(fontsize=fs2)
-    axs3[1].set_ylabel('Normalized Cross-Correlation', fontsize=fs)
-    axs3[1].set_xlabel('Frame', fontsize=fs)
-    axs3[1].set_ylim(ncc_min, ncc_max)
-    axs3[0].axis(False)
-    axs3[0].text(-0.1, 1.07, 'SIFT Registration Comparisons:  ' + data_dir, fontsize=fst3)
-    llw1=0.3
-    clw = [llw1, llw1]
-
-    columns2 = ['NCC Mean', 'NCC Spread', 'SNR Mean', 'SNR Spread']
-    cell2_text = []
-    fig3_data = []
-    limits = []
-    rows = labels
-    
-    for j, (mean, spread) in enumerate(zip(means, spreads)):
-        cell2_text.append(['{:.4f}'.format(mean[1]), '{:.4f}'.format(spread[1]),
-                          '{:.4f}'.format(mean[2]), '{:.4f}'.format(spread[2])])
-    n_cols = len(columns2)
-    n_rows = len(rows)
-
-    tbl2 = axs3[0].table(cellText = cell2_text,
-                   rowLabels = rows,
-                   colLabels = columns2,
-                   cellLoc = 'center',
-                   colLoc = 'center',
-                   bbox = [0.38, 0, 0.55, 1.0],  # (left, bottom, width, height)
-                  fontsize=16)
-    rl = max([len(pf) for pf in labels])
-    #tbl2.auto_set_column_width(col=[rl+5, len(columns2[0]), len(columns2[1]), len(columns2[2]), len(columns2[3])])
-    tbl2.auto_set_column_width(col=list(range(len(columns2)+1)))
-    tbl2.auto_set_font_size(False)
-
-    table2_props = tbl2.properties()
-    try:
-        table2_cells = table2_props['child_artists']
-    except:
-        table2_cells = table2_props['children']
-
-    tbl.auto_set_font_size(False)
-    for j, cell in enumerate(table2_cells[0:n_cols*n_rows]):
-        cell.get_text().set_color(my_cols[j//n_cols])
-        cell.get_text().set_fontsize(fst3)
-    for j, cell in enumerate(table2_cells[n_cols*(n_rows+1):]):
-        cell.get_text().set_color(my_cols[j])
-    for cell in table2_cells[n_cols*n_rows:]:
-    #    cell.get_text().set_fontweight('bold')
-        cell.get_text().set_fontsize(fst3)
-    save_filename3 = save_filename.replace('.png', '_fig_and_table.png')
-    if save_res_png:
-        fig3.savefig(save_filename3, dpi=300)
-    
-    if save_res_png:
-        # Generate a single multi-page CSV file
-        xlsx_fname = save_filename.replace('.png', '.xlsx')
-        # Create a Pandas Excel writer using XlsxWriter as the engine.
-        writer = pd.ExcelWriter(xlsx_fname, engine='xlsxwriter')
-        fig2_df = pd.DataFrame(fig2_data, columns=columns)
-        fig2_df.insert(0, '', labels)
-        fig2_df.insert(1, 'Path', data_files)
-        fig2_df.to_excel(writer, index=None, sheet_name='Summary')
-        for reg_data, label in zip(tqdm(reg_datas, desc='saving the data into xlsx file'), labels):
-            data_fn = label[0:31]
-            reg_data.to_excel(writer, sheet_name=data_fn)
-        writer.save()
-    return xlsx_fname
 
 
 def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
@@ -7962,11 +7700,16 @@ class FIBSEM_dataset:
             This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
         pad_edges : boolean
             If True, the data will be padded before transformation to avoid clipping.
+        disp_res : boolean
+            If False, the intermediate printouts will be suppressed
         """
+
+        disp_res = kwargs.get('disp_res', True)
         self.fls = fls
         self.fnms = [os.path.splitext(fl)[0] + '_kpdes.bin' for fl in fls]
         self.nfrs = len(fls)
-        print('Total Number of frames: ', self.nfrs)
+        if disp_res:
+            print('Total Number of frames: ', self.nfrs)
         self.data_dir = data_dir
         self.ftype = kwargs.get("ftype", 0) # ftype=0 - Shan Xu's binary format  ftype=1 - tif files
         mid_frame = FIBSEM_frame(fls[self.nfrs//2], ftype = self.ftype)
@@ -8031,7 +7774,8 @@ class FIBSEM_dataset:
         self.fnm_reg = kwargs.get("fnm_reg", build_fnm_reg)
         self.mrc_mode = kwargs.get("mrc_mode", build_mrc_mode)
         self.dtp = kwargs.get("dtp", build_dtp)
-        print('Registered data will be saved into: ', self.fnm_reg)
+        if disp_res:
+            print('Registered data will be saved into: ', self.fnm_reg)
 
 
         kwargs.update({'mrc_mode' : self.mrc_mode, 'data_dir' : self.data_dir, 'fnm_reg' : self.fnm_reg, 'dtp' : self.dtp})
@@ -8043,17 +7787,19 @@ class FIBSEM_dataset:
                 dump_loaded = True
             except Exception as ex1:
                 dump_loaded = False
-                print('Failed to open Parameter dump filename: ', dump_filename)
-                print(ex1.message)
+                if disp_res:
+                    print('Failed to open Parameter dump filename: ', dump_filename)
+                    print(ex1.message)
 
             if dump_loaded:
                 try:
                     for key in tqdm(dump_data, desc='Recalling the data set parameters'):
                         setattr(self, key, dump_data[key])
                 except Exception as ex2:
-                    print('Parameter dump filename: ', dump_filename)
-                    print('Failed to restore the object parameters')
-                    print(ex2.message)
+                    if disp_res:
+                        print('Parameter dump filename: ', dump_filename)
+                        print('Failed to restore the object parameters')
+                        print(ex2.message)
             
  
 
