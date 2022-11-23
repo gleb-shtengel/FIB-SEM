@@ -3338,6 +3338,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     image_nccs= []
     image_snrs= []
     image_nmis = []
+    frame_inds_glob = []
     for j, reg_data in enumerate(tqdm(reg_datas, desc='generating the registration quality summary plots')):
         #my_col = get_cmap("gist_rainbow_r")((nfls-j)/(nfls))
         #my_cols.append(my_col)
@@ -3348,28 +3349,30 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
             image_nsad = np.array(reg_data['Image NSAD'])[frame_inds]
             image_ncc = np.array(reg_data['Image NCC'])[frame_inds]
             image_nmi = np.array(reg_data['Image MI'])[frame_inds]
+            frame_inds_loc = frame_inds.copy()
         else:
             image_nsad = np.array(reg_data['Image NSAD'])
             image_ncc = np.array(reg_data['Image NCC'])
             image_nmi = np.array(reg_data['Image MI'])
-            frame_inds = np.arange(len(image_ncc))
-        fr_i = min(frame_inds) - (max(frame_inds) - min(frame_inds))*0.05
-        fr_a = max(frame_inds) + (max(frame_inds) - min(frame_inds))*0.05
+            frame_inds_loc = np.arange(len(image_ncc))
+        fr_i = min(frame_inds_loc) - (max(frame_inds_loc) - min(frame_inds_loc))*0.05
+        fr_a = max(frame_inds_loc) + (max(frame_inds_loc) - min(frame_inds_loc))*0.05
         image_nsads.append(image_nsad)
         image_nccs.append(image_ncc)
         image_snr = image_ncc/(1.0-image_ncc)
         image_snrs.append(image_snr)
         image_nmis.append(image_nmi)
+        frame_inds_glob.append(frame_inds_loc)
 
         metrics = [image_nsad, image_ncc, image_snr, image_nmi]
         spreads.append([get_spread(metr) for metr in metrics])
         means.append([np.mean(metr) for metr in metrics])
 
-        ax_nsad.plot(frame_inds, image_nsad, c=my_col, linewidth=lw0)
+        ax_nsad.plot(frame_inds_loc, image_nsad, c=my_col, linewidth=lw0)
         ax_nsad.plot(image_nsad[0], c=my_col, linewidth=lw1, label=pf)
-        ax_ncc.plot(frame_inds, image_ncc, c=my_col, linewidth=lw0)
+        ax_ncc.plot(frame_inds_loc, image_ncc, c=my_col, linewidth=lw0)
         ax_ncc.plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
-        ax_nmi.plot(frame_inds, image_nmi, c=my_col, linewidth=lw0)
+        ax_nmi.plot(frame_inds_loc, image_nmi, c=my_col, linewidth=lw0)
         ax_nmi.plot(image_nmi[0], c=my_col, linewidth=lw1, label=pf)
 
     for ax in axs1.ravel():
@@ -3472,10 +3475,12 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         lw0 = linewidths[j]
         if len(frame_inds)>0:
             image_ncc = np.array(reg_data['Image NCC'])[frame_inds]
+            frame_inds_loc = frame_inds.copy()
         else:
             image_ncc = np.array(reg_data['Image NCC'])
+            frame_inds_loc = np.arange(len(image_ncc))
 
-        axs3[1].plot(frame_inds, image_ncc, c=my_col, linewidth=lw0)
+        axs3[1].plot(frame_inds_loc, image_ncc, c=my_col, linewidth=lw0)
         axs3[1].plot(image_ncc[0], c=my_col, linewidth=lw1, label=pf)
     axs3[1].grid(True)
     axs3[1].legend(fontsize=fs2)
