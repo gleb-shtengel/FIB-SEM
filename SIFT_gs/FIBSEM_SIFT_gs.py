@@ -1035,6 +1035,10 @@ def Perform_2D_fit(img, estimator, **kwargs):
         save the analysis output into a PNG file (default is False)
     res_fname : string
         filename for the result image ('Image_Flattening.png')
+    Xsect : int
+        X - coordinate for Y-crossection
+    Ysect : int
+        Y - coordinate for X-crossection
     label : string
         optional image label
     dpi : int
@@ -4790,6 +4794,10 @@ class FIBSEM_frame:
             If True - the full image correction is calculated
         ignore_Y  : boolean
             If True - the parabolic fit to only X is perfromed
+        Xsect : int
+            X - coordinate for Y-crossection
+        Ysect : int
+            Y - coordinate for X-crossection
         disp_res : boolean
             (default is False) - to plot/ display the results
         save_res_png : boolean
