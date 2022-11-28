@@ -512,7 +512,7 @@ def Single_Image_SNR(img, **kwargs):
             axs = [ax0, ax1, ax2, ax3]
         fig.subplots_adjust(left=0.03, bottom=0.06, right=0.99, top=0.92, wspace=0.25, hspace=0.10)
         
-        range_disp = get_min_max_thresholds(img, thresholds_disp[0], thresholds_disp[1], nbins_disp)
+        range_disp = get_min_max_thresholds(img, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp)
         axs[0].imshow(img, cmap='Greys', vmin=range_disp[0], vmax=range_disp[1])
         axs[0].grid(True)
         axs[0].set_title(img_label)
@@ -643,13 +643,13 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
 
     fs=11
     img_filtered = convolve2d(img, kernel, mode='same')
-    range_disp = get_min_max_thresholds(img_filtered, thresholds_disp[0], thresholds_disp[1], nbins_disp, False)
-    
+    range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp)
+
     xi, xa, yi, ya = Hist_ROI
     img_hist = img[yi:ya, xi:xa]
     img_hist_filtered = img_filtered[yi:ya, xi:xa]
     
-    range_analysis = get_min_max_thresholds(img_hist_filtered, thresholds_analysis[0], thresholds_analysis[1], nbins_analysis, False)
+    range_analysis = get_min_max_thresholds(img_hist_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis)
     if disp_res:
         print('The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
@@ -876,16 +876,16 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     img_filtered = convolve2d(img, kernel, mode='same')[1:-1, 1:-1]
     img = img[1:-1, 1:-1]
     
-    range_disp = get_min_max_thresholds(img_filtered, thresholds_disp[0], thresholds_disp[1], nbins_disp)
+    range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = disp_res)
     if disp_res:
         print('The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
-    range_analysis = get_min_max_thresholds(img_filtered, thresholds_analysis[0], thresholds_analysis[1], nbins_analysis, False)
+    range_analysis = get_min_max_thresholds(img_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res = disp_res)
     if disp_res:
         print('The EM data range for noise analysis:     {:.1f} - {:.1f}'.format(range_analysis[0], range_analysis[1]))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
 
     imdiff = (img-img_filtered)
-    range_imdiff = get_min_max_thresholds(imdiff, thresholds_disp[0], thresholds_disp[1], nbins_disp)
+    range_imdiff = get_min_max_thresholds(imdiff, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = disp_res)
 
     xy_ratio = img.shape[1]/img.shape[0]
     xsz = 15
@@ -1863,7 +1863,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
 
         if plot_internal:
             fig, ax = subplots(1,1, figsize = (10.0, 11.0*ny/nx))
-        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
+        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval])
         if invert_data:
             ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
         else:
@@ -2048,7 +2048,7 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
 
         if plot_internal:
             fig, ax = subplots(1,1, figsize = (10.0, 11.0*ny/nx))
-        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
+        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval])
         if invert_data:
             ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
         else:
@@ -3247,7 +3247,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
             #print(eval_ind, np.shape(frame_img), yi_evals[eval_ind], ya_evals[eval_ind], xi_evals[eval_ind], xa_evals[eval_ind])
             if use_raw_data:
                 eval_ind = eval_ind//zbin_factor
-            dmin, dmax = get_min_max_thresholds(frame_img[yi_evals[eval_ind]:ya_evals[eval_ind], xi_evals[eval_ind]:xa_evals[eval_ind]], 1e-3, 1e-3, 256, False)
+            dmin, dmax = get_min_max_thresholds(frame_img[yi_evals[eval_ind]:ya_evals[eval_ind], xi_evals[eval_ind]:xa_evals[eval_ind]])
             if invert_data:
                 ax.imshow(frame_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
             else:
@@ -4784,8 +4784,8 @@ class FIBSEM_frame:
         else:
             ya_eval = ya
 
-        range_disp = get_min_max_thresholds(img[yi_eval:ya_eval, xi_eval:xa_eval], thresholds_disp[0], thresholds_disp[1], nbins_disp)
-            
+        range_disp = get_min_max_thresholds(img[yi_eval:ya_eval, xi_eval:xa_eval], thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp)
+
         fig, ax = subplots(1,1, figsize = (10.0, 11.0*ysz/xsz))
         ax.imshow(img, cmap='Greys', vmin = range_disp[0], vmax = range_disp[1])
         ax.grid(True, color = "cyan")
@@ -6893,8 +6893,8 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
 
         #data_min_glob = np.min(data_minmax_glob)
         #data_max_glob = np.max(data_minmax_glob)
-        data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], threshold_min, threshold_max, nbins) 
-        trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], threshold_min, threshold_max, nbins)
+        data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins)
+        trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins)
 
         data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
         data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
@@ -8911,7 +8911,7 @@ class FIBSEM_dataset:
                 else:
                     ya_eval = ysz
 
-            vmin, vmax = get_min_max_thresholds(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], 1e-3, 1e-3, 256, False)
+            vmin, vmax = get_min_max_thresholds(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
             fig, ax = subplots(1,1, figsize=(10.0, 11.0*ysz/xsz))
             ax.imshow(frame_img_reg, cmap='Greys', vmin=vmin, vmax=vmax)
             ax.grid(True, color = "cyan")
