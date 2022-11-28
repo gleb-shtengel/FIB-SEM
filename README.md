@@ -30,7 +30,7 @@ You will also need to have these packages installed:
 ## General Help Functions
     get_spread(data, window=501, porder=3):
         Calculates spread - standard deviation of the (signal - Sav-Gol smoothed signal)
-    get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_res=False)
+    get_min_max_thresholds(image, **kwargs)
         Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
     radial_profile(data, center)
         Calculates radially average profile of the 2D array (used for FRC and auto-correlation)
@@ -147,7 +147,7 @@ You will also need to have these packages installed:
         Convert the Image A into 8-bit array
     RawImageB_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
         Convert the Image B into 8-bit array
-    save_snapshot(display = True, dpi=300, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256):
+    save_snapshot(**kwargs):
         Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
     analyze_noise_ROIs(**kwargs):
         Analyses the noise statistics in the selected ROI's of the EM data.

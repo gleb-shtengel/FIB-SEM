@@ -92,10 +92,10 @@ def get_spread(data, window=501, porder=3):
     return data_spread
 
 
-def get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_res=False):
+def get_min_max_thresholds(image, **kwargs):
     '''
     Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
-    ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
+    ©G.Shtengel 11/2022 gleb.shtengel@gmail.com
 
     Calculates the histogram of pixel intensities of the image with number of bins determined by parameter nbins (default = 256)
     and normalizes it to get the probability distribution function (PDF), from which a cumulative distribution function (CDF) is calculated.
@@ -106,22 +106,42 @@ def get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_re
     ----------
     image : 2D array
         Image to be analyzed
+
+    kwargs:
+     ----------
     thr_min : float
-        The low CDF bound for the data range
+        lower CDF threshold for determining the minimum data value. Default is 1.0e-3
     thr_max : float
-        The high CDF bound for the data range
+        upper CDF threshold for determining the maximum data value. Default is 1.0e-3
     nbins : int
-        Number of bins for PDF histogram
-    disp_res ; boolean
-        If True, a plot showing the data analysis is displayed
+        number of histogram bins for building the PDF and CDF
+    log  : bolean
+        If True, the histogram will have log scale. Default is false
+    disp_res : bolean
+        If True display the results. Default is True.
+    save_res : boolean
+        If True the image will be saved. Default is False.
+    dpi : int
+        Default is 300
+    save_filename : string
+        the name of the image to perform this operations (defaulut is 'min_max_thresholds.png').
 
     Returns
     (dmin, dmax) : float array
     '''
+    thr_min = kwargs.get('thr_min', 1.0e-3)
+    thr_max = kwargs.get('thr_max', 1.0e-3)
+    nbins = kwargs.get('nbins', 256)
+    log = kwargs.get('disp_res', True)
+    disp_res = kwargs.get('log', False)
+    save_res = kwargs.get('save_res', False)
+    dpi = kwargs.get('dpi', 300)
+    save_filename = kwargs.get('save_filename', 'min_max_thresholds.png')
+
     if disp_res:
         fsz=11
         fig, axs = subplots(2,1, figsize = (6,8))
-        hist, bins, patches = axs[0].hist(image.ravel(), bins=nbins)
+        hist, bins, patches = axs[0].hist(image.ravel(), bins=nbins, log=log)
     else:
         hist, bins = np.histogram(image.ravel(), bins=nbins)
     pdf = hist / np.prod(image.shape)
@@ -150,8 +170,9 @@ def get_min_max_thresholds(image, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_re
             ax.grid(True)
         axs[1].legend(loc='center', fontsize=fsz)
         axs[1].set_title('Data Min and max with thr_min={:.0e},  thr_max={:.0e}'.format(thr_min, thr_max), fontsize = fsz)
+        if save_res:
+            fig.savefig(save_filename, dpi=dpi)
     return np.array((data_min, data_max))
-
 
 def argmax2d(X):
     return np.unravel_index(X.argmax(), X.shape)
@@ -3026,6 +3047,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
         filename to save the results. Default is file_xlsx with extension '.xlsx' replaced with '.png'
     invert_data : bolean
         If True, the representative data frames will use inverse LUT. 
+    dump_filename : str
+        Filename of a binary dump of the FIBSEM_dataset object.
 
     '''
     png_file_default = file_xlsx.replace('.xlsx','.png')
