@@ -1038,11 +1038,13 @@ def Perform_2D_fit(img, estimator, **kwargs):
     ----------
     img : 2D array
         original image
-    estimator : RANSACRegressor,
-                LinearRegression,
-                TheilSenRegressor,
-                HuberRegressor
+    estimator : RANSACRegressor(),
+                LinearRegression(),
+                TheilSenRegressor(),
+                HuberRegressor()
     kwargs:
+    image_name : str
+        Image name (for display purposes)
     bins : int
         binsize for image binning. If not provided, bins=10
     Analysis_ROIs : list of lists: [[left, right, top, bottom]]
@@ -1061,17 +1063,15 @@ def Perform_2D_fit(img, estimator, **kwargs):
         X - coordinate for Y-crossection
     Ysect : int
         Y - coordinate for X-crossection
-    label : string
-        optional image label
     dpi : int
 
     Returns:
     intercept, coefs, mse, img_correction_array
     '''
+    image_name = kwargs.get("image_name", 'RawImageA')
     ysz, xsz = img.shape
     calc_corr = kwargs.get("calc_corr", False)
     ignore_Y = kwargs.get("ignore_Y", False)
-    lbl = kwargs.get("label", '')
     Xsect = kwargs.get("Xsect", xsz//2)
     Ysect = kwargs.get("Ysect", ysz//2)
     disp_res = kwargs.get("disp_res", True)
@@ -1115,21 +1115,36 @@ def Perform_2D_fit(img, estimator, **kwargs):
     xf_1d = xf.ravel()/bins
     yf_1d = yf.ravel()/bins
     Xf = np.vstack((xf_1d, yf_1d)).T
+
+    model = make_pipeline(PolynomialFeatures(2), estimator)
+
+    if ignore_Y:
+        ymean = np.mean(yb_1d)
+        yb_1d_flat = yb_1d*0.0+ymean
+        X_yflat = np.vstack((xb_1d, yb_1d_flat)).T
+        model.fit(X_yflat, img_1D)
+
+    else:
+        model.fit(X, img_1D)
     
     model = make_pipeline(PolynomialFeatures(2), estimator)
     model.fit(X, img_1D)
     if hasattr(model[-1], 'estimator_'):
         if ignore_Y:
-            model[-1].estimator_.coef_[2]=0.0
-            model[-1].estimator_.coef_[4]=0.0
-            model[-1].estimator_.coef_[5]=0.0
+            model[-1].estimator_.coef_[0] = model[-1].estimator_.coef_[0] + model[-1].estimator_.coef_[2]*ymean + model[-1].estimator_.coef_[5]*ymean*ymean
+            model[-1].estimator_.coef_[1] = model[-1].estimator_.coef_[1] + model[-1].estimator_.coef_[4]*ymean
+            model[-1].estimator_.coef_[2] = 0.0
+            model[-1].estimator_.coef_[4] = 0.0
+            model[-1].estimator_.coef_[5] = 0.0
         coefs = model[-1].estimator_.coef_
         intercept = model[-1].estimator_.intercept_
     else:
         if ignore_Y:
-            model[-1].coef_[2]=0.0
-            model[-1].coef_[4]=0.0
-            model[-1].coef_[5]=0.0
+            model[-1].coef_[0] = model[-1].coef_[0] + model[-1].coef_[2]*ymean + model[-1].coef_[5]*ymean*ymean
+            model[-1].coef_[1] = model[-1].coef_[1] + model[-1].coef_[4]*ymean
+            model[-1].coef_[2] = 0.0
+            model[-1].coef_[4] = 0.0
+            model[-1].coef_[5] = 0.0
         coefs = model[-1].coef_
         intercept = model[-1].intercept_
     img_fit_1d = model.predict(X)
@@ -1161,7 +1176,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
 
         axs[0, 0].set_xlim((0, xszb))
         axs[0, 0].set_ylim((yszb, 0))
-        axs[0, 0].set_title('{:d}-x Binned Original Image'.format(bins))
+        axs[0, 0].set_title('{:d}-x Binned Raw:'.format(bins) + image_name)
 
         axs[0, 1].imshow(img_fit, cmap='Greys', vmin=vmin, vmax=vmax)
         axs[0, 1].grid(True)
@@ -1169,18 +1184,18 @@ def Perform_2D_fit(img, estimator, **kwargs):
         axs[0, 1].plot([0, xszb], [Ysect//bins, Ysect//bins], 'cyan', linewidth = 0.5)
         axs[0, 1].set_xlim((0, xszb))
         axs[0, 1].set_ylim((yszb,0))
-        axs[0, 1].set_title('{:d}-x Binned Fit Image: '.format(bins) + lbl)
+        axs[0, 1].set_title('{:d}-x Binned Fit: '.format(bins) + image_name)
 
-        axs[1, 0].plot(img[Ysect, :],'b', label = 'Raw Image A', linewidth =0.5)
-        axs[1, 0].plot(xb[0,:]*bins, img_binned[Ysect//bins, :],'cyan', label = 'Binned Orig Image A')
-        axs[1, 0].plot(xb[0,:]*bins, img_fit[Ysect//bins, :], 'yellow', linewidth=4, linestyle='--', label = 'Fit: '+lbl)
+        axs[1, 0].plot(img[Ysect, :],'b', label = image_name, linewidth =0.5)
+        axs[1, 0].plot(xb[0,:]*bins, img_binned[Ysect//bins, :],'cyan', label = 'Binned '+ image_name)
+        axs[1, 0].plot(xb[0,:]*bins, img_fit[Ysect//bins, :], 'yellow', linewidth=4, linestyle='--', label = 'Fit: '+ image_name)
         axs[1, 0].legend()
         axs[1, 0].grid(True)
         axs[1, 0].set_xlabel('X-coordinate')
 
-        axs[1, 1].plot(img[:, Xsect],'g', label = 'Raw Image A', linewidth =0.5)
-        axs[1, 1].plot(yb[:, 0]*bins, img_binned[:, Xsect//bins],'lime', label = 'Binned Orig Image A')
-        axs[1, 1].plot(yb[:, 0]*bins, img_fit[:, Xsect//bins], 'yellow', linewidth=4, linestyle='--', label = 'Fit: '+lbl)
+        axs[1, 1].plot(img[:, Xsect],'g', label = image_name, linewidth =0.5)
+        axs[1, 1].plot(yb[:, 0]*bins, img_binned[:, Xsect//bins],'lime', label = 'Binned '+image_name)
+        axs[1, 1].plot(yb[:, 0]*bins, img_fit[:, Xsect//bins], 'yellow', linewidth=4, linestyle='--', label = 'Fit: '+ image_name)
         axs[1, 1].legend()
         axs[1, 1].grid(True)
         axs[1, 1].set_xlabel('Y-coordinate')
@@ -1508,7 +1523,7 @@ def evaluate_registration_two_frames(params_mrc):
     ©G.Shtengel, 10/2020. gleb.shtengel@gmail.com
 
     Parameters:
-    params_mrc : list of mrc_filename, fr, evals
+    params_mrc : list of mrc_filename, fr, evals, save_frame_png, filename_frame_png
     mrc_filename  : string
         full path to mrc filename
     fr : int
@@ -1520,7 +1535,7 @@ def evaluate_registration_two_frames(params_mrc):
     image_nsad, image_ncc, image_mi   : float, float, float
 
     '''
-    mrc_filename, fr, invert_data, evals = params_mrc
+    mrc_filename, fr, invert_data, evals, save_frame_png, filename_frame_png = params_mrc
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     '''
@@ -1554,6 +1569,24 @@ def evaluate_registration_two_frames(params_mrc):
     #image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean))
     image_ncc = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
     image_mi = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
+
+    if save_frame_png:
+        fr_img = mrc_obj.data[fr, :, :]
+        yshape, xshape = fr_img.shape
+        fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
+        fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
+        dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+        if invert_data:
+            ax.imshow(fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
+        else:
+            ax.imshow(fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
+        ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(fr, image_nsad, image_ncc, image_mi), color='red', transform=ax.transAxes, fontsize=12)
+        rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+        ax.add_patch(rect_patch)
+        ax.axis('off')
+        fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
+        plt.close(fig)
+
     mrc_obj.close()
     return image_nsad, image_ncc, image_mi
 
@@ -1589,6 +1622,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         Save PNG images of the intermediate processing statistics and final registration quality check
     save_filename : str
         Path to the filename to save the results. If empty, mrc_filename+'_RegistrationQuality.csv' will be used
+    save_sample_frames_png : bolean
+        If True, sample frames with superimposed eval box and registration analysis data will be saved into png files. Default is True
 
     Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX workbook
     '''
@@ -1602,6 +1637,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
     registration_summary_xlsx = save_filename.replace('.mrc', '_RegistrationQuality.xlsx')
+    save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
 
     if sliding_evaluation_box:
         print('Will use sliding (linearly) evaluation box')
@@ -1654,6 +1690,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     nf = frame_inds[-1]-frame_inds[0]+1
     if frame_inds[0]==0:
         frame_inds = frame_inds+1
+    sample_frame_inds = [frame_inds[nf//10], frame_inds[nf//2], frame_inds[nf//10*9]]
     print('Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
     print('Will save the data into ' + registration_summary_xlsx)
     if sliding_evaluation_box:
@@ -1685,7 +1722,13 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
         xa_evals[j] = xa_eval
         yi_evals[j] = yi_eval
         ya_evals[j] = ya_eval
-        params_mrc_mult.append([mrc_filename, fr, invert_data, evals])
+        if fr in sample_frame_inds:
+            save_frame_png = save_sample_frames_png
+            filename_frame_png = os.path.splitext(save_filename)[0]+'_sample_image_frame{:d}.png'.format(fr)
+        else:
+            save_frame_png = False
+            filename_frame_png = os.path.splitext(save_filename)[0]+'_sample_image_frame.png'
+        params_mrc_mult.append([mrc_filename, fr, invert_data, evals, save_frame_png, filename_frame_png])
         
     if use_DASK:
         mrc_obj.close()
@@ -1715,7 +1758,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
             prev_frame = -1.0 * ((mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float))
         else:
             prev_frame =(mrc_obj.data[frame_inds[0]-1, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
-        for j in tqdm(frame_inds, desc='Evaluating frame registration: '):
+        for j, frame_ind in enumerate(tqdm(frame_inds, desc='Evaluating frame registration: ')):
             if sliding_evaluation_box:
                 xi_eval = start_evaluation_box[2] + dx_eval*j//nf
                 yi_eval = start_evaluation_box[0] + dy_eval*j//nf
@@ -1729,9 +1772,9 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                     ya_eval = ny
             
             if invert_data:
-                curr_frame = -1.0 * ((mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float))
+                curr_frame = -1.0 * ((mrc_obj.data[frame_ind, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float))
             else:
-                curr_frame = (mrc_obj.data[j, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
+                curr_frame = (mrc_obj.data[frame_ind, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
             curr_frame_cp = cp.array(curr_frame)
             prev_frame_cp = cp.array(prev_frame)
             fr_mean = cp.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
@@ -1741,6 +1784,24 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
             image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(prev_frame_cp.ravel(), curr_frame_cp.ravel(), sigma=1.0, bin=2048, normalized=True))
             prev_frame = curr_frame.copy()
             del curr_frame_cp, prev_frame_cp
+            if (frame_ind in sample_frame_inds) and save_sample_frames_png:
+                filename_frame_png = os.path.splitext(save_filename)[0]+'_sample_image_frame{:d}.png'.format(j)
+                fr_img = mrc_obj.data[frame_ind, :, :]
+                yshape, xshape = fr_img.shape
+                fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
+                fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
+                dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                if invert_data:
+                    ax.imshow(fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
+                else:
+                    ax.imshow(fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
+                ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frame_ind, image_nsad[j-1], image_ncc[j-1], image_mi[j-1]), color='red', transform=ax.transAxes, fontsize=12)
+                rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+                ax.add_patch(rect_patch)
+                ax.axis('off')
+                fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
+                plt.close(fig)
+
         mrc_obj.close()
     
     nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
@@ -2074,14 +2135,14 @@ def evaluate_registration_two_frames_tif(params_tif):
         full path to tif filename
     fr : int
         Index of the SECOND frame
-    evals :  list of image bounds to be used for evaluation exi_eval, xa_eval, yi_eval, ya_eval 
+    evals :  list of image bounds to be used for evaluation exi_eval, xa_eval, yi_eval, ya_eval, save_frame_png, filename_frame_png
 
 
     Returns:
     image_nsad, image_ncc, image_mi   : float, float, float
 
     '''
-    tif_filename, fr, invert_data, evals = params_tif
+    tif_filename, fr, invert_data, evals, save_frame_png, filename_frame_png = params_tif
     xi_eval, xa_eval, yi_eval, ya_eval = evals
     
     frame0 = tiff.imread(tif_filename, key=int(fr-1)).astype(float)
@@ -2098,6 +2159,22 @@ def evaluate_registration_two_frames_tif(params_tif):
     image_nsad =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
     image_ncc = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
     image_mi = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
+    if save_frame_png:
+        yshape, xshape = frame0.shape
+        fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
+        fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
+        dmin, dmax = get_min_max_thresholds(frame0[yi_eval:ya_eval, xi_eval:xa_eval])
+        if invert_data:
+            ax.imshow(frame0, cmap='Greys_r', vmin=dmin, vmax=dmax)
+        else:
+            ax.imshow(frame0, cmap='Greys', vmin=dmin, vmax=dmax)
+        ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(fr, image_nsad, image_ncc, image_mi), color='red', transform=ax.transAxes, fontsize=12)
+        rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+        ax.add_patch(rect_patch)
+        ax.axis('off')
+        fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
+        plt.close(fig)
+
     return image_nsad, image_ncc, image_mi
 
 
@@ -2189,6 +2266,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     nf = frame_inds[-1]-frame_inds[0]+1
     if frame_inds[0]==0:
         frame_inds = frame_inds+1
+    sample_frame_inds = [frame_inds[nf//10], frame_inds[nf//2], frame_inds[nf//10*9]]
     print('Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
     print('Will save the data into ' + registration_summary_xlsx)
     if sliding_evaluation_box:
@@ -2220,7 +2298,13 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
         xa_evals[j] = xa_eval
         yi_evals[j] = yi_eval
         ya_evals[j] = ya_eval
-        params_tif_mult.append([tif_filename, fr, invert_data, evals])
+        if fr in sample_frame_inds:
+            save_frame_png = save_sample_frames_png
+            filename_frame_png = os.path.splitext(save_filename)[0]+'_sample_image_frame{:d}.png'.format(fr)
+        else:
+            save_frame_png = False
+            filename_frame_png = os.path.splitext(save_filename)[0]+'_sample_image_frame.png'
+        params_tif_mult.append([tif_filename, fr, invert_data, evals, save_frame_png, filename_frame_png])
         
     if use_DASK:
         print('Using DASK distributed')
@@ -4823,7 +4907,7 @@ class FIBSEM_frame:
         Parameters
         ----------
         kwargs:
-        image_name : str
+        image_names : list of str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         estimator : RANSACRegressor(),
                     LinearRegression(),
@@ -4854,11 +4938,12 @@ class FIBSEM_frame:
         dpi : int
 
         Returns:
-        intercept, coefs, mse, img_correction_array
+        img_correction_coeffs, img_correction_arrays
         '''
-        image_name = kwargs.get("image_name", 'RawImageA')
+        image_names = kwargs.get("image_names", ['RawImageA'])
         estimator = kwargs.get("estimator", LinearRegression())
-        del kwargs["estimator"]
+        if "estimator" in kwargs:
+            del kwargs["estimator"]
         calc_corr = kwargs.get("calc_corr", False)
         ignore_Y = kwargs.get("ignore_Y", False)
         lbl = kwargs.get("label", '')
@@ -4870,57 +4955,57 @@ class FIBSEM_frame:
         save_correction_binary = kwargs.get("save_correction_binary", False)
         dpi = kwargs.get("dpi", 300)
 
-        if image_name == 'RawImageA':
-            img = self.RawImageA - self.Scaling[1,0]
-        if image_name == 'RawImageB':
-            img = self.RawImageB - self.Scaling[1,1]
-        if image_name == 'ImageA':
-            img = self.ImageA
-        if image_name == 'ImageB':
-            img = self.ImageB
+        img_correction_arrays = []
+        img_correction_coeffs = []
+        for image_name in image_names:
+            if image_name == 'RawImageA':
+                img = self.RawImageA - self.Scaling[1,0]
+            if image_name == 'RawImageB':
+                img = self.RawImageB - self.Scaling[1,1]
+            if image_name == 'ImageA':
+                img = self.ImageA
+            if image_name == 'ImageB':
+                img = self.ImageB
 
-        ysz, xsz = img.shape
-        Xsect = kwargs.get("Xsect", xsz//2)
-        Ysect = kwargs.get("Ysect", ysz//2)
+            ysz, xsz = img.shape
+            Xsect = kwargs.get("Xsect", xsz//2)
+            Ysect = kwargs.get("Ysect", ysz//2)
 
-        intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, **kwargs)
+            intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, image_name=image_name, **kwargs)
+            img_correction_arrays.append(img_correction_array)
+            img_correction_coeffs.append(coefs)
+
         if calc_corr:
-            self.image_correction_source = image_name
-            self.img_correction_array = img_correction_array
+            self.image_correction_sources = image_names
+            self.img_correction_arrays = img_correction_arrays
             if save_correction_binary:
                 bin_fname = res_fname.replace('png', 'bin')
-                pickle.dump([image_name, img_correction_array], open(bin_fname, 'wb')) # saves source name and correction array into the binary file
+                pickle.dump([image_names, img_correction_arrays], open(bin_fname, 'wb')) # saves source name and correction array into the binary file
                 self.image_correction_file = res_fname.replace('png', 'bin')
                 print('Image Flattening Info saved into the binary file: ', self.image_correction_file)
-        self.intercept = intercept
-        self.coefs = coefs
-        return intercept, coefs, mse, img_correction_array
+        #self.intercept = intercept
+        self.img_correction_coeffs = img_correction_coeffs
+        return img_correction_coeffs, img_correction_arrays
 
         
     def flatten_image(self, **kwargs):
         '''
-        Flatten the image. Image flattening parameters must be determined (determine_field_fattening_parameters)
+        Flatten the image(s). Image flattening parameters must be determined (determine_field_fattening_parameters)
 
         Parameters
         ----------
         kwargs:
-        image_name : str
-            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         image_correction_file : str
-            full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
+            full path to a binary filename that contains source names (image_correction_sources) and correction arrays (img_correction_arrays)
             if image_correction_file exists, the data is loaded from it.
-        image_correction_file : str
-            optional binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
-        image_correction_source : str
+        image_correction_sources : list of str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
-        img_correction_array : 2D array
-            array containing field flatteting info
+        img_correction_arrays : list of 2D arrays
+            arrays containing field flatteting info
 
         Returns:
-        flattened_image : 2D array
+        flattened_images : list of 2D arrays
         '''
-        image_name = kwargs.get("image_name", 'RawImageA')
-
 
         if hasattr(self, 'image_correction_file'):
             image_correction_file = kwargs.get("image_correction_file", self.image_correction_file)
@@ -4930,51 +5015,42 @@ class FIBSEM_frame:
         try:
             # try loading the image correction data from the binary file
             with open(image_correction_file, "rb") as f:
-                [image_correction_source,  img_correction_array] = pickle.load(f)
+                [image_correction_sources,  img_correction_arrays] = pickle.load(f)
         except:
             #  if that did not work, see if the correction data was provided directly
             if hasattr(self, 'image_correction_source'):
-                image_correction_source = kwargs.get("image_correction_source", self.image_correction_source)
+                image_correction_sources = kwargs.get("image_correction_sources", self.image_correction_sources)
             else:
-                image_correction_source = kwargs.get("image_correction_source", False)
+                image_correction_sources = kwargs.get("image_correction_sources", [False])
 
-            if hasattr(self, 'img_correction_array'):
-                img_correction_array = kwargs.get("img_correction_array", self.img_correction_array)
+            if hasattr(self, 'img_correction_arrays'):
+                img_correction_arrays = kwargs.get("img_correction_arrays", self.img_correction_arrays)
             else:
-                img_correction_array = kwargs.get("img_correction_array", False)
+                img_correction_arrays = kwargs.get("img_correction_arrays", [False])
 
-        if (image_correction_source is not False) and (img_correction_array is not False):
-            if image_name == image_correction_source:
-                if image_name == 'RawImageA':
+        flattened_images = []
+        for image_correction_source, img_correction_array in zip(image_correction_sources, img_correction_arrays):
+            if (image_correction_source is not False) and (img_correction_array is not False):
+                if image_correction_source == 'RawImageA':
                     flattened_image = (self.RawImageA - self.Scaling[1,0])*img_correction_array + self.Scaling[1,0]
-                if image_name == 'RawImageB':
+                if image_correction_source == 'RawImageB':
                     flattened_image = (self.RawImageB - self.Scaling[1,1])*img_correction_array + self.Scaling[1,1]
-                if image_name == 'ImageA':
+                if image_correction_source == 'ImageA':
                     flattened_image = self.ImageA*img_correction_array
-                if image_name == 'ImageB':
+                if image_correction_source == 'ImageB':
                     flattened_image = self.ImageB*img_correction_array
-                flattened=True
             else:
-                #print('Inconsistent Image='+ image_name + ' and Image Correction Source='+image_correction_source)
-                #print('Image flattening not performed')
-                flattened=False
-        else:
-            #print('Image Correction Parameters not Determined')
-            #print('execute method determine_field_fattening_parameters()')
-            #print('Image flattening not performed')
-            flattened=False
+                if image_correction_source == 'RawImageA':
+                    flattened_image = self.RawImageA
+                if image_correction_source == 'RawImageB':
+                    flattened_image = self.RawImageB
+                if image_correction_source == 'ImageA':
+                    flattened_image = self.ImageA
+                if image_correction_source == 'ImageB':
+                    flattened_image = self.ImageB
+            flattened_images.append(flattened_image)
 
-        if not flattened:
-            if image_name == 'RawImageA':
-                flattened_image = self.RawImageA
-            if image_name == 'RawImageB':
-                flattened_image = self.RawImageB
-            if image_name == 'ImageA':
-                flattened_image = self.ImageA
-            if image_name == 'ImageB':
-                flattened_image = self.ImageB
-
-        return flattened_image
+        return flattened_images
 
 
 ###################################################
@@ -6417,7 +6493,7 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
     
     # save the data
     default_bin_file = os.path.join(data_dir, fnm_reg.replace('.mrc', '_transf_matrix.bin'))
-    transf_matrix_bin_file = kwargs.get("dump_file", default_bin_file)
+    transf_matrix_bin_file = kwargs.get("dump_filename", default_bin_file)
     transf_matrix_xlsx_file = default_bin_file.replace('.bin', '.xlsx')
 
     xlsx_writer = pd.ExcelWriter(transf_matrix_xlsx_file, engine='xlsxwriter')
@@ -6997,12 +7073,18 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
         if ImgB_fraction < 1e-5:
             #image = frame.RawImageA.astype(float)
             if flatten_image:
-                image = (frame.flatten_image(image_name = 'RawImageA', image_correction_file = image_correction_file)).astype(float)
+                image = (frame.flatten_image(image_correction_file = image_correction_file)[0]).astype(float)
             else:
                 image = frame.RawImageA.astype(float)
         else:
             if flatten_image:
-                image = (frame.flatten_image(image_name = 'RawImageA', image_correction_file = image_correction_file)).astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
+                flattened_images = frame.flatten_image(image_correction_file = image_correction_file)
+                flattened_RawImageA = flattened_images[0].astype(float)
+                if len(flattened_images)>1:
+                    flattened_RawImageB = flattened_images[1].astype(float)
+                else:
+                    flattened_RawImageB = frame.RawImageB.astype(float)
+                image = flattened_RawImageA* (1.0 - ImgB_fraction) + flattened_RawImageB * ImgB_fraction
             else:
                 image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
 
@@ -7206,6 +7288,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         see above
     stop_evaluation_box : list of 4 int
         see above
+    save_sample_frames_png : bolean
+        If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
     
     Returns:
     reg_summary, reg_summary_xlsx
@@ -7228,6 +7312,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     Sample_ID = kwargs.get("Sample_ID", '')
     pad_edges =  kwargs.get("pad_edges", True)
     save_res_png  = kwargs.get("save_res_png", True)
+    save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
     save_asI8 =  kwargs.get("save_asI8", False)
     dtp = kwargs.get("dtp", int16)
     mrc_mode = kwargs.get("mrc_mode", 1)
@@ -7377,7 +7462,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
             yi_evals[chunk1_frames_tr] = yi_eval
             ya_evals[chunk1_frames_tr] = ya_eval
             if j in [nfrs_zbinned//10, nfrs_zbinned//2, nfrs_zbinned//10*9]:
-                save_frame_png = True
+                save_frame_png = save_sample_frames_png
                 filename_frame_png = os.path.splitext(fpath_reg)[0]+'_sample_image_frame{:d}.png'.format(st_frame)
             else:
                 save_frame_png = False
@@ -7436,7 +7521,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
                 image_errors[j-1] = np.mean(error_abs_mean[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
                 image_npts[j-1] = np.mean(npts[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
                 del I1c, I2c
-                if j in [nfrs_zbinned//10, nfrs_zbinned//2, nfrs_zbinned//10*9]:
+                if (j in [nfrs_zbinned//10, nfrs_zbinned//2, nfrs_zbinned//10*9]) and save_sample_frames_png:
                     filename_frame_png = os.path.splitext(fpath_reg)[0]+'_sample_image_frame{:d}.png'.format(st_frame)
                     yshape, xshape = binned_fr_img.shape
                     fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
@@ -8476,20 +8561,20 @@ class FIBSEM_dataset:
 
         kwargs:
         -------
-        dump_file : string
+        dump_filename : string
             String containing the name of the binary dump for saving all attributes of the current istance of the FIBSEM_dataset object.
 
 
         Returns:
-        dump_file : string
+        dump_filename : string
         '''
-        default_dump_file = os.path.join(self.data_dir, self.fnm_reg.replace('.mrc', '_params.bin'))
-        dump_file = kwargs.get("dump_file", default_dump_file)
+        default_dump_filename = os.path.join(self.data_dir, self.fnm_reg.replace('.mrc', '_params.bin'))
+        dump_filename = kwargs.get("dump_filename", default_dump_filename)
 
-        pickle.dump(self.__dict__, open(dump_file, 'wb'))
+        pickle.dump(self.__dict__, open(dump_filename, 'wb'))
 
-        npts_fnm = dump_file.replace('_params.bin', '_Npts_Errs_data.csv')
-        Tr_matrix_xls_fnm = dump_file.replace('_params.bin', '_Transform_Matrix_data.csv')
+        npts_fnm = dump_filename.replace('_params.bin', '_Npts_Errs_data.csv')
+        Tr_matrix_xls_fnm = dump_filename.replace('_params.bin', '_Transform_Matrix_data.csv')
         
         # Save the keypoint statistics into a CSV file
         columns=['Npts', 'Mean Abs Error']
@@ -8502,7 +8587,7 @@ class FIBSEM_dataset:
                  'T20 (0.0)', 'T21 (0.0)', 'T22 (1.0)']
         tr_mx_dt = pd.DataFrame(self.transformation_matrix.reshape((len(self.transformation_matrix), 9)), columns = columns, index = None)
         tr_mx_dt.to_csv(Tr_matrix_xls_fnm, index = None)
-        return dump_file
+        return dump_filename
 
     def check_for_nomatch_frames(self, thr_npt, **kwargs):
         '''
@@ -8704,6 +8789,8 @@ class FIBSEM_dataset:
             see above
         stop_evaluation_box : list of 4 int
             see above
+        save_sample_frames_png : bolean
+            If True, sample frames with superimposed eval box and registration analysis data will be saved into png files. Default is True.
         
         Returns:
         reg_summary, reg_summary_xlsx
@@ -8733,6 +8820,7 @@ class FIBSEM_dataset:
         if self.DetB == 'None':
             ImgB_fraction = 0.0
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
+        save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         save_asI8 =  kwargs.get("save_asI8", self.save_asI8)
@@ -8805,6 +8893,7 @@ class FIBSEM_dataset:
                             'sliding_evaluation_box' : sliding_evaluation_box,
                             'start_evaluation_box' : start_evaluation_box,
                             'stop_evaluation_box' : stop_evaluation_box,
+                            'save_sample_frames_png' : save_sample_frames_png,
                             'disp_res' : disp_res}
 
         if perfrom_transformation and hasattr(self, 'tr_matr_cum_residual'):
@@ -9191,6 +9280,7 @@ class FIBSEM_dataset:
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        save_sample_frames_png = kwargs.get("save_sample_frames_png", False )
         nbr = len(ImgB_fractions)
         kwargs['zbin_factor'] = 1
 
@@ -9200,7 +9290,7 @@ class FIBSEM_dataset:
             kwargs['disp_res'] = False
             kwargs['evaluation_box'] = evaluation_box
             DASK_client = ''
-            br_res, br_res_xlsx = self.transform_and_save(DASK_client, save_transformed_dataset=False, save_registration_summary=False, frame_inds=frame_inds, use_DASK=False, **kwargs)
+            br_res, br_res_xlsx = self.transform_and_save(DASK_client, save_transformed_dataset=False, save_registration_summary=False, frame_inds=frame_inds, use_DASK=False, save_sample_frames_png=False, **kwargs)
             br_results.append(br_res)
 
         fig, axs = subplots(3,1, figsize=(6,8))
