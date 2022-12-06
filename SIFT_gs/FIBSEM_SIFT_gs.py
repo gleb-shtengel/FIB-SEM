@@ -1571,7 +1571,7 @@ def evaluate_registration_two_frames(params_mrc):
     image_mi = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
 
     if save_frame_png:
-        fr_img = mrc_obj.data[fr, :, :]
+        fr_img = (mrc_obj.data[fr, :, :].astype(dt_mrc)).astype(float)
         yshape, xshape = fr_img.shape
         fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
         fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
@@ -1786,7 +1786,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
             del curr_frame_cp, prev_frame_cp
             if (frame_ind in sample_frame_inds) and save_sample_frames_png:
                 filename_frame_png = os.path.splitext(save_filename)[0]+'_sample_image_frame{:d}.png'.format(j)
-                fr_img = mrc_obj.data[frame_ind, :, :]
+                fr_img = (mrc_obj.data[frame_ind, :, :].astype(dt_mrc)).astype(float)
                 yshape, xshape = fr_img.shape
                 fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
                 fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
@@ -3144,7 +3144,13 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     xlsx_name = os.path.basename(os.path.abspath(file_xlsx))
     base_dir = os.path.dirname(os.path.abspath(file_xlsx))
     sample_frame_mask = xlsx_name.replace('_RegistrationQuality.xlsx', '_sample_image_frame*.*')
-    existing_sample_frame_files = sorted(glob.glob(os.path.join(base_dir, sample_frame_mask)))
+    unsorted_sample_frame_files = glob.glob(os.path.join(base_dir, sample_frame_mask))
+    try:
+        unsorter_frames = [int(x.split('frame')[1].split('.png')[0]) for x in unsorted_sample_frame_files]
+        sorted_inds = argsort(unsorter_frames)
+        existing_sample_frame_files = [unsorted_sample_frame_files[i] for i in sorted_inds]
+    except:
+        existing_sample_frame_files = unsorted_sample_frame_files
     sample_frame_files = kwargs.get('sample_frame_files', existing_sample_frame_files)
     png_file_default = file_xlsx.replace('.xlsx','.png')
     png_file = kwargs.get("png_file", png_file_default)
