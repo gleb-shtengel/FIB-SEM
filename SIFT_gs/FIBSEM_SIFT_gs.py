@@ -7186,10 +7186,13 @@ def transform_two_chunks(params):
         fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
         fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
         dmin, dmax = get_min_max_thresholds(I1)
+        ax.imshow(binned_fr_img0, cmap='Greys', vmin=dmin, vmax=dmax)
+        '''
         if invert_data:
             ax.imshow(binned_fr_img0, cmap='Greys_r', vmin=dmin, vmax=dmax)
         else:
             ax.imshow(binned_fr_img0, cmap='Greys', vmin=dmin, vmax=dmax)
+        '''
         ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frame_number, image_nsad, image_ncc, image_mi), color='red', transform=ax.transAxes, fontsize=12)
         rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
         ax.add_patch(rect_patch)
@@ -8859,7 +8862,10 @@ class FIBSEM_dataset:
         else:
             image_correction_file = kwargs.get("image_correction_file", '')
         perfrom_transformation =  kwargs.get("perfrom_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
-        invert_data =  kwargs.get("invert_data", False)
+        if hasattr(self, 'invert_data'):
+            invert_data = kwargs.get("invert_data", self.invert_data)
+        else:
+            invert_data = kwargs.get("invert_data", False)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
         start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
