@@ -2653,6 +2653,63 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
     return kwargs_dict
 
 
+def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
+    '''
+    Generate Report Plot for mill rate evaluation from XLSX spreadsheet file. ©G.Shtengel 12/2022 gleb.shtengel@gmail.com
+    
+    Parameters:
+    Mill_Rate_Data_xlsx : str
+        Path to the xlsx workbook containing the Working Distance (WD) and and Milling Y Voltage (MV) data.
+    
+    kwargs:
+    Mill_Volt_Rate_um_per_V : float
+        Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+
+    '''
+    print('Loading kwarg info')
+    saved_kwargs = read_kwargs_xlsx(Mill_Rate_Data_xlsx, 'kwargs Info', **kwargs)
+    data_dir = saved_kwargs.get("data_dir", '')
+    Sample_ID = saved_kwargs.get("Sample_ID", '')
+    Saved_Mill_Volt_Rate_um_per_V = saved_kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
+    Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", Saved_Mill_Volt_Rate_um_per_V)
+    
+    print('Loading Working Distance and Milling Y Voltage Data')
+    int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='Milling Rate Data')
+    fr = int_results['Frame']
+    WD = int_results['Working Distance (mm)']
+    MillingYVoltage = int_results['Milling Y Voltage (V)']
+
+    print('Generating Plot')
+    fs = 12
+    Mill_Volt_Rate_um_per_V = 31.235258870176065
+
+    fig, axs = subplots(2,1, figsize = (6,8), sharex=True)
+    axs[0].plot(fr, WD, label='WD, Exp. Data', color='blue')
+    axs[0].grid(True)
+    axs[0].set_ylabel('Working Distance (mm)')
+    #axs[0].set_xlim(xi, xa)
+    WD_fit_coef = np.polyfit(fr, WD, 1)
+    WD_fit=np.polyval(WD_fit_coef, fr)
+    axs[0].plot(fr, WD_fit, label='Fit, slope = {:.2f} nm/line'.format(WD_fit_coef[0]*1.0e6), color='red')
+    axs[0].legend(fontsize=12)
+
+    axs[1].plot(fr, MillingYVoltage, label='Mill. Y Volt. Exp. Data', color='green')
+    axs[1].grid(True)
+    axs[1].set_ylabel('Milling Y Voltage (V)')
+    MV_fit_coef = np.polyfit(fr, MillingYVoltage, 1)
+    MV_fit=np.polyval(MV_fit_coef, fr)
+    axs[1].plot(fr, MV_fit, label='Fit, slope = {:.3f} nm/line'.format(MV_fit_coef[0]*Mill_Volt_Rate_um_per_V*-1.0e3), color='orange')
+    axs[1].legend(fontsize=12)
+    axs[1].text(0.02, 0.05, 'Milling Voltage to Z conversion: {:.4f} µm/V'.format(Mill_Volt_Rate_um_per_V), transform=axs[1].transAxes, fontsize=12)
+    axs[1].set_xlabel('Frame')
+    ldm = 50
+    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
+    try:
+        fig.suptitle(Sample_ID + '    ' +  data_dir_short, fontsize = fs-2)
+    except:
+        fig.suptitle(data_dir_short, fontsize = fs-2)
+    fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','.png')), dpi=300)
+
 
 def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     '''
@@ -4851,7 +4908,7 @@ class FIBSEM_frame:
         image_name : str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         data_dir : str
-            data direcory (path)
+            data directory (path)
         Sample_ID : str
             Sample ID
         invert_data : boolean
@@ -5895,15 +5952,17 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
 
     fls : str array
         array of image filenames (full paths)
-    data_minmax : list of 4 parameters
+    data_minmax : list of 5 parameters
+        minmax_xlsx : str
+            path to Excel file with Min/Max data
         data_min_glob : float   
             min data value for I8 conversion (open CV SIFT requires I8)
-        data_max_glob : float   
-            max data value for I8 conversion (open CV SIFT requires I8)
         data_min_sliding : float array
             min data values (one per file) for I8 conversion
         data_max_sliding : float array
             max data values (one per file) for I8 conversion
+        data_minmax_glob : 2D float array
+            min and max data values without sliding averaging
     DASK_client : DASK client object
         DASK client (needs to be initialized and running by this time)
 
@@ -5952,7 +6011,7 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
     fnms : str array
         array of paths to the files containing Key-Points and Descriptors
     '''
-    data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, minmax_xlsx = data_minmax
+    minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding  = data_minmax
     sliding_minmax = kwargs.get("sliding_minmax", True)
     use_DASK = kwargs.get("use_DASK", False)
     if sliding_minmax:
@@ -6562,7 +6621,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     kwargs
     ---------
     data_dir : str
-        data direcory (path)
+        data directory (path)
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     fnm_reg : str
@@ -6722,7 +6781,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     kwargs
     ---------
     data_dir : str
-        data direcory (path)
+        data directory (path)
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     fnm_reg : str
@@ -7012,7 +7071,82 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
     kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
     xlsx_writer.save()
            
-    return [data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, minmax_xlsx]
+    return [minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding]
+
+
+def Get_WD_MillYVolt(fl, **kwargs):
+    ftype = kwargs.get("ftype", 0)
+    try:
+        frame = FIBSEM_frame(fl, ftype=ftype)
+        WD = frame.WD
+        MillingYVoltage = frame.MillingYVoltage
+    except:
+        WD = 0
+        MillingYVoltage = 0
+    return WD, MillingYVoltage
+
+
+def evaluate_milling_rate(fls, DASK_client, **kwargs):
+    '''
+    Evaluate Milling Rate from Working Distance and Milling Y Voltage Data. ©G.Shtengel 12/2022 gleb.shtengel@gmail.com
+    Parameters
+    DASK_client : 
+    fls : array of strings
+        full array of filenames
+        
+    kwargs
+    ---------
+    use_DASK : boolean
+        perform remote DASK computations
+    ftype : int
+        file type (0 - Shan Xu's .dat, 1 - tif)
+    data_dir : str
+        data directory (path)
+    mill_rate_data_xlsx : str
+        Filepath of the Excell file for the Working Distance (WD) and and Milling Y Voltage (MV) data to be saved
+    frame_inds : array
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+    save_res_png  : boolean
+        Save PNG images of the intermediate processing statistics and final registration quality check
+    Mill_Volt_Rate_um_per_V : float
+        Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+    Returns:
+    mill_rate_data_xlsx, mill_rate_WD, mill_rate_MV
+    Filepath of the Excell file with the Working Distance (WD) and and Milling Y Voltage (MV) data.
+    '''
+    use_DASK = kwargs.get("use_DASK", False)
+    disp_res = kwargs.get("disp_res", False)
+    Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
+    kwargs['Mill_Volt_Rate_um_per_V'] = Mill_Volt_Rate_um_per_V
+    frame_inds = kwargs.get("frame_inds", np.arange(len(fls)))
+    mill_rate_data_xlsx = kwargs.get('mill_rate_data_xlsx', 'Mill_Rate_Data.xlsx')
+    
+    if use_DASK:
+        futures = DASK_client.map(Get_WD_MillYVolt, np.take(fls, frame_inds))
+        results = DASK_client.gather(futures)
+    else:
+        results = []
+        try:
+            for fl in tqdm(np.take(fls, frame_inds), desc='Collecting WD and MV data', display = disp_res):
+                results.append(Get_WD_MillYVolt(fl))
+        except:
+            pass
+    results = np.array(results)
+    mill_rate_WD = results[:, 0]
+    mill_rate_MV = results[:, 1]
+    
+    if disp_res:
+        print('Saving the Working Distance and Milling Y Voltage Data into the file: ', minmax_xlsx)
+        # Create a Pandas Excel writer using XlsxWriter as the engine.
+    xlsx_writer = pd.ExcelWriter(mill_rate_data_xlsx, engine='xlsxwriter')
+    columns=['Frame', 'Working Distance (mm)', 'Milling Y Voltage (V)']
+    millrate_df = pd.DataFrame(np.vstack((frame_inds.T, mill_rate_WD.T, mill_rate_MV.T)).T, columns = columns, index = None)
+    millrate_df.to_excel(xlsx_writer, index=None, sheet_name='Milling Rate Data')
+    kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be saved in transposed format
+    kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
+    xlsx_writer.save()
+    
+    return mill_rate_data_xlsx, mill_rate_WD, mill_rate_MV
 
 
 def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
@@ -7208,7 +7342,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     Transform and save FIB-SEM data set. A new vesion, with variable zbin_factor option. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
 
     Parameters
-    DASK_cliet : 
+    DASK_client : 
     save_transformed_dataset : boolean
         If true, the transformed data set will be saved into MRC file
     frame_inds : int array
@@ -7229,7 +7363,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     data_dir : str
-        data direcory (path)
+        data directory (path)
     fnm_reg : str
         filename for the final registed dataset
     ImgB_fraction : float
@@ -7643,7 +7777,7 @@ class FIBSEM_dataset:
     fls : array of str
         filenames for the individual data frames in the set
     data_dir : str
-        data direcory (path)
+        data directory (path)
     Sample_ID : str
             Sample ID
     ftype : int
@@ -7758,6 +7892,9 @@ class FIBSEM_dataset:
     calc_data_range(DASK_client, **kwargs):
         Calculate Min and Max range for I8 conversion of the data (open CV SIFT requires I8)
 
+    estimate_Z_pixel_size(DASK_client, **kwargs):
+        Estimate Z-milling rate (and thus Z pizel size) from Working Distance and Milling Y Voltage data
+
     extract_keypoints(DASK_client, **kwargs):
         Extract Key-Points and Descriptors
 
@@ -7795,7 +7932,7 @@ class FIBSEM_dataset:
         fls : array of str
             filenames for the individual data frames in the set
         data_dir : str
-            data direcory (path)
+            data directory (path)
 
         kwargs
         ---------
@@ -8005,7 +8142,7 @@ class FIBSEM_dataset:
         kwargs
         ---------
         data_dir : str
-            data direcory (path)
+            data directory (path)
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         fnm_reg : str
@@ -8206,13 +8343,15 @@ class FIBSEM_dataset:
             Other options are:
                 ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
                 ['PF', 2]  - use polynomial fit (in this case of order 2)
+        minmax_xlsx : str
+            Filepath of the Excell file for the Min / Max data to be saved
     
         Returns:
-        data_minmax : list of 4 parameters
+        data_minmax : list of 5 parameters
+            minmax_xlsx : str
+                path to Excel file with Min/Max data
             data_min_glob : float   
                 min data value for I8 conversion (open CV SIFT requires I8)
-            data_max_glob : float   
-                max data value for I8 conversion (open CV SIFT requires I8)
             data_min_sliding : float array
                 min data values (one per file) for I8 conversion
             data_max_sliding : float array
@@ -8232,21 +8371,85 @@ class FIBSEM_dataset:
         sliding_minmax = kwargs.get("sliding_minmax", self.sliding_minmax)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         fit_params = kwargs.get("fit_params", self.fit_params)
+        minmax_xlsx = kwargs.get('minmax_xlsx', os.path.join(data_dir, 'Data_MinMax.xlsx'))
         self.data_minmax = calc_data_range_dataset(self.fls, DASK_client,
                                 use_DASK = use_DASK,
                                 ftype = ftype,
                                 Sample_ID = Sample_ID,
                                 data_dir = data_dir,
                                 fnm_reg = fnm_reg,
-                                minmax_xlsx = os.path.join(data_dir, 'Data_MinMax.xlsx'),
+                                minmax_xlsx = minmax_xlsx,
                                 EightBit = EightBit,
                                 threshold_min = threshold_min,
                                 threshold_max = threshold_max,
                                 nbins = nbins,
                                 sliding_minmax = sliding_minmax,
-                                save_res_png  = save_res_png ,
+                                save_res_png  = save_res_png,
                                 fit_params = fit_params)
         return self.data_minmax
+
+
+    def estimate_Z_pixel_size(self, DASK_client, **kwargs):
+        '''
+        Evaluate Z pixel and Milling Rate from Working Distance and Milling Y Voltage Data. ©G.Shtengel 12/2022 gleb.shtengel@gmail.com
+        Parameters
+        DASK_client : 
+            
+        kwargs
+        ---------
+        use_DASK : boolean
+            perform remote DASK computations
+        ftype : int
+            file type (0 - Shan Xu's .dat, 1 - tif)
+        data_dir : str
+            data directory (path)
+        mill_rate_data_xlsx : str
+            Filepath of the Excell file for the Working Distance (WD) and and Milling Y Voltage (MV) data to be saved
+        frame_inds : array
+            Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+        save_res_png  : boolean
+            Save PNG images of the intermediate processing statistics and final registration quality check
+        Mill_Volt_Rate_um_per_V : float
+            Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+        Returns:
+        Mill_Rate_Data_xlsx, Z_pixel_size_WD, Z_pixel_size_MV
+        Filepath of the Excel file with the Working Distance (WD) and and Milling Y Voltage (MV) data.
+        '''
+        use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        ftype = kwargs.get("ftype", self.ftype)
+        Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
+        data_dir = self.data_dir
+        fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
+        frame_inds = kwargs.get("frame_inds", np.arange(len(self.fls)))
+        if hasattr(self, 'Mill_Volt_Rate_um_per_V'):
+            Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", self.Mill_Volt_Rate_um_per_V)
+        else:
+            Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
+        mill_rate_data_xlsx = kwargs.get('mill_rate_data_xlsx', 'Mill_Rate_Data.xlsx')
+
+        local_kwargs = {'Mill_Volt_Rate_um_per_V' : Mill_Volt_Rate_um_per_V,
+                        'use_DASK' : use_DASK,
+                        'ftype' : ftype,
+                        'Sample_ID' : Sample_ID,
+                        'data_dir' : data_dir,
+                        'fnm_reg' : fnm_reg,
+                        'frame_inds' : frame_inds,
+                        'mill_rate_data_xlsx' : mill_rate_data_xlsx}
+
+        self.milling_data = evaluate_milling_rate(self.fls, DASK_client, **local_kwargs)
+        WD = self.milling_data[1]
+        MillingYVoltage = self.milling_data[2]
+
+        WD_fit_coef = np.polyfit(frame_inds, WD, 1)
+        rate_WD = WD_fit_coef[0]*1.0e6
+    
+        MV_fit_coef = np.polyfit(frame_inds, MillingYVoltage, 1)
+        rate_MV = MV_fit_coef[0]*Mill_Volt_Rate_um_per_V*-1.0e3
+
+        Z_pixel_size_WD = rate_WD * self.zbin_factor
+        Z_pixel_size_MV = rate_MV * self.zbin_factor
+
+        return self.milling_data[0], Z_pixel_size_WD, Z_pixel_size_MV
 
 
     def extract_keypoints(self, DASK_client, **kwargs):
@@ -8275,15 +8478,17 @@ class FIBSEM_dataset:
         sliding_minmax : boolean
             if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
             if False - same data_min_glob and data_max_glob will be used for all files
-        data_minmax : list of 4 parameters
+        data_minmax : list of 5 parameters
+            minmax_xlsx : str
+                path to Excel file with Min/Max data
             data_min_glob : float   
                 min data value for I8 conversion (open CV SIFT requires I8)
-            data_max_glob : float   
-                max data value for I8 conversion (open CV SIFT requires I8)
             data_min_sliding : float array
                 min data values (one per file) for I8 conversion
             data_max_sliding : float array
                 max data values (one per file) for I8 conversion
+            data_minmax_glob : 2D float array
+                min and max data values without sliding averaging
         kp_max_num : int
             Max number of key-points to be matched.
             Key-points in every frame are indexed (in descending order) by the strength of the response.
@@ -8315,7 +8520,7 @@ class FIBSEM_dataset:
             SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
             SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
 
-            data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, minmax_xlsx = data_minmax
+            minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
             kpt_kwargs = {'ftype' : ftype,
                         'threshold_min' : threshold_min,
                         'threshold_max' : threshold_max,
@@ -8459,7 +8664,7 @@ class FIBSEM_dataset:
         kwargs
         ---------
         data_dir : str
-            data direcory (path)
+            data directory (path)
         fnm_reg : str
             filename for the final registed dataset
         Sample_ID : str
@@ -8610,7 +8815,7 @@ class FIBSEM_dataset:
         kwargs
         ---------
         data_dir : str
-            data direcory (path)
+            data directory (path)
         fnm_reg : str
             filename for the final registed dataset
         Sample_ID : str
@@ -8730,7 +8935,7 @@ class FIBSEM_dataset:
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
-            data direcory (path)
+            data directory (path)
         fnm_reg : str
             filename for the final registed dataset
         ImgB_fraction : float
@@ -8939,7 +9144,7 @@ class FIBSEM_dataset:
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
-            data direcory (path)
+            data directory (path)
         fnm_reg : str
             filename for the final registed dataset
         Sample_ID : str
@@ -9095,7 +9300,7 @@ class FIBSEM_dataset:
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
-            data direcory (path)
+            data directory (path)
         Sample_ID : str
             Sample ID
         ImgB_fraction : float
@@ -9271,7 +9476,7 @@ class FIBSEM_dataset:
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
-            data direcory (path)
+            data directory (path)
         
         Sample_ID : str
             Sample ID
