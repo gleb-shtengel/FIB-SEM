@@ -1605,6 +1605,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     kwargs:
     use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+    DASK_client_retries : int (default to 0)
+        Number of allowed automatic retries if a task fails
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
     invert_data : boolean
@@ -1629,6 +1631,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
     use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", mrc_filename )
@@ -1733,7 +1736,7 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     if use_DASK:
         mrc_obj.close()
         print('Using DASK distributed')
-        futures = DASK_client.map(evaluate_registration_two_frames, params_mrc_mult)
+        futures = DASK_client.map(evaluate_registration_two_frames, params_mrc_mult, retries = DASK_client_retries)
         dask_results = DASK_client.gather(futures)
         image_nsad = np.array([res[0] for res in dask_results])
         image_ncc = np.array([res[1] for res in dask_results])
@@ -2192,6 +2195,8 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     kwargs:
     use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+    DASK_client_retries : int (default to 0)
+        Number of allowed automatic retries if a task fails
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
     invert_data : boolean
@@ -2214,6 +2219,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
     use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", tif_filename )
@@ -2308,7 +2314,7 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
         
     if use_DASK:
         print('Using DASK distributed')
-        futures = DASK_client.map(evaluate_registration_two_frames_tif, params_tif_mult)
+        futures = DASK_client.map(evaluate_registration_two_frames_tif, params_tif_mult, retries = DASK_client_retries)
         dask_results = DASK_client.gather(futures)
         image_nsad = np.array([res[0] for res in dask_results])
         image_ncc = np.array([res[1] for res in dask_results])
@@ -5972,6 +5978,8 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
         if False - same data_min_glob and data_max_glob will be used for all files
     use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+    DASK_client_retries : int (default to 0)
+        Number of allowed automatic retries if a task fails
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     thr_min : float
@@ -6014,13 +6022,14 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
     minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding  = data_minmax
     sliding_minmax = kwargs.get("sliding_minmax", True)
     use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     if sliding_minmax:
         params_s3 = [[dts3[0], dts3[1], dts3[2], kwargs] for dts3 in zip(fls, data_min_sliding, data_max_sliding)]
     else:
         params_s3 = [[fl, data_min_glob, data_max_glob, kwargs] for fl in fls]        
     if use_DASK:
         print('Using DASK distributed')
-        futures_s3 = DASK_client.map(extract_keypoints_descr_files, params_s3)
+        futures_s3 = DASK_client.map(extract_keypoints_descr_files, params_s3, retries = DASK_client_retries)
         fnms = DASK_client.gather(futures_s3)
     else:
         print('Using Local Computation')
@@ -6283,6 +6292,7 @@ def determine_transformations_files(params_dsf):
 
 def determine_transformations_dataset(fnms, DASK_client, **kwargs):
     use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     params_s4 = []
     for j, fnm in enumerate(fnms[:-1]):
         fname1 = fnms[j]
@@ -6290,7 +6300,7 @@ def determine_transformations_dataset(fnms, DASK_client, **kwargs):
         params_s4.append([fname1, fname2, kwargs])
     if use_DASK:
         print('Using DASK distributed')
-        futures4 = DASK_client.map(determine_transformations_files, params_s4)
+        futures4 = DASK_client.map(determine_transformations_files, params_s4, retries = DASK_client_retries)
         #determine_transformations_files returns (transform_matrix, fnm_matches, kpts, iteration)
         results_s4 = DASK_client.gather(futures4)
     else:
@@ -7018,6 +7028,7 @@ def save_inlens_data(fname):
 def calc_data_range_dataset(fls, DASK_client, **kwargs):
     nfrs = len(fls)
     use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     ftype = kwargs.get("ftype", 0)
     Sample_ID = kwargs.get("Sample_ID", '')
     data_dir = kwargs.get("data_dir", '')
@@ -7044,7 +7055,7 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
 
         if use_DASK:
             print('Using DASK distributed')
-            futures = DASK_client.map(get_min_max_thresholds_file, params_s2)
+            futures = DASK_client.map(get_min_max_thresholds_file, params_s2, retries = DASK_client_retries)
             data_minmax_glob = np.array(DASK_client.gather(futures))
         else:
             print('Using Local Computation')
@@ -7098,6 +7109,8 @@ def evaluate_milling_rate(fls, DASK_client, **kwargs):
     ---------
     use_DASK : boolean
         perform remote DASK computations
+    DASK_client_retries : int (default to 0)
+        Number of allowed automatic retries if a task fails
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     data_dir : str
@@ -7115,6 +7128,7 @@ def evaluate_milling_rate(fls, DASK_client, **kwargs):
     Filepath of the Excell file with the Working Distance (WD) and and Milling Y Voltage (MV) data.
     '''
     use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     disp_res = kwargs.get("disp_res", False)
     Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
     kwargs['Mill_Volt_Rate_um_per_V'] = Mill_Volt_Rate_um_per_V
@@ -7122,7 +7136,7 @@ def evaluate_milling_rate(fls, DASK_client, **kwargs):
     mill_rate_data_xlsx = kwargs.get('mill_rate_data_xlsx', 'Mill_Rate_Data.xlsx')
     
     if use_DASK:
-        futures = DASK_client.map(Get_WD_MillYVolt, np.take(fls, frame_inds))
+        futures = DASK_client.map(Get_WD_MillYVolt, np.take(fls, frame_inds), retries = DASK_client_retries)
         results = DASK_client.gather(futures)
     else:
         results = []
@@ -7360,6 +7374,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     ---------
     use_DASK : boolean
         perform remote DASK computations
+    DASK_client_retries : int (default to 0)
+        Number of allowed automatic retries if a task fails
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     data_dir : str
@@ -7441,6 +7457,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         reg_summary_xlsx : name of the XLSX workbook containing the data
     '''
     use_DASK = kwargs.get("use_DASK", False) and (not save_transformed_dataset)  # do not use DASK the data is to be saved
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
     dump_filename = kwargs.get('dump_filename', '')
@@ -7616,7 +7633,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
             image_npts[j-1] = np.mean(npts[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
         if disp_res:
             print('Starting DASK jobs')
-        futures = DASK_client.map(transform_two_chunks, tr_params)
+        futures = DASK_client.map(transform_two_chunks, tr_params, retries = DASK_client_retries)
         registration_stats = np.array(DASK_client.gather(futures))  # 2D array  np.array([[image_nsad, image_ncc, image_mi]])
         xl=len(registration_stats)
         image_nsad = registration_stats[:, 0]
@@ -7940,6 +7957,8 @@ class FIBSEM_dataset:
             file type (0 - Shan Xu's .dat, 1 - tif)
         use_DASK : boolean
             use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
         Sample_ID : str
                 Sample ID
         threshold_min : float
@@ -8058,6 +8077,7 @@ class FIBSEM_dataset:
         self.Sample_ID = kwargs.get("Sample_ID", '')
         self.EightBit = kwargs.get("EightBit", 1)
         self.use_DASK = kwargs.get("use_DASK", True)
+        self.DASK_client_retries = kwargs.get("DASK_client_retries", 0)
         self.threshold_min = kwargs.get("threshold_min", 1e-3)
         self.threshold_max = kwargs.get("threshold_max", 1e-3)
         self.nbins = kwargs.get("nbins", 256)
@@ -8281,16 +8301,25 @@ class FIBSEM_dataset:
         
         kwargs
         ---------
-            use_DASK : boolean
-                use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+        use_DASK : boolean
+            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
         '''
-        use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        if hasattr(self, "use_DASK"):
+            use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        else:
+            use_DASK = kwargs.get("use_DASK", False)
+        if hasattr(self, "DASK_client_retries"):
+            DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
+        else:
+            DASK_client_retries = kwargs.get("DASK_client_retries", 0)
         if self.ftype ==0 :
             print('Step 2a: Creating "*InLens.tif" files using DASK distributed')
             t00 = time.time()
             if use_DASK:
                 try:
-                    futures = DASK_client.map(save_inlens_data, self.fls)
+                    futures = DASK_client.map(save_inlens_data, self.fls, retries = DASK_client_retries)
                     fls_new = np.array(DASK_client.gather(futures))
                 except:
                     fls_new = []
@@ -8319,6 +8348,8 @@ class FIBSEM_dataset:
         ---------
         use_DASK : boolean
             use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         Sample_ID : str
@@ -8359,7 +8390,14 @@ class FIBSEM_dataset:
             data_minmax_glob : 2D float array
                 min and max data values without sliding averaging
         '''
-        use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        if hasattr(self, "use_DASK"):
+            use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        else:
+            use_DASK = kwargs.get("use_DASK", False)
+        if hasattr(self, "DASK_client_retries"):
+            DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
+        else:
+            DASK_client_retries = kwargs.get("DASK_client_retries", 0)
         ftype = kwargs.get("ftype", self.ftype)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         data_dir = self.data_dir
@@ -8374,6 +8412,7 @@ class FIBSEM_dataset:
         minmax_xlsx = kwargs.get('minmax_xlsx', os.path.join(data_dir, 'Data_MinMax.xlsx'))
         self.data_minmax = calc_data_range_dataset(self.fls, DASK_client,
                                 use_DASK = use_DASK,
+                                DASK_client_retries = DASK_client_retries,
                                 ftype = ftype,
                                 Sample_ID = Sample_ID,
                                 data_dir = data_dir,
@@ -8399,6 +8438,8 @@ class FIBSEM_dataset:
         ---------
         use_DASK : boolean
             perform remote DASK computations
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
@@ -8415,7 +8456,14 @@ class FIBSEM_dataset:
         Mill_Rate_Data_xlsx, Z_pixel_size_WD, Z_pixel_size_MV
         Filepath of the Excel file with the Working Distance (WD) and and Milling Y Voltage (MV) data.
         '''
-        use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        if hasattr(self, "use_DASK"):
+            use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        else:
+            use_DASK = kwargs.get("use_DASK", False)
+        if hasattr(self, "DASK_client_retries"):
+            DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
+        else:
+            DASK_client_retries = kwargs.get("DASK_client_retries", 0)
         ftype = kwargs.get("ftype", self.ftype)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         data_dir = self.data_dir
@@ -8429,6 +8477,7 @@ class FIBSEM_dataset:
 
         local_kwargs = {'Mill_Volt_Rate_um_per_V' : Mill_Volt_Rate_um_per_V,
                         'use_DASK' : use_DASK,
+                        'DASK_client_retries' : DASK_client_retries,
                         'ftype' : ftype,
                         'Sample_ID' : Sample_ID,
                         'data_dir' : data_dir,
@@ -8463,6 +8512,8 @@ class FIBSEM_dataset:
         ---------
         use_DASK : boolean
             use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         EightBit : int
@@ -8503,7 +8554,14 @@ class FIBSEM_dataset:
             print('Data set not defined, perform initialization first')
             fnms = []
         else:  
-            use_DASK = kwargs.get("use_DASK", self.use_DASK)
+            if hasattr(self, "use_DASK"):
+                use_DASK = kwargs.get("use_DASK", self.use_DASK)
+            else:
+                use_DASK = kwargs.get("use_DASK", False)
+            if hasattr(self, "DASK_client_retries"):
+                DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
+            else:
+                DASK_client_retries = kwargs.get("DASK_client_retries", 0)
             ftype = kwargs.get("ftype", self.ftype)
             data_dir = self.data_dir
             fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
@@ -8538,7 +8596,7 @@ class FIBSEM_dataset:
                 params_s3 = [[fl, data_min_glob, data_max_glob, kpt_kwargs] for fl in self.fls]        
             if use_DASK:
                 print('Using DASK distributed')
-                futures_s3 = DASK_client.map(extract_keypoints_descr_files, params_s3)
+                futures_s3 = DASK_client.map(extract_keypoints_descr_files, params_s3, retries = DASK_client_retries)
                 fnms = DASK_client.gather(futures_s3)
             else:
                 print('Using Local Computation')
@@ -8561,6 +8619,8 @@ class FIBSEM_dataset:
         ---------
         use_DASK : boolean
             use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         TransformType : object reference
@@ -8608,7 +8668,14 @@ class FIBSEM_dataset:
             print('No data on individual key-point data files, peform key-point search')
             results_s4 = []
         else:
-            use_DASK = kwargs.get("use_DASK", self.use_DASK)
+            if hasattr(self, "use_DASK"):
+                use_DASK = kwargs.get("use_DASK", self.use_DASK)
+            else:
+                use_DASK = kwargs.get("use_DASK", False)
+            if hasattr(self, "DASK_client_retries"):
+                DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
+            else:
+                DASK_client_retries = kwargs.get("DASK_client_retries", 0)
             ftype = kwargs.get("ftype", self.ftype)
             TransformType = kwargs.get("TransformType", self.TransformType)
             l2_matrix = kwargs.get("l2_matrix", self.l2_matrix)
@@ -8640,7 +8707,7 @@ class FIBSEM_dataset:
                 params_s4.append([fname1, fname2, dt_kwargs])
             if use_DASK:
                 print('Using DASK distributed')
-                futures4 = DASK_client.map(determine_transformations_files, params_s4)
+                futures4 = DASK_client.map(determine_transformations_files, params_s4, retries = DASK_client_retries)
                 #determine_transformations_files returns (transform_matrix, fnm_matches, kpts, iteration)
                 results_s4 = DASK_client.gather(futures4)
             else:
@@ -8932,6 +8999,10 @@ class FIBSEM_dataset:
         
         kwargs
         ---------
+        use_DASK : boolean
+            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
@@ -9015,7 +9086,14 @@ class FIBSEM_dataset:
         if (frame_inds == np.array((-1))).all():
             frame_inds = np.arange(len(self.fls))
 
-        use_DASK = kwargs.get("use_DASK", False)
+        if hasattr(self, "use_DASK"):
+            use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        else:
+            use_DASK = kwargs.get("use_DASK", False)
+        if hasattr(self, "DASK_client_retries"):
+            DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
+        else:
+            DASK_client_retries = kwargs.get("DASK_client_retries", 0)
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
         if hasattr(self, 'XResolution'):
@@ -9079,6 +9157,7 @@ class FIBSEM_dataset:
         
         save_kwargs = {'fnm_reg' : fnm_reg,
                             'use_DASK' : use_DASK,
+                            'DASK_client_retries' : DASK_client_retries,
                             'ftype' : ftype,
                             'XResolution' : XResolution,
                             'YResolution' : YResolution,
