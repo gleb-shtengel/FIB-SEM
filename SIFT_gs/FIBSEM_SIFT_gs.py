@@ -133,8 +133,8 @@ def get_min_max_thresholds(image, **kwargs):
     thr_min = kwargs.get('thr_min', 1.0e-3)
     thr_max = kwargs.get('thr_max', 1.0e-3)
     nbins = kwargs.get('nbins', 256)
-    log = kwargs.get('disp_res', True)
-    disp_res = kwargs.get('log', False)
+    disp_res = kwargs.get('disp_res', True)
+    log = kwargs.get('log', False)
     save_res = kwargs.get('save_res', False)
     dpi = kwargs.get('dpi', 300)
     save_filename = kwargs.get('save_filename', 'min_max_thresholds.png')
@@ -3788,6 +3788,8 @@ class FIBSEM_frame:
         number of pixels - frame size in horizontal direction
     YResolution : int
         number of pixels - frame size in vertical direction
+    PixelSize : float
+        pixel size in nm. Default is 8.0
 
     Methods
     -------
@@ -7387,6 +7389,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
     Sample_ID : str
         Sample ID
+    voxel_size : rec.array(( float,  float,  float), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
+        voxel size in nm. Default is isotropic (PixelSize, PixelSize, PixelSize)
     TransformType : object reference
             Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
             Choose from the following options:
@@ -7464,6 +7468,12 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     test_frame = FIBSEM_frame(fls[0], ftype=ftype)
     XResolution = kwargs.get("XResolution", test_frame.XResolution)
     YResolution = kwargs.get("YResolution", test_frame.YResolution)
+    voxel_size_default = np.rec.array((test_frame.PixelSize,  test_frame.PixelSize,  test_frame.PixelSize), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
+    voxel_size = kwargs.get("voxel_size", voxel_size_default)
+    voxel_size_angstr = voxel_size.copy()
+    voxel_size_angstr.x = voxel_size_angstr.x * 1.0e3
+    voxel_size_angstr.y = voxel_size_angstr.y * 1.0e3
+    voxel_size_angstr.z = voxel_size_angstr.z * 1.0e3
     ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
                                                            # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
     if test_frame.DetB == 'None':
@@ -7577,7 +7587,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         mrc = mrcfile.new_mmap(fpath_reg, shape=(nfrs_zbinned, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
         # mode 0 -> uint8
         # mode 1 -> int16:
-        mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
+        #mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
+        mrc.header.cella = voxel_size_angstr
         tq_desc = 'Saving into ' + dformat_save + ' MRC File'
     else:
         tq_desc = 'Processing frames'
@@ -7799,6 +7810,10 @@ class FIBSEM_dataset:
             Sample ID
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
+    PixelSize : float
+        pixel size in nm. This is inherited from FIBSEM_frame object. Default is 8.0
+    voxel_size : rec.array(( float,  float,  float), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
+        voxel size in nm. Default is isotropic (PixelSize, PixelSize, PixelSize)
     fnm_reg : str
         filename for the final registed dataset
     use_DASK : boolean
@@ -7961,6 +7976,8 @@ class FIBSEM_dataset:
             Number of allowed automatic retries if a task fails
         Sample_ID : str
                 Sample ID
+        PixelSize : float
+            pixel size in nm. Default is 8.0
         threshold_min : float
             CDF threshold for determining the minimum data value
         threshold_max : float
@@ -8062,6 +8079,11 @@ class FIBSEM_dataset:
         mid_frame = FIBSEM_frame(fls[self.nfrs//2], ftype = self.ftype)
         self.XResolution = kwargs.get("XResolution", mid_frame.XResolution)
         self.YResolution = kwargs.get("YResolution", mid_frame.YResolution)
+        if hasattr(mid_frame, 'PixelSize'):
+            self.PixelSize = kwargs.get("PixelSize", mid_frame.PixelSize)
+        else:
+            self.PixelSize = kwargs.get("PixelSize", 8.0)
+        self.voxel_size = np.rec.array((self.PixelSize,  self.PixelSize,  self.PixelSize), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
         if hasattr(self, 'YResolution'):
             YResolution_default = self.YResolution
         else:
@@ -9124,6 +9146,11 @@ class FIBSEM_dataset:
         max_iter = kwargs.get("max_iter", self.max_iter)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         zbin_factor =  kwargs.get("zbin_factor", self.zbin_factor)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
+        if hasattr(self, 'voxel_size'):
+            voxel_size = kwargs.get("voxel_size", self.voxel_size)
+        else:
+            voxel_size_default = np.rec.array((self.PixelSize,  self.PixelSize,  self.PixelSize), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
+            voxel_size = kwargs.get("voxel_size", voxel_size_default)
         if hasattr(self, 'flipY'):
             flipY = kwargs.get("flipY", self.flipY)
         else:
@@ -9163,6 +9190,7 @@ class FIBSEM_dataset:
                             'YResolution' : YResolution,
                             'data_dir' : data_dir,
                             'Sample_ID' : Sample_ID,
+                            'voxel_size' : voxel_size,
                             'pad_edges' : pad_edges,
                             'ImgB_fraction' : ImgB_fraction,
                             'save_res_png ' : save_res_png ,
