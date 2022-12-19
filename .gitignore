@@ -19,6 +19,7 @@ FIB-SEM Registration Dev.ipynb
 FIB-SEM_Noise_Analysis.ipynb
 FIB-SEM_Noise_Analysis_new.ipynb
 Register_FIB-SEM_stack_DASK_v0.ipynb
+Register_FIB-SEM_stack_DASK_v1.ipynb
 Register_FIB-SEM_stack_DASK_v1_HeLa3.ipynb
 Evaluate_registrations_HeLa3.ipynb
 Evaluate_registrations_LID277_cell11.ipynb
@@ -47,6 +48,7 @@ Register_FIB-SEM_stack_DASK_v2_LID391_exp2.ipynb
 Register_FIB-SEM_stack_DASK_v2_LID391_exp3.ipynb
 Register_FIB-SEM_stack_DASK_v2_LID391_exp4.ipynb
 Register_FIB-SEM_stack_DASK_v2_LID391_4nm.ipynb
+Register_FIB-SEM_stack_DASK_v2_LID609_ROI2.ipynb
 iPALM_Calibration_Zextraction.ipynb
 Untitled.ipynb
 FSC_edge_resolution_modeling.ipynb

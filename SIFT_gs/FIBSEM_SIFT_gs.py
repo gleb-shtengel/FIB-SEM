@@ -513,7 +513,7 @@ def Single_Image_SNR(img, **kwargs):
             axs = [ax0, ax1, ax2, ax3]
         fig.subplots_adjust(left=0.03, bottom=0.06, right=0.99, top=0.92, wspace=0.25, hspace=0.10)
         
-        range_disp = get_min_max_thresholds(img, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp)
+        range_disp = get_min_max_thresholds(img, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res=False)
         axs[0].imshow(img, cmap='Greys', vmin=range_disp[0], vmax=range_disp[1])
         axs[0].grid(True)
         axs[0].set_title(img_label)
@@ -1086,7 +1086,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
             Analysis_ROIs_binned = [[ind//bins for ind in Analysis_ROI] for Analysis_ROI in Analysis_ROIs]
     else: 
         Analysis_ROIs_binned = []
-    vmin, vmax = get_min_max_thresholds(img_binned)
+    vmin, vmax = get_min_max_thresholds(img_binned, disp_res=False)
     yszb, xszb = img_binned.shape
     yb, xb = np.indices(img_binned.shape)
     if len(Analysis_ROIs_binned)>0:
@@ -2689,7 +2689,8 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     fs = 12
     Mill_Volt_Rate_um_per_V = 31.235258870176065
 
-    fig, axs = subplots(2,1, figsize = (6,8), sharex=True)
+    fig, axs = subplots(2,1, figsize = (6,7), sharex=True)
+    fig.subplots_adjust(left=0.12, bottom=0.06, right=0.99, top=0.96, wspace=0.05, hspace=0.05)
     axs[0].plot(fr, WD, label='WD, Exp. Data', color='blue')
     axs[0].grid(True)
     axs[0].set_ylabel('Working Distance (mm)')
@@ -2711,9 +2712,9 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     ldm = 50
     data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
     try:
-        fig.suptitle(Sample_ID + '    ' +  data_dir_short, fontsize = fs-2)
+        axs[0].text(-0.1, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
     except:
-        fig.suptitle(data_dir_short, fontsize = fs-2)
+        axs[0].text(-0.1, 1.05, data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
     fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','.png')), dpi=300)
 
 
@@ -7067,8 +7068,8 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
 
         #data_min_glob = np.min(data_minmax_glob)
         #data_max_glob = np.max(data_minmax_glob)
-        data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins)
-        trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins)
+        data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
+        trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
 
         data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
         data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
@@ -7639,7 +7640,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
                 save_frame_png = False
                 filename_frame_png = 'test_frame.png'
             if len(chunk1_frames)>0:
-                tr_params.append([chunk0_filenames, chunk1_filenames, chunk0_tr_matrices, chunk1_tr_matrices, shift_matrix, inv_shift_matrix, xi_eval, xa_eval, yi_eval, ya_eval, save_frame_png, st_frame, filename_frame_png, tr_args])
+                tr_params.append([chunk0_filenames, chunk1_filenames, chunk0_tr_matrices, chunk1_tr_matrices, shift_matrix, inv_shift_matrix, xi_eval, xa_eval, yi_eval, ya_eval, save_frame_png, j, filename_frame_png, tr_args])
             image_errors[j-1] = np.mean(error_abs_mean[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
             image_npts[j-1] = np.mean(npts[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
         if disp_res:
@@ -7697,12 +7698,12 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
                     yshape, xshape = binned_fr_img.shape
                     fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
                     fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
-                    dmin, dmax = get_min_max_thresholds(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                    dmin, dmax = get_min_max_thresholds(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
                     if invert_data:
                         ax.imshow(binned_fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
                     else:
                         ax.imshow(binned_fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
-                    ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(st_frame, image_nsad[j-1], image_ncc[j-1], image_mi[j-1]), color='red', transform=ax.transAxes, fontsize=12)
+                    ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(j, image_nsad[j-1], image_ncc[j-1], image_mi[j-1]), color='red', transform=ax.transAxes, fontsize=12)
                     rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
                     ax.add_patch(rect_patch)
                     ax.axis('off')
@@ -8505,7 +8506,7 @@ class FIBSEM_dataset:
                         'data_dir' : data_dir,
                         'fnm_reg' : fnm_reg,
                         'frame_inds' : frame_inds,
-                        'mill_rate_data_xlsx' : mill_rate_data_xlsx}
+                        'mill_rate_data_xlsx' : os.path.join(data_dir, mill_rate_data_xlsx)}
 
         self.milling_data = evaluate_milling_rate(self.fls, DASK_client, **local_kwargs)
         WD = self.milling_data[1]
@@ -9381,7 +9382,7 @@ class FIBSEM_dataset:
                 else:
                     ya_eval = ysz
 
-            vmin, vmax = get_min_max_thresholds(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval])
+            vmin, vmax = get_min_max_thresholds(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
             fig, ax = subplots(1,1, figsize=(10.0, 11.0*ysz/xsz))
             ax.imshow(frame_img_reg, cmap='Greys', vmin=vmin, vmax=vmax)
             ax.grid(True, color = "cyan")
@@ -9430,7 +9431,7 @@ class FIBSEM_dataset:
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         int_order = kwargs.get("int_order", self.int_order) 
         invert_data =  kwargs.get("invert_data", False)
-        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", False )
         ImgB_fraction = kwargs.get("ImgB_fraction", 0.00 )
         flipY = kwargs.get("flipY", False)
 
@@ -9488,13 +9489,19 @@ class FIBSEM_dataset:
                 frame_imgB = np.flip(frame_imgB, axis=0)
 
             frame_imgA_eval = frame_imgA[yi_eval:ya_eval, xi_eval:xa_eval]
-            ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval, save_res_png=False, img_label='Image A, frame={:d}'.format(j))
+            SNR_png = os.path.splitext(os.path.split(fls[j])[1])[0] + '.png'
+            SNR_png_fname = os.path.join(data_dir, SNR_png)
+            ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval, save_res_png=save_res_png,
+                                                                        res_fname = SNR_png_fname.replace('.png', '_ImgA_SNR.png'),
+                                                                        img_label='Image A, frame={:d}'.format(j))
             xSNRAs.append(ImageA_xSNR)
             ySNRAs.append(ImageA_ySNR)
             rSNRAs.append(ImageA_rSNR)
             if self.DetB != 'None':
                 frame_imgB_eval = frame_imgB[yi_eval:ya_eval, xi_eval:xa_eval]
-                ImageB_xSNR, ImageB_ySNR, ImageB_rSNR = Single_Image_SNR(frame_imgB_eval, save_res_png=False, img_label='Image B, frame={:d}'.format(j))
+                ImageB_xSNR, ImageB_ySNR, ImageB_rSNR = Single_Image_SNR(frame_imgB_eval, save_res_png=save_res_png,
+                                                                            res_fname = SNR_png_fname.replace('.png', '_ImgB_SNR.png'),
+                                                                            img_label='Image B, frame={:d}'.format(j))
                 xSNRBs.append(ImageB_xSNR)
                 ySNRBs.append(ImageB_ySNR)
                 rSNRBs.append(ImageB_rSNR)
@@ -9541,7 +9548,9 @@ class FIBSEM_dataset:
                 frame_imgB_eval = frame_imgB[yi_eval:ya_eval, xi_eval:xa_eval]
 
                 frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction) + frame_imgB_eval * ImgB_fraction
-                ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval, save_res_png=False, img_label='Fused, ImB_fr={:.4f}, frame={:d}'.format(ImgB_fraction, j))
+                ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval, save_res_png=save_res_png,
+                                                                        res_fname = SNR_png_fname.replace('.png', '_ImgB_fr{:.3f}_SNR.png'.format(ImgB_fraction)),
+                                                                        img_label='Fused, ImB_fr={:.4f}, frame={:d}'.format(ImgB_fraction, j))
                 xSNRFs.append(ImageF_xSNR)
                 ySNRFs.append(ImageF_ySNR)
                 rSNRFs.append(ImageF_rSNR)
@@ -9556,7 +9565,7 @@ class FIBSEM_dataset:
             ImgB_fraction_rSNR = 0.0
         ax.grid(True)
         ax.legend()
-        ax.set_title(Sample_ID + '  ' + data_dir)
+        ax.set_title(Sample_ID + '  ' + data_dir, fontsize=8)
         ax.set_xlabel('Frame')
         ax.set_ylabel('SNR')
         if save_res_png :
