@@ -1,5 +1,7 @@
 import numpy as np
-import cupy as cp
+use_cp = True
+if use_cp:
+    import cupy as cp
 import pandas as pd
 import os
 from pathlib import Path
@@ -1778,13 +1780,20 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
                 curr_frame = -1.0 * ((mrc_obj.data[frame_ind, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float))
             else:
                 curr_frame = (mrc_obj.data[frame_ind, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
-            curr_frame_cp = cp.array(curr_frame)
-            prev_frame_cp = cp.array(prev_frame)
-            fr_mean = cp.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
-            image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(curr_frame_cp-prev_frame_cp))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
-            #image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(curr_frame_cp-prev_frame_cp))/(cp.mean(fr_mean)))
+            if use_cp:
+                curr_frame_cp = cp.array(curr_frame)
+                prev_frame_cp = cp.array(prev_frame)
+                fr_mean = cp.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
+            else:
+                fr_mean = abs(curr_frame/2.0 + prev_frame/2.0)
+
             image_ncc[j-1] = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
-            image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(prev_frame_cp.ravel(), curr_frame_cp.ravel(), sigma=1.0, bin=2048, normalized=True))
+            if use_cp:
+                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(curr_frame_cp-prev_frame_cp))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
+                image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(prev_frame_cp.ravel(), curr_frame_cp.ravel(), sigma=1.0, bin=2048, normalized=True))
+            else:
+                image_nsad[j-1] =  mean(abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
+                image_mi[j-1] = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
             prev_frame = curr_frame.copy()
             del curr_frame_cp, prev_frame_cp
             if (frame_ind in sample_frame_inds) and save_sample_frames_png:
@@ -1928,7 +1937,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
 
         if plot_internal:
             fig, ax = subplots(1,1, figsize = (10.0, 11.0*ny/nx))
-        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval])
+        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
         if invert_data:
             ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
         else:
@@ -1962,6 +1971,14 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
             Maximum frame to bin. If not present, the entire file is binned
         binned_mrc_filename : str
             name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
+        xi : int
+            left edge of the crop
+        xa : int
+            right edge of the crop
+        yi : int
+            top edge of the crop
+        ya : int
+            bottom edge of the crop
     
     '''
     xy_bin_factor = kwargs.get("xy_bin_factor", 1)      # binning factor in xy-plane
@@ -2113,7 +2130,7 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
 
         if plot_internal:
             fig, ax = subplots(1,1, figsize = (10.0, 11.0*ny/nx))
-        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval])
+        dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
         if invert_data:
             ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
         else:
@@ -2324,51 +2341,6 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
         image_nsad = np.zeros((nf), dtype=float)
         image_ncc = np.zeros((nf), dtype=float)
         image_mi = np.zeros((nf), dtype=float)
-        '''
-        if sliding_evaluation_box:
-            xi_eval = start_evaluation_box[2] + dx_eval*frame_inds[0]//nf
-            yi_eval = start_evaluation_box[0] + dy_eval*frame_inds[0]//nf
-            if start_evaluation_box[3] > 0:
-                xa_eval = xi_eval + start_evaluation_box[3]
-            else:
-                xa_eval = nx
-            if start_evaluation_box[1] > 0:
-                ya_eval = yi_eval + start_evaluation_box[1]
-            else:
-                ya_eval = ny
-
-        frame0 = tiff.imread(tif_filename, key=int(frame_inds[0]-1))
-        if invert_data:
-            prev_frame = -1.0 * (frame0[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
-        else:
-            prev_frame = frame0[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
-
-        for j in tqdm(frame_inds, desc='Evaluating frame registration: '):
-            if sliding_evaluation_box:
-                xi_eval = start_evaluation_box[2] + dx_eval*j//nf
-                yi_eval = start_evaluation_box[0] + dy_eval*j//nf
-                if start_evaluation_box[3] > 0:
-                    xa_eval = xi_eval + start_evaluation_box[3]
-                else:
-                    xa_eval = nx
-                if start_evaluation_box[1] > 0:
-                    ya_eval = yi_eval + start_evaluation_box[1]
-                else:
-                    ya_eval = ny
-            frame1 = tiff.imread(tif_filename, key=int(j))
-            if invert_data:
-                curr_frame = -1.0 * (frame1[yi_eval:ya_eval, xi_eval:xa_eval].astype(float))
-            else:
-                curr_frame = frame1[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
-            curr_frame_cp = cp.array(curr_frame)
-            prev_frame_cp = cp.array(prev_frame)
-            fr_mean = np.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
-            image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(curr_frame_cp-prev_frame_cp))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
-            image_ncc[j-1] = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
-            image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(prev_frame_cp.ravel(), curr_frame_cp.ravel(), sigma=1.0, bin=2048, normalized=True))
-            prev_frame = curr_frame.copy()
-            del curr_frame_cp, prev_frame_cp
-        '''
         results = []
         for params_tif_mult_pair in tqdm(params_tif_mult, desc='Evaluating frame registration: '):
             print(params_tif_mult_pair)
@@ -7323,9 +7295,6 @@ def transform_two_chunks(params):
                                 int_order = int_order,
                                 flipY=flipY)
 
-    #I1c = cp.array(binned_fr_img0[yi_eval:ya_eval, xi_eval:xa_eval])
-    #I2c = cp.array(binned_fr_img1[yi_eval:ya_eval, xi_eval:xa_eval])
-    #fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
     I1 = binned_fr_img0[yi_eval:ya_eval, xi_eval:xa_eval]
     I2 = binned_fr_img1[yi_eval:ya_eval, xi_eval:xa_eval]
     fr_mean = np.abs(I1/2.0 + I2/2.0)
@@ -7338,12 +7307,6 @@ def transform_two_chunks(params):
         fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
         dmin, dmax = get_min_max_thresholds(I1)
         ax.imshow(binned_fr_img0, cmap='Greys', vmin=dmin, vmax=dmax)
-        '''
-        if invert_data:
-            ax.imshow(binned_fr_img0, cmap='Greys_r', vmin=dmin, vmax=dmax)
-        else:
-            ax.imshow(binned_fr_img0, cmap='Greys', vmin=dmin, vmax=dmax)
-        '''
         ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frame_number, image_nsad, image_ncc, image_mi), color='red', transform=ax.transAxes, fontsize=12)
         rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
         ax.add_patch(rect_patch)
@@ -7680,19 +7643,29 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
                         ya_eval = yi_eval + start_evaluation_box[1]
                     else:
                         ya_eval = ysz
-                I1c = cp.array(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
-                I2c = cp.array(prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
-                fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
+                if use_cp:
+                    I1c = cp.array(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                    I2c = cp.array(prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                    fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
+                else:
+                    I1c = binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval]
+                    I2c = prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval]
+                    fr_mean = abs(I1c/2.0 + I2c/2.0)
                 xi_evals[j-1] = xi_eval
                 xa_evals[j-1] = xa_eval
                 yi_evals[j-1] = yi_eval
                 ya_evals[j-1] = ya_eval
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
+                if use_cp:
+                    image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
+                    image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
+                else:
+                    image_nsad[j-1] =  mean(abs(I1c-I2c))/(np.mean(fr_mean)-np.amin(fr_mean))
+                    image_mi[j-1] = mutual_information_2d(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True)
                 image_ncc[j-1] = Two_Image_NCC_SNR(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
-                image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
                 image_errors[j-1] = np.mean(error_abs_mean[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
                 image_npts[j-1] = np.mean(npts[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
-                del I1c, I2c
+                if use_cp:
+                    del I1c, I2c
                 if (j in [nfrs_zbinned//10, nfrs_zbinned//2, nfrs_zbinned//10*9]) and save_sample_frames_png:
                     filename_frame_png = os.path.splitext(fpath_reg)[0]+'_sample_image_frame{:d}.png'.format(st_frame)
                     yshape, xshape = binned_fr_img.shape
