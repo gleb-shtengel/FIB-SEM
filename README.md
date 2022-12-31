@@ -92,6 +92,10 @@ You will also need to have these packages installed:
 ## Helper Functions for Results Presentation
     read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs)
         Reads (SIFT processing) kwargs from XLSX file and returns them as dictionary.
+    generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
+        Generate Report Plot for mill rate evaluation from XLSX spreadsheet file.
+    generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs)
+        Generate Report Plot for FOV center shift from XLSX spreadsheet file.
     generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, *kwargs)
         Generate Report Plot for Transformation Matrix from XLSX spreadsheet file.
     generate_report_from_xls_registration_summary(file_xlsx, **kwargs)

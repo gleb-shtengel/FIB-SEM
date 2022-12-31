@@ -2690,6 +2690,63 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','.png')), dpi=300)
 
 
+def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
+    '''
+    Generate Report Plot for FOV center shift from XLSX spreadsheet file. ©G.Shtengel 12/2022 gleb.shtengel@gmail.com
+    
+    Parameters:
+    Mill_Rate_Data_xlsx : str
+        Path to the xlsx workbook containing the Working Distance (WD) and and Milling Y Voltage (MV) data.
+    
+    kwargs:
+    Mill_Volt_Rate_um_per_V : float
+        Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+
+    Returns: trend_x, trend_y
+        Smoothed FOV shifts
+    '''
+    print('Loading kwarg info')
+    saved_kwargs = read_kwargs_xlsx(Mill_Rate_Data_xlsx, 'kwargs Info', **kwargs)
+    data_dir = saved_kwargs.get("data_dir", '')
+    Sample_ID = saved_kwargs.get("Sample_ID", '')
+    
+    print('Loading FOV Center Location Data')
+    int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='Milling Rate Data')
+    fr = int_results['Frame']
+    center_x = int_results['FOV X Center (Pix)']
+    center_y = int_results['FOV Y Center (Pix)']
+    apert = np.min((51, len(fr)-1))
+    trend_x = savgol_filter(center_x*1.0, apert, 1) - center_x[0]
+    trend_y = savgol_filter(center_y*1.0, apert, 1) - center_y[0]
+
+    print('Generating Plot')
+    fs = 12
+
+    fig, axs = subplots(2,1, figsize = (6,7), sharex=True)
+    fig.subplots_adjust(left=0.12, bottom=0.06, right=0.99, top=0.96, wspace=0.05, hspace=0.05)
+    axs[0].plot(fr, center_x, label='FOV X center, Data', color='blue')
+    axs[0].plot(fr, center_y, label='FOV Y center, Data', color='red')
+    axs[0].grid(True)
+    axs[0].set_ylabel('FOV Center (Pix)')
+    #axs[0].set_xlim(xi, xa)
+    axs[0].legend(fontsize=12)
+
+    axs[1].plot(fr, trend_x, label='FOV X center shift, smoothed', color='blue')
+    axs[1].plot(fr, trend_y, label='FOV Y center shift, smoothed', color='red')
+    axs[1].grid(True)
+    axs[1].set_ylabel('FOV Center Shift (Pix)')
+    axs[1].legend(fontsize=12)
+    axs[1].set_xlabel('Frame')
+    ldm = 50
+    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
+    try:
+        axs[0].text(-0.1, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
+    except:
+        axs[0].text(-0.1, 1.05, data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
+    fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','_FOV_XYcenter.png')), dpi=300)
+    return trend_x, trend_y
+
+
 def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     '''
     Generate Report Plot for data Min-Max from XLSX spreadsheet file. ©G.Shtengel 10/2022 gleb.shtengel@gmail.com
@@ -2697,7 +2754,6 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     Parameters:
     minmax_xlsx_file : str
         Path to the xlsx workbook containing Min-Max data
-
     '''
     print('Loading SIFT kwarg Data')
     saved_kwargs = read_kwargs_xlsx(minmax_xlsx_file, 'kwargs Info', **kwargs)
@@ -2792,10 +2848,11 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     kp_max_num = saved_kwargs.get("kp_max_num", -1)
     save_res_png  = saved_kwargs.get("save_res_png", True)
 
-    preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
-    fit_params =  saved_kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+    preserve_scales = saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
+    fit_params = saved_kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
-    subtract_linear_fit =  saved_kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
+    subtract_linear_fit = saved_kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
+    subtract_FOVtrend_from_fit = saved_kwargs.get("subtract_FOVtrend_from_fit", [True, True])
     pad_edges =  saved_kwargs.get("pad_edges", True)
     
     print('Loading Original Transformation Data')
@@ -3019,6 +3076,7 @@ def generate_report_transf_matrix_details(transf_matrix_bin_file, *kwarrgs):
     fit_params =  saved_kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     subtract_linear_fit =  saved_kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
+    subtract_FOVtrend_from_fit = saved_kwargs.get("subtract_FOVtrend_from_fit", [True, True]) 
     #print("subtract_linear_fit:", subtract_linear_fit)
     pad_edges =  saved_kwargs.get("pad_edges", True)
     
@@ -3240,6 +3298,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     fit_params =  stack_info_dict.get("fit_params", ['LF', 0, 0])           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     subtract_linear_fit =  stack_info_dict.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
+    subtract_FOVtrend_from_fit = stack_info_dict.get("subtract_FOVtrend_from_fit", [True, True]) 
     perfrom_transformation =  stack_info_dict.get("perfrom_transformation", True)
     disp_res = stack_info_dict.get("disp_res", True)
     stack_exists = os.path.exists(stack_filename)
@@ -3866,7 +3925,7 @@ class FIBSEM_frame:
                 self.RestartFlag = unpack('b',self.header[68:69])[0]              # Read in restart flag
                 self.StageMove = unpack('b',self.header[69:70])[0]                # Read in stage move flag
                 self.FirstPixelX = unpack('>l',self.header[70:74])[0]              # Read in first pixel X coordinate (center = 0)
-                self.FirstPixelY = unpack('>l',self.header[74:78])[0]              # Read in first pixel X coordinate (center = 0)
+                self.FirstPixelY = unpack('>l',self.header[74:78])[0]              # Read in first pixel Y coordinate (center = 0)
             
             self.XResolution = unpack('>L',self.header[100:104])[0]                # Read X resolution
             self.YResolution = unpack('>L',self.header[104:108])[0]                # Read Y resolution
@@ -6363,6 +6422,8 @@ def build_filename(fname, **kwargs):
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
+    subtract_FOVtrend_from_fit = kwargs.get("subtract_FOVtrend_from_fit", [True, True]) 
+
     pad_edges =  kwargs.get("pad_edges", True)
     suffix =  kwargs.get("suffix", '')
 
@@ -6442,7 +6503,7 @@ def find_fit(tr_matr_cum, fit_params):
     return tr_matr_cum_new, s_fits
 
 
-def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_mean, **kwargs):
+def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_matches, npts, error_abs_mean, **kwargs):
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -6466,6 +6527,8 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
+    subtract_FOVtrend_from_fit = kwargs.get("subtract_FOVtrend_from_fit", [True, True]) 
+
     #print("subtract_linear_fit:", subtract_linear_fit)
     pad_edges =  kwargs.get("pad_edges", True)
 
@@ -6519,7 +6582,10 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
     # Subtract linear trends from offsets
     if subtract_linear_fit[0]:
         fr = np.arange(0, len(Xshift_cum))
-        pX = np.polyfit(fr, Xshift_cum, 1)
+        if subtract_FOVtrend_from_fit[0]:
+            pX = np.polyfit(fr, Xshift_cum+FOVtrend_x, 1)
+        else:
+            pX = np.polyfit(fr, Xshift_cum, 1)
         Xfit = np.polyval(pX, fr)
         Xshift_residual = Xshift_cum - Xfit
         #Xshift_residual0 = -np.polyval(pX, 0.0)
@@ -6529,7 +6595,10 @@ def process_transf_matrix(transformation_matrix, fnms_matches, npts, error_abs_m
 
     if subtract_linear_fit[1]:
         fr = np.arange(0, len(Yshift_cum))
-        pY = np.polyfit(fr, Yshift_cum, 1)
+        if subtract_FOVtrend_from_fit[1]:
+            pY = np.polyfit(fr, Yshift_cum+FOVtrend_y, 1)
+        else:
+            pY = np.polyfit(fr, Yshift_cum, 1)
         Yfit = np.polyval(pY, fr)
         Yshift_residual = Yshift_cum - Yfit
         #Yshift_residual0 = -np.polyval(pY, 0.0)
@@ -7060,16 +7129,20 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
     return [minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding]
 
 
-def Get_WD_MillYVolt(fl, **kwargs):
+def Get_WD_MillYVolt_CenterXY(fl, **kwargs):
     ftype = kwargs.get("ftype", 0)
     try:
         frame = FIBSEM_frame(fl, ftype=ftype)
         WD = frame.WD
         MillingYVoltage = frame.MillingYVoltage
+        center_x = (frame.FirstPixelX + frame.XResolution/2.0)
+        center_y = (frame.FirstPixelY + frame.YResolution/2.0)
     except:
         WD = 0
         MillingYVoltage = 0
-    return WD, MillingYVoltage
+        center_x = 0
+        center_y = 0
+    return WD, MillingYVoltage, center_x, center_y
 
 
 def evaluate_milling_rate(fls, DASK_client, **kwargs):
@@ -7111,31 +7184,33 @@ def evaluate_milling_rate(fls, DASK_client, **kwargs):
     mill_rate_data_xlsx = kwargs.get('mill_rate_data_xlsx', 'Mill_Rate_Data.xlsx')
     
     if use_DASK:
-        futures = DASK_client.map(Get_WD_MillYVolt, np.take(fls, frame_inds), retries = DASK_client_retries)
+        futures = DASK_client.map(Get_WD_MillYVolt_CenterXY, np.take(fls, frame_inds), retries = DASK_client_retries)
         results = DASK_client.gather(futures)
     else:
         results = []
         try:
             for fl in tqdm(np.take(fls, frame_inds), desc='Collecting WD and MV data', display = disp_res):
-                results.append(Get_WD_MillYVolt(fl))
+                results.append(Get_WD_MillYVolt_CenterXY(fl))
         except:
             pass
     results = np.array(results)
     mill_rate_WD = results[:, 0]
     mill_rate_MV = results[:, 1]
-    
+    center_x = results[:, 2]
+    center_y = results[:, 3]
+
     if disp_res:
-        print('Saving the Working Distance and Milling Y Voltage Data into the file: ', minmax_xlsx)
+        print('Saving the Working Distance, Milling Y Voltage, and FOV Center data into the file: ', minmax_xlsx)
         # Create a Pandas Excel writer using XlsxWriter as the engine.
     xlsx_writer = pd.ExcelWriter(mill_rate_data_xlsx, engine='xlsxwriter')
-    columns=['Frame', 'Working Distance (mm)', 'Milling Y Voltage (V)']
-    millrate_df = pd.DataFrame(np.vstack((frame_inds.T, mill_rate_WD.T, mill_rate_MV.T)).T, columns = columns, index = None)
+    columns=['Frame', 'Working Distance (mm)', 'Milling Y Voltage (V)', 'FOV X Center (Pix)', 'FOV Y Center (Pix)' ]
+    millrate_df = pd.DataFrame(np.vstack((frame_inds.T, mill_rate_WD.T, mill_rate_MV.T, center_x.T, center_y.T)).T, columns = columns, index = None)
     millrate_df.to_excel(xlsx_writer, index=None, sheet_name='Milling Rate Data')
     kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be saved in transposed format
     kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
     xlsx_writer.save()
     
-    return mill_rate_data_xlsx, mill_rate_WD, mill_rate_MV
+    return mill_rate_data_xlsx, mill_rate_WD, mill_rate_MV, center_x, center_y
 
 
 def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
@@ -7463,6 +7538,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
+    subtract_FOVtrend_from_fit = kwargs.get("subtract_FOVtrend_from_fit", [True, True]) 
+
     flatten_image = kwargs.get("flatten_image", False)
     image_correction_file = kwargs.get("image_correction_file", '')
     perfrom_transformation =  kwargs.get("perfrom_transformation", True)
@@ -8113,6 +8190,9 @@ class FIBSEM_dataset:
                                                                     #    - 4: Bi-quartic
                                                                     #    - 5: Bi-quintic
         self.subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
+        self.subtract_FOVtrend_from_fit = kwargs.get("subtract_FOVtrend_from_fit", [True, True])
+        self.FOVtrend_x = np.zeros(len(fls))
+        self.FOVtrend_y = np.zeros(len(fls))
         self.pad_edges =  kwargs.get("pad_edges", True)
         build_fnm_reg, build_mrc_mode, build_dtp = build_filename(fls[0], **kwargs)
         self.fnm_reg = kwargs.get("fnm_reg", build_fnm_reg)
@@ -8449,8 +8529,8 @@ class FIBSEM_dataset:
         Mill_Volt_Rate_um_per_V : float
             Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
         Returns:
-        Mill_Rate_Data_xlsx, Z_pixel_size_WD, Z_pixel_size_MV
-        Filepath of the Excel file with the Working Distance (WD) and and Milling Y Voltage (MV) data.
+        Mill_Rate_Data_xlsx, Z_pixel_size_WD, Z_pixel_size_MV, FOV_center_x, FOV_center_y
+        Filepath of the Excel file with the Working Distance (WD), Milling Y Voltage (MV), FOV_center_x, and FOV_center_y data.
         '''
         if hasattr(self, "use_DASK"):
             use_DASK = kwargs.get("use_DASK", self.use_DASK)
@@ -8485,6 +8565,12 @@ class FIBSEM_dataset:
         WD = self.milling_data[1]
         MillingYVoltage = self.milling_data[2]
 
+        apert = np.min((51, len(self.milling_data[3])-1))
+        trend_x = savgol_filter(self.milling_data[3]*1.0, apert, 1) - center_x[0]
+        trend_y = savgol_filter(self.milling_data[4]*1.0, apert, 1) - center_y[0]
+        self.FOVtrend_x = FOVtrend_x
+        self.FOVtrend_y = FOVtrend_y
+
         WD_fit_coef = np.polyfit(frame_inds, WD, 1)
         rate_WD = WD_fit_coef[0]*1.0e6
     
@@ -8494,7 +8580,7 @@ class FIBSEM_dataset:
         Z_pixel_size_WD = rate_WD * self.zbin_factor
         Z_pixel_size_MV = rate_MV * self.zbin_factor
 
-        return self.milling_data[0], Z_pixel_size_WD, Z_pixel_size_MV
+        return self.milling_data[0], Z_pixel_size_WD, Z_pixel_size_MV, self.milling_data[3], self.milling_data[4]
 
 
     def extract_keypoints(self, DASK_client, **kwargs):
@@ -8801,6 +8887,7 @@ class FIBSEM_dataset:
             preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
             fit_params =  kwargs.get("fit_params", self.fit_params)
             subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
+            subtract_FOVtrend_from_fit =  kwargs.get("subtract_FOVtrend_from_fit", self.subtract_FOVtrend_from_fit)
             pad_edges =  kwargs.get("pad_edges", self.pad_edges)
 
             TM_kwargs = {'fnm_reg' : fnm_reg,
@@ -8824,8 +8911,11 @@ class FIBSEM_dataset:
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
                             'subtract_linear_fit' : subtract_linear_fit,
+                            'subtract_FOVtrend_from_fit' : subtract_FOVtrend_from_fit,
                             'pad_edges' : pad_edges}
             self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transf_matrix(self.transformation_matrix,
+                                             self.FOVtrend_x,
+                                             self.FOVtrend_y,
                                              self.fnms_matches,
                                              self.npts,
                                              self.error_abs_mean,
@@ -8944,6 +9034,7 @@ class FIBSEM_dataset:
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
         subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
+        subtract_FOVtrend_from_fit =  kwargs.get("subtract_FOVtrend_from_fit", self.subtract_FOVtrend_from_fit)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
   
         res_nomatch_check = check_for_nomatch_frames_dataset(self.fls, self.fnms, self.fnms_matches,
@@ -8969,8 +9060,11 @@ class FIBSEM_dataset:
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
                             'subtract_linear_fit' : subtract_linear_fit,
+                            'subtract_FOVtrend_from_fit' : subtract_FOVtrend_from_fit,
                             'pad_edges' : pad_edges}
             self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transf_matrix(self.transformation_matrix,
+                                             self.FOVtrend_x,
+                                             self.FOVtrend_y,
                                              self.fnms_matches,
                                              self.npts,
                                              self.error_abs_mean,
@@ -9137,6 +9231,7 @@ class FIBSEM_dataset:
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
         subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
+        subtract_FOVtrend_from_fit =  kwargs.get("subtract_FOVtrend_from_fit", self.subtract_FOVtrend_from_fit)
         if hasattr(self, 'flatten_image'):
             flatten_image = kwargs.get("flatten_image", self.flatten_image)
         else:
@@ -9183,6 +9278,7 @@ class FIBSEM_dataset:
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
                             'subtract_linear_fit' : subtract_linear_fit,
+                            'subtract_FOVtrend_from_fit' : subtract_FOVtrend_from_fit,
                             'flatten_image' : flatten_image,
                             'image_correction_file' : image_correction_file,
                             'perfrom_transformation' : perfrom_transformation,
