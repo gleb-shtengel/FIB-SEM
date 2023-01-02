@@ -8566,10 +8566,8 @@ class FIBSEM_dataset:
         MillingYVoltage = self.milling_data[2]
 
         apert = np.min((51, len(self.milling_data[3])-1))
-        trend_x = savgol_filter(self.milling_data[3]*1.0, apert, 1) - center_x[0]
-        trend_y = savgol_filter(self.milling_data[4]*1.0, apert, 1) - center_y[0]
-        self.FOVtrend_x = FOVtrend_x
-        self.FOVtrend_y = FOVtrend_y
+        self.FOVtrend_x = savgol_filter(self.milling_data[3]*1.0, apert, 1) - self.milling_data[3][0]
+        self.FOVtrend_y = savgol_filter(self.milling_data[4]*1.0, apert, 1) - self.milling_data[4][0]
 
         WD_fit_coef = np.polyfit(frame_inds, WD, 1)
         rate_WD = WD_fit_coef[0]*1.0e6
@@ -9680,26 +9678,91 @@ class FIBSEM_dataset:
         data_dir = kwargs.get("data_dir", self.data_dir)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
+        if hasattr(self, 'invert_data'):
+            invert_data = kwargs.get("invert_data", self.invert_data)
+        else:
+            invert_data = kwargs.get("invert_data", False)
+        if hasattr(self, 'flipY'):
+            flipY = kwargs.get("flipY", self.flipY)
+        else:
+            flipY = kwargs.get("flipY", flipY)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         save_sample_frames_png = kwargs.get("save_sample_frames_png", False )
+
         nbr = len(ImgB_fractions)
         kwargs['zbin_factor'] = 1
 
+        test_frame = FIBSEM_frame(self.fls[frame_inds[0]])
+
+        xi = 0
+        yi = 0
+        xsz = test_frame.XResolution 
+        xa = xi + xsz
+        ysz = test_frame.YResolution
+        ya = yi + ysz
+
+        xi_eval = xi + evaluation_box[2]
+        if evaluation_box[3] > 0:
+            xa_eval = xi_eval + evaluation_box[3]
+        else:
+            xa_eval = xa
+        yi_eval = yi + evaluation_box[0]
+        if evaluation_box[1] > 0:
+            ya_eval = yi_eval + evaluation_box[1]
+        else:
+            ya_eval = ya
+
         br_results = []
+        xSNRFs=[]
+        ySNRFs=[]
+        rSNRFs=[]
+
         for ImgB_fraction in tqdm(ImgB_fractions, desc='Evaluating Img B fractions'):
             kwargs['ImgB_fraction'] = ImgB_fraction
             kwargs['disp_res'] = False
             kwargs['evaluation_box'] = evaluation_box
+            kwargs['flipY'] = flipY
+            kwargs['invert_data'] = invert_data
             DASK_client = ''
             br_res, br_res_xlsx = self.transform_and_save(DASK_client, save_transformed_dataset=False, save_registration_summary=False, frame_inds=frame_inds, use_DASK=False, save_sample_frames_png=False, **kwargs)
             br_results.append(br_res)
 
-        fig, axs = subplots(3,1, figsize=(6,8))
+            if invert_data:
+                if test_frame.EightBit==0:
+                    frame_imgA = np.negative(test_frame.RawImageA)
+                    if self.DetB != 'None':
+                        frame_imgB = np.negative(test_frame.RawImageB)
+                else:
+                    frame_imgA  =  uint8(255) - test_frame.RawImageA
+                    if self.DetB != 'None':
+                        frame_imgB  =  uint8(255) - test_frame.RawImageB
+            else:
+                frame_imgA  = test_frame.RawImageA
+                if self.DetB != 'None':
+                    frame_imgB  = test_frame.RawImageB
+            if flipY:
+                frame_imgA = np.flip(frame_imgA, axis=0)
+                frame_imgB = np.flip(frame_imgB, axis=0)
+
+            frame_imgA_eval = frame_imgA[yi_eval:ya_eval, xi_eval:xa_eval]
+            frame_imgB_eval = frame_imgB[yi_eval:ya_eval, xi_eval:xa_eval]
+
+            frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction) + frame_imgB_eval * ImgB_fraction
+            ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval,
+                                                                    disp_res=False,
+                                                                    save_res_png=False,
+                                                                    res_fname = '',
+                                                                    img_label='')
+            xSNRFs.append(ImageF_xSNR)
+            ySNRFs.append(ImageF_ySNR)
+            rSNRFs.append(ImageF_rSNR)
+
+        fig, axs = subplots(4,1, figsize=(6,11))
         fig.subplots_adjust(left=0.12, bottom=0.06, right=0.99, top=0.96, wspace=0.25, hspace=0.24)
         ncc0 = (br_results[0])['Image NCC']
         SNR0 = ncc0 / (1-ncc0)
-        SNR_impr = []
+        SNRimpr_cc = []
         SNRs = []
 
         for j, (ImgB_fraction, br_result) in enumerate(zip(ImgB_fractions, br_results)):
@@ -9709,26 +9772,46 @@ class FIBSEM_dataset:
             frames_local = br_result['Frame']
             axs[0].plot(frames_local, SNR, color=my_col, label = 'ImgB fraction = {:.2f}'.format(ImgB_fraction))
             axs[1].plot(frames_local, SNR/SNR0, color=my_col, label = 'ImgB fraction = {:.2f}'.format(ImgB_fraction))
-            SNR_impr.append(np.mean(SNR/SNR0))
+            SNRimpr_cc.append(np.mean(SNR/SNR0))
             SNRs.append(np.mean(SNR))
 
-        SNRimpr_max = np.max(SNR_impr)
-        SNRimpr_max_ind = np.argmax(SNR_impr)
-        ImgB_fraction_max = ImgB_fractions[SNRimpr_max_ind]
-        xi = max(0, (SNRimpr_max_ind-3))
-        xa = min((SNRimpr_max_ind+3), len(ImgB_fractions))
+        SNRimpr_ac = np.array(rSNRFs) / rSNRFs[0]
+
+        SNRimpr_cc_max = np.max(SNRimpr_cc)
+        SNRimpr_cc_max_ind = np.argmax(SNRimpr_cc)
+        ImgB_fraction_max = ImgB_fractions[SNRimpr_cc_max_ind]
+        xi = max(0, (SNRimpr_cc_max_ind-3))
+        xa = min((SNRimpr_cc_max_ind+3), len(ImgB_fractions))
         ImgB_fr_range = ImgB_fractions[xi : xa]
-        SNRimpr_range = SNR_impr[xi : xa]
-        popt = np.polyfit(ImgB_fr_range, SNRimpr_range, 2)
-        SNRimpr_fit_max_pos = -0.5 * popt[1] / popt[0]
+        SNRimpr_cc_range = SNRimpr_cc[xi : xa]
+        popt = np.polyfit(ImgB_fr_range, SNRimpr_cc_range, 2)
+        SNRimpr_cc_fit_max_pos = -0.5 * popt[1] / popt[0]
         ImgB_fr_fit = np.linspace(ImgB_fr_range[0], ImgB_fr_range[-1], 21)
-        SNRimpr_fit = np.polyval(popt, ImgB_fr_fit)
-        if popt[0] < 0 and SNRimpr_fit_max_pos > ImgB_fractions[0] and SNRimpr_fit_max_pos<ImgB_fractions[-1]:
-            SNRimpr_max_position = SNRimpr_fit_max_pos
-            SNRimpr_max = np.polyval(popt, SNRimpr_max_position)
+        SNRimpr_cc_fit = np.polyval(popt, ImgB_fr_fit)
+        if popt[0] < 0 and SNRimpr_cc_fit_max_pos > ImgB_fractions[0] and SNRimpr_cc_fit_max_pos<ImgB_fractions[-1]:
+            SNRimpr_cc_max_position = SNRimpr_cc_fit_max_pos
+            SNRimpr_cc_max = np.polyval(popt, SNRimpr_cc_max_position)
         else: 
-            SNRimpr_max_position = ImgB_fraction_max
-        fs=11
+            SNRimpr_cc_max_position = ImgB_fraction_max
+
+        SNRimpr_ac_max = np.max(SNRimpr_ac)
+        SNRimpr_ac_max_ind = np.argmax(SNRimpr_ac)
+        ImgB_fraction_max = ImgB_fractions[SNRimpr_ac_max_ind]
+        xi = max(0, (SNRimpr_ac_max_ind-3))
+        xa = min((SNRimpr_ac_max_ind+3), len(ImgB_fractions))
+        ImgB_fr_range = ImgB_fractions[xi : xa]
+        SNRimpr_ac_range = SNRimpr_ac[xi : xa]
+        popt = np.polyfit(ImgB_fr_range, SNRimpr_ac_range, 2)
+        SNRimpr_ac_fit_max_pos = -0.5 * popt[1] / popt[0]
+        ImgB_fr_fit = np.linspace(ImgB_fr_range[0], ImgB_fr_range[-1], 21)
+        SNRimpr_ac_fit = np.polyval(popt, ImgB_fr_fit)
+        if popt[0] < 0 and SNRimpr_ac_fit_max_pos > ImgB_fractions[0] and SNRimpr_ac_fit_max_pos<ImgB_fractions[-1]:
+            SNRimpr_ac_max_position = SNRimpr_ac_fit_max_pos
+            SNRimpr_ac_max = np.polyval(popt, SNRimpr_ac_max_position)
+        else: 
+            SNRimpr_ac_max_position = ImgB_fraction_max
+            
+        fs=10
         axs[0].grid(True)
         axs[0].set_ylabel('Frame-to-Frame SNR', fontsize=fs)
         axs[0].set_xlabel('Frame', fontsize=fs)  
@@ -9736,19 +9819,30 @@ class FIBSEM_dataset:
         axs[0].set_title(Sample_ID + '  ' + data_dir, fontsize=fs)
         axs[1].grid(True)
         axs[1].set_ylabel('Frame-to-Frame SNR Improvement', fontsize=fs)
-        axs[1].set_xlabel('Frame', fontsize=fs)   
-        axs[2].plot(ImgB_fractions, SNR_impr, 'rd', label='Data')
-        axs[2].plot(ImgB_fr_fit, SNRimpr_fit, 'b', label='Fit')
-        axs[2].plot(SNRimpr_max_position, SNRimpr_max, 'gd', markersize=10, label='Max SNR Improvement')
-        axs[2].text(0.1, 0.5, 'Max SNR Improvement={:.3f}'.format(SNRimpr_max), transform=axs[2].transAxes, fontsize=fs)
-        axs[2].text(0.1, 0.4, '@ Img B Fraction ={:.3f}'.format(SNRimpr_max_position), transform=axs[2].transAxes, fontsize=fs)
-        axs[2].legend(fontsize=fs)
+        axs[1].set_xlabel('Frame', fontsize=fs)
+
+        axs[2].plot(ImgB_fractions, rSNRFs, 'rd', label='Data (auto-correlation)')
         axs[2].grid(True)
-        axs[2].set_ylabel('Mean SNR improvement', fontsize=fs)
-        axs[2].set_xlabel('Image B fraction', fontsize=fs)
+        axs[2].set_ylabel('Auto-Corr SNR', fontsize=fs)
+        
+        axs[3].plot(ImgB_fractions, SNRimpr_cc, 'rd', label='Data (cross-correlation)')
+        axs[3].plot(ImgB_fr_fit, SNRimpr_cc_fit, 'b', label='Fit (cross-correlation)')
+        axs[3].plot(SNRimpr_cc_max_position, SNRimpr_cc_max, 'rx', markersize=10, label='Max SNR Improvement (cc)')
+        axs[3].text(0.4, 0.35, 'Max CC SNR Improvement={:.3f}'.format(SNRimpr_cc_max), transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.4, 0.25, '@ Img B Fraction ={:.3f}'.format(SNRimpr_cc_max_position), transform=axs[3].transAxes, fontsize=fs)
+        axs[3].plot(ImgB_fractions, SNRimpr_ac, 'gd', label='Data (auto-correlation)')
+        axs[3].plot(ImgB_fr_fit, SNRimpr_ac_fit, 'magenta', label='Fit (auto-correlation)')
+        axs[3].plot(SNRimpr_ac_max_position, SNRimpr_ac_max, 'gx', markersize=10, label='Max SNR Improvement (ac)')
+        axs[3].text(0.4, 0.15, 'Max AC SNR Improvement={:.3f}'.format(SNRimpr_ac_max), transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.4, 0.05, '@ Img B Fraction ={:.3f}'.format(SNRimpr_ac_max_position), transform=axs[3].transAxes, fontsize=fs)
+
+        axs[3].legend(fontsize=fs)
+        axs[3].grid(True)
+        axs[3].set_ylabel('Mean SNR improvement', fontsize=fs)
+        axs[3].set_xlabel('Image B fraction', fontsize=fs)
 
         if save_res_png :
             fname_image = os.path.join(data_dir, os.path.splitext(fnm_reg)[0]+'_SNR_vs_ImgB_ratio_evaluation.png')
             fig.savefig(fname_image, dpi=300)
 
-        return SNRimpr_max_position, SNRimpr_max, ImgB_fractions, SNRs
+        return SNRimpr_cc_max_position, SNRimpr_cc_max, ImgB_fractions, SNRs, rSNRFs
