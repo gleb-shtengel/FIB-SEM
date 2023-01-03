@@ -646,13 +646,13 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
 
     fs=11
     img_filtered = convolve2d(img, kernel, mode='same')
-    range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp)
+    range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res=False)
 
     xi, xa, yi, ya = Hist_ROI
     img_hist = img[yi:ya, xi:xa]
     img_hist_filtered = img_filtered[yi:ya, xi:xa]
     
-    range_analysis = get_min_max_thresholds(img_hist_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis)
+    range_analysis = get_min_max_thresholds(img_hist_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res=False)
     if disp_res:
         print('The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
@@ -2637,11 +2637,11 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     
     Parameters:
     Mill_Rate_Data_xlsx : str
-        Path to the xlsx workbook containing the Working Distance (WD) and and Milling Y Voltage (MV) data.
+        Path to the xlsx workbook containing the Working Distance (WD), Milling Y Voltage (MV), and FOV center shifts data.
     
     kwargs:
     Mill_Volt_Rate_um_per_V : float
-        Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+        Milling Voltage to Z conversion (µm/V). Default is 31.235258870176065.
 
     '''
     print('Loading kwarg info')
@@ -2696,7 +2696,7 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     
     Parameters:
     Mill_Rate_Data_xlsx : str
-        Path to the xlsx workbook containing the Working Distance (WD) and and Milling Y Voltage (MV) data.
+        Path to the xlsx workbook containing the Working Distance (WD), Milling Y Voltage (MV), and FOV center shifts data.
     
     kwargs:
     Mill_Volt_Rate_um_per_V : float
@@ -2925,7 +2925,7 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     SIFT2text = 'SIFT: contrThr = {:.3f}, edgeThr = {:.2f}, σ= {:.2f}'.format(SIFT_contrastThreshold, SIFT_edgeThreshold, SIFT_sigma)
     axs5[0,0].text(-0.1, 0.50, SIFT2text, transform=axs5[0,0].transAxes, fontsize = fs)
 
-    sbtrfit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
+    sbtrfit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF') + ('(ON, ' if  subtract_FOVtrend_from_fit[0] else '(OFF, ') + ('ON)' if  subtract_FOVtrend_from_fit[1] else 'OFF)')
     axs5[0,0].text(-0.1, 0.35, 'drmax={:.1f}, Max # of KeyPts={:d}, Max # of Iter.={:d}'.format(drmax, kp_max_num, max_iter), transform=axs5[0,0].transAxes, fontsize = fs)
     padedges = 'ON' if pad_edges else 'OFF'
     if preserve_scales:
@@ -4640,7 +4640,7 @@ class FIBSEM_frame:
         
         Calls Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs)
         Performs following:
-        1. For ach of the selected ROI's, this method will perfrom the following:
+        1. For each of the selected ROI's, this method will perfrom the following:
             1a. Smooth the data by 2D convolution with a given kernel.
             1b. Determine "Noise" as difference between the original raw and smoothed data.        
             1c. Calculate the mean intensity value of the data and variance of the above "Noise"
@@ -4698,7 +4698,7 @@ class FIBSEM_frame:
             NF_slope is the slope of the linear fit curve (Step 4)
             PSNR and DSNR are Peak and Dynamic SNR's (Step 6)
         '''
-        image_name = kwargs.get("image_name", '')
+        image_name = kwargs.get("image_name", 'RawImageA')
 
         if image_name == 'RawImageA':
             ImgEM = self.RawImageA.astype(float)
@@ -4959,12 +4959,12 @@ class FIBSEM_frame:
         image_name = kwargs.get("image_name", 'RawImageA')
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0]) 
         ftype = kwargs.get("ftype", self.ftype)
-        data_dir = kwargs.get("data_dir", self.data_dir)
+        data_dir = kwargs.get("data_dir", os.path.dirname(self.fname))
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         nbins_disp = kwargs.get("nbins_disp", 256)
         thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])    
         invert_data =  kwargs.get("invert_data", False)
-        save_res_png  = kwargs.get("save_res_png", self.save_res_png )
+        save_res_png  = kwargs.get("save_res_png", False )
 
         if image_name == 'RawImageA':
             img = self.RawImageA
@@ -4991,7 +4991,7 @@ class FIBSEM_frame:
         else:
             ya_eval = ya
 
-        range_disp = get_min_max_thresholds(img[yi_eval:ya_eval, xi_eval:xa_eval], thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp)
+        range_disp = get_min_max_thresholds(img[yi_eval:ya_eval, xi_eval:xa_eval], thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res=False)
 
         fig, ax = subplots(1,1, figsize = (10.0, 11.0*ysz/xsz))
         ax.imshow(img, cmap='Greys', vmin = range_disp[0], vmax = range_disp[1])
@@ -7131,15 +7131,17 @@ def calc_data_range_dataset(fls, DASK_client, **kwargs):
 
 def Get_WD_MillYVolt_CenterXY(fl, **kwargs):
     ftype = kwargs.get("ftype", 0)
+    frame = FIBSEM_frame(fl, ftype=ftype)
     try:
-        frame = FIBSEM_frame(fl, ftype=ftype)
         WD = frame.WD
         MillingYVoltage = frame.MillingYVoltage
-        center_x = (frame.FirstPixelX + frame.XResolution/2.0)
-        center_y = (frame.FirstPixelY + frame.YResolution/2.0)
     except:
         WD = 0
         MillingYVoltage = 0
+    try:
+        center_x = (frame.FirstPixelX + frame.XResolution/2.0)
+        center_y = (frame.FirstPixelY + frame.YResolution/2.0)
+    except:
         center_x = 0
         center_y = 0
     return WD, MillingYVoltage, center_x, center_y
