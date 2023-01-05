@@ -1083,7 +1083,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
     res_fname = kwargs.get("res_fname", 'Image_Flattening.png')
     dpi = kwargs.get("dpi", 300)
     
-    img_binned = img.astype(float).reshape(ysz//bins, bins, xsz//bins, bins).sum(3).sum(1)/bins/bins
+    img_binned = img[0:ysz//bins*bins, 0:xsz//bins*bins].astype(float).reshape(ysz//bins, bins, xsz//bins, bins).sum(3).sum(1)/bins/bins
     if len(Analysis_ROIs)>0:
             Analysis_ROIs_binned = [[ind//bins for ind in Analysis_ROI] for Analysis_ROI in Analysis_ROIs]
     else: 
@@ -5088,7 +5088,7 @@ class FIBSEM_frame:
                 print('Image Flattening Info saved into the binary file: ', self.image_correction_file)
         #self.intercept = intercept
         self.img_correction_coeffs = img_correction_coeffs
-        return img_correction_coeffs, img_correction_arrays
+        return intercept, img_correction_coeffs, img_correction_arrays
 
         
     def flatten_image(self, **kwargs):
