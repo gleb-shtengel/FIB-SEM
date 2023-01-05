@@ -1,4 +1,4 @@
-# This is a repository for FIB-SEM data processing
+# This is a repository for FIB-SEM data processing and analysis
 
 ## "Register_FIB-SEM_stack_DASK_v2.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
 
@@ -18,6 +18,7 @@ Then install the contrib version of OpenCV:
 >pip install opencv-contrib-python
 
 You will also need to have these packages installed:
+-   openpyxl
 -	mrcfile
 -	skimage
 -	DASK
@@ -28,7 +29,7 @@ You will also need to have these packages installed:
 
 
 ## General Help Functions
-    get_spread(data, window=501, porder=3):
+    get_spread(data, window=501, porder=3)
         Calculates spread - standard deviation of the (signal - Sav-Gol smoothed signal)
     get_min_max_thresholds(image, **kwargs)
         Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
@@ -41,7 +42,7 @@ You will also need to have these packages installed:
 
 
 ## Single Frame Image Processing Functions
-    Single_Image_SNR(img, **kwargs):
+    Single_Image_SNR(img, **kwargs)
         Estimates SNR based on a single image.
         Calculates SNR of a single image base on auto-correlation analysis after [1].   
         [1] J. T. L. Thong et al, Single-image signal-to-noise ratio estimation. Scanning, 328–336 (2001).
@@ -83,16 +84,16 @@ You will also need to have these packages installed:
 
 
 ## Helper Functions for analysis of transformation matrix produced by FiJi-based workflow
-    read_transformation_matrix_from_xf_file(xf_filename):
+    read_transformation_matrix_from_xf_file(xf_filename)
         Reads transformation matrix created by FiJi-based workflow from *.xf file
-    analyze_transformation_matrix(transformation_matrix, xf_filename):
+    analyze_transformation_matrix(transformation_matrix, xf_filename)
         Analyzes the transformation matrix created by FiJi-based workflow
 
 
 ## Helper Functions for Results Presentation
     read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs)
         Reads (SIFT processing) kwargs from XLSX file and returns them as dictionary.
-    generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
+    generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs)
         Generate Report Plot for mill rate evaluation from XLSX spreadsheet file.
     generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs)
         Generate Report Plot for FOV center shift from XLSX spreadsheet file.
@@ -282,28 +283,28 @@ You will also need to have these packages installed:
 
     Methods
     -------
-    SIFT_evaluation(eval_fls = [], **kwargs):
+    SIFT_evaluation(eval_fls = [], **kwargs)
         Evaluate SIFT settings and perfromance of few test frames (eval_fls).
     convert_raw_data_to_tif_files(sDASK_client = '', **kwargs):
         Convert binary ".dat" files into ".tif" files
-    calc_data_range(DASK_client, **kwargs):
+    calc_data_range(DASK_client, **kwargs)
         Calculate Min and Max range for I8 conversion of the data (open CV SIFT requires I8)
-    extract_keypoints(DASK_client, **kwargs):
+    extract_keypoints(DASK_client, **kwargs)
         Extract Key-Points and Descriptors
-    determine_transformations(DASK_client, **kwargs):
+    determine_transformations(DASK_client, **kwargs)
         Determine transformation matrices for sequential frame pairs
-    process_transformation_matrix(**kwargs):
+    process_transformation_matrix(**kwargs)
         Calculate cumulative transformation matrix
-    save_parameters(**kwargs):
+    save_parameters(**kwargs)
         Save transformation attributes and parameters (including transformation matrices)
-    check_for_nomatch_frames(thr_npt, **kwargs):
+    check_for_nomatch_frames(thr_npt, **kwargs)
         Check for frames with low number of Key-Point matches,m exclude them and re-calculate the cumulative transformation matrix
-    transform_and_save(**kwargs):
+    transform_and_save(**kwargs)
         Transform the frames using the cumulative transformation matrix and save the data set into .mrc file
-    show_eval_box(**kwargs):
+    show_eval_box(**kwargs)
         Show the box used for evaluating the registration quality
-    estimate_SNRs(**kwargs):
+    estimate_SNRs(**kwargs)
         Estimate SNRs in Image A and Image B based on single-image SNR calculation.
-    evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs):
+    evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs)
         Calculate NCC and SNR vs Image B fraction over a set of frames.
 
