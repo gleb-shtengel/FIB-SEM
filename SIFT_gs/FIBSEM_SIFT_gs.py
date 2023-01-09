@@ -1966,7 +1966,7 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
         xy_bin_factor : int
             binning factor in xy-plane
         mode  : str
-            Binning mode. Default is 'mean', otheroption is 'sum'
+            Binning mode. Default is 'mean', other option is 'sum'
         frmax : int
             Maximum frame to bin. If not present, the entire file is binned
         binned_mrc_filename : str
@@ -1992,8 +1992,9 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
         mode 4 -> complex64
         mode 6 -> uint16
     '''
-    mrc_mode = mrc_obj.header.mode  
-    vx = mrc_obj.voxel_size
+    mrc_mode = mrc_obj.header.mode
+    voxel_size_angstr = mrc_obj.header.cella
+    #vx = mrc_obj.voxel_size
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
     frmax = kwargs.get('frmax', nz)
     xi = kwargs.get('xi', 0)
@@ -2008,14 +2009,21 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
     binned_mrc_filename = kwargs.get('binned_mrc_filename', binned_mrc_filename_default)
     dt = type(mrc_obj.data[0,0,0])
     print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     if mode == 'sum':
         mrc_mode = 1
         dt = int16
     print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(0, frmax, zbin_factor)
-    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
     mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
-    mrc_new.voxel_size = vx
+    voxel_size_angstr_new = voxel_size_angstr.copy()
+    voxel_size_angstr_new.x = voxel_size_angstr.x * xy_bin_factor
+    voxel_size_angstr_new.y = voxel_size_angstr.y * xy_bin_factor
+    voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
+    mrc_new.header.cella = voxel_size_angstr_new
+    print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
+    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
+    #mrc_new.voxel_size = vx
 
     for j, st_frame in enumerate(tqdm(st_frames, desc='Binning MRC stack')):
         # need to fix this
