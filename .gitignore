@@ -18,20 +18,18 @@ FIB-SEM Dask Array Dev.ipynb
 FIB-SEM Registration Dev.ipynb
 FIB-SEM_Noise_Analysis.ipynb
 FIB-SEM_Noise_Analysis_new.ipynb
-Register_FIB-SEM_stack_DASK_v0.ipynb
-Register_FIB-SEM_stack_DASK_v1.ipynb
 Register_FIB-SEM_stack_DASK_v1_HeLa3.ipynb
 Evaluate_registrations_HeLa3.ipynb
 Evaluate_registrations_LID277_cell11.ipynb
 Read_analyze_TIFF_stack_registration.ipynb
 LID609_ROI2_streaking_study.ipynb
+HeLa3_crop.ipynb
 Register_FIB-SEM_stack_DASK_v1_HeLa3.ipynb
 Register_FIB-SEM_stack_DASK_v1_FS162v2.ipynb
-Register_FIB-SEM_stack_DASK_v1_Weinberg_jrc_mus-nacc-1.ipynb
 Register_FIB-SEM_stack_DASK_v2_Weinberg_jrc_mus-nacc-1.ipynb
 Register_FIB-SEM_stack_DASK_v2_Weinberg_sample1.ipynb
 Register_FIB-SEM_stack_DASK_v2_Weinberg_sample2.ipynb
-Register_FIB-SEM_stack_DASK_v1_Pietro WT-DS-8.ipynb
+Register_FIB-SEM_stack_DASK_v2_Pietro WT-DS-8.ipynb
 Register_FIB-SEM_stack_DASK_v1_Z1215-01m_n1.ipynb
 Register_FIB-SEM_stack_DASK_v1_Z0517-51m_VNC_Sec16.ipynb
 Register_FIB-SEM_stack_DASK_v1_AMST.ipynb
@@ -51,6 +49,7 @@ Register_FIB-SEM_stack_DASK_v2_LID391_exp3.ipynb
 Register_FIB-SEM_stack_DASK_v2_LID391_exp4.ipynb
 Register_FIB-SEM_stack_DASK_v2_LID391_4nm.ipynb
 Register_FIB-SEM_stack_DASK_v2_LID609_ROI2.ipynb
+Register_FIB-SEM_stack_DASK_v2_Cryo_20161004_S3_Cell11.ipynb
 iPALM_Calibration_Zextraction.ipynb
 Untitled.ipynb
 FSC_edge_resolution_modeling.ipynb

@@ -395,6 +395,8 @@ def Single_Image_SNR(img, **kwargs):
     kwargs:
     edge_fraction : float
         fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
+    extrapolate_signal : boolean
+        extrapolate to find signal autocorrelationb at 0-point (without noise). Default is True
     disp_res : boolean
         display results (plots) (default is True)
     save_res_png : boolean
@@ -417,6 +419,7 @@ def Single_Image_SNR(img, **kwargs):
     [1] J. T. L. Thong et al, Single-image signal-to-noise ratio estimation. Scanning, 328–336 (2001).
     '''
     edge_fraction = kwargs.get("edge_fraction", 0.10)
+    extrapolate_signal = kwargs.get('extrapolate_signal', True)
     disp_res = kwargs.get("disp_res", True)
     nbins_disp = kwargs.get("nbins_disp", 256)
     thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])
@@ -445,14 +448,18 @@ def Single_Image_SNR(img, **kwargs):
     rcr = np.linspace(-rsz//2, rsz//2-1, rsz)
     xcr = np.linspace(-xsz//2, xsz//2-1, xsz)
     ycr = np.linspace(-ysz//2, ysz//2-1, ysz)
-    
+
     xl = xcr[xsz//2-2:xsz//2]
     xacr_left = data_ACR[ysz//2, (xsz//2-2):(xsz//2)]
     xc = xcr[xsz//2]
     xr = xcr[xsz//2+1 : xsz//2+3]
     xacr_right = data_ACR[ysz//2, (xsz//2+1):(xsz//2+3)]
-    xNFacl = xacr_left[0] + (xc-xl[0])/(xl[1]-xl[0])*(xacr_left[1]-xacr_left[0])
-    xNFacr = xacr_right[0] + (xc-xr[0])/(xr[1]-xr[0])*(xacr_right[1]-xacr_right[0])
+    if extrapolate_signal:
+        xNFacl = xacr_left[0] + (xc-xl[0])/(xl[1]-xl[0])*(xacr_left[1]-xacr_left[0])
+        xNFacr = xacr_right[0] + (xc-xr[0])/(xr[1]-xr[0])*(xacr_right[1]-xacr_right[0])
+    else:
+        xNFacl = xacr_left[1]
+        xNFacr = xacr_right[0]
     x_left = xcr[xsz//2-2:xsz//2+1]
     xacr_left = np.concatenate((xacr_left, np.array([xNFacl])))
     x_right = xcr[xsz//2 : xsz//2+3]
@@ -463,8 +470,12 @@ def Single_Image_SNR(img, **kwargs):
     yc = ycr[ysz//2]
     yr = ycr[ysz//2+1 : ysz//2+3]
     yacr_right = data_ACR[(ysz//2+1):(ysz//2+3), xsz//2]
-    yNFacl = yacr_left[0] + (yc-yl[0])/(yl[1]-yl[0])*(yacr_left[1]-yacr_left[0])
-    yNFacr = yacr_right[0] + (yc-yr[0])/(yr[1]-yr[0])*(yacr_right[1]-yacr_right[0])
+    if extrapolate_signal:
+        yNFacl = yacr_left[0] + (yc-yl[0])/(yl[1]-yl[0])*(yacr_left[1]-yacr_left[0])
+        yNFacr = yacr_right[0] + (yc-yr[0])/(yr[1]-yr[0])*(yacr_right[1]-yacr_right[0])
+    else:
+        yNFacl = yacr_left[1]
+        yNFacr = yacr_right[0]
     y_left = ycr[ysz//2-2:ysz//2+1]
     yacr_left = np.concatenate((yacr_left, np.array([yNFacl])))
     y_right = ycr[ysz//2 : ysz//2+3]
@@ -475,8 +486,12 @@ def Single_Image_SNR(img, **kwargs):
     rc = rcr[rsz//2]
     rr = rcr[rsz//2+1 : rsz//2+3]
     racr_right = r_ACR[(rsz//2+1):(rsz//2+3)]
-    rNFacl = racr_left[0] + (rc-rl[0])/(rl[1]-rl[0])*(racr_left[1]-racr_left[0])
-    rNFacr = racr_right[0] + (rc-rr[0])/(rr[1]-rr[0])*(racr_right[1]-racr_right[0])
+    if extrapolate_signal:
+        rNFacl = racr_left[0] + (rc-rl[0])/(rl[1]-rl[0])*(racr_left[1]-racr_left[0])
+        rNFacr = racr_right[0] + (rc-rr[0])/(rr[1]-rr[0])*(racr_right[1]-racr_right[0])
+    else:
+        rNFacl = racr_left[1]
+        rNFacr = racr_right[0]
     r_left = rcr[rsz//2-2:rsz//2+1]
     racr_left = np.concatenate((racr_left, np.array([rNFacl])))
     r_right = rcr[rsz//2 : rsz//2+3]
@@ -1953,18 +1968,20 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     mrc.close()
 
 
-def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
+def zbin_crop_mrc_stack(mrc_filename, **kwargs):
     '''
     Bins a 3D mrc stack along Z-direction (optional binning in X-Y plane as well) and crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
 
     Parameters:
         mrc_filename : str
             name (full path) of the mrc file to be binned
+    **kwargs:
         zbin_factor : int
             binning factor in z-direction
-    **kwargs:
-        xy_bin_factor : int
-            binning factor in xy-plane
+        xbin_factor : int
+            binning factor in x-direction
+        ybin_factor : int
+            binning factor in y-direction
         mode  : str
             Binning mode. Default is 'mean', other option is 'sum'
         frmax : int
@@ -1979,10 +1996,17 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
             top edge of the crop
         ya : int
             bottom edge of the crop
+        fri : int
+            start frame
+        fra : int
+            stop frame
     
     '''
-    xy_bin_factor = kwargs.get("xy_bin_factor", 1)      # binning factor in xy-plane
-    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', otheroption is 'sum'
+    xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
+    ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
+    zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
+
+    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     header = mrc_obj.header
     '''
@@ -1994,17 +2018,18 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
     '''
     mrc_mode = mrc_obj.header.mode
     voxel_size_angstr = mrc_obj.header.cella
-    #vx = mrc_obj.voxel_size
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
     frmax = kwargs.get('frmax', nz)
     xi = kwargs.get('xi', 0)
     xa = kwargs.get('xa', nx)
     yi = kwargs.get('yi', 0)
     ya = kwargs.get('ya', ny)
-    nx_binned = (xa-xi)//xy_bin_factor
-    ny_binned = (ya-yi)//xy_bin_factor
-    xa = xi + nx_binned * xy_bin_factor
-    ya = yi + ny_binned * xy_bin_factor
+    fri = kwargs.get('fri', 0)
+    fra = kwargs.get('fra', nz)
+    nx_binned = (xa-xi)//xbin_factor
+    ny_binned = (ya-yi)//ybin_factor
+    xa = xi + nx_binned * xbin_factor
+    ya = yi + ny_binned * ybin_factor
     binned_mrc_filename_default = mrc_filename.replace('.mrc', '_zbin{:d}_crop.mrc'.format(zbin_factor))
     binned_mrc_filename = kwargs.get('binned_mrc_filename', binned_mrc_filename_default)
     dt = type(mrc_obj.data[0,0,0])
@@ -2014,11 +2039,11 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
         mrc_mode = 1
         dt = int16
     print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    st_frames = np.arange(0, frmax, zbin_factor)
+    st_frames = np.arange(fri, fra, zbin_factor)
     mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
     voxel_size_angstr_new = voxel_size_angstr.copy()
-    voxel_size_angstr_new.x = voxel_size_angstr.x * xy_bin_factor
-    voxel_size_angstr_new.y = voxel_size_angstr.y * xy_bin_factor
+    voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
+    voxel_size_angstr_new.y = voxel_size_angstr.y * ybin_factor
     voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
     mrc_new.header.cella = voxel_size_angstr_new
     print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
@@ -2027,9 +2052,15 @@ def zbin_crop_mrc_stack(mrc_filename, zbin_factor, **kwargs):
 
     for j, st_frame in enumerate(tqdm(st_frames, desc='Binning MRC stack')):
         # need to fix this
-        zbinnd_fr = np.mean(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
-        if xy_bin_factor > 1:
-            zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, xy_bin_factor, nx_binned, xy_bin_factor), axis=3), axis=1)
+        if mode == 'mean':
+            zbinnd_fr = np.mean(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
+        else:
+            zbinnd_fr = np.sum(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
+        if (xbin_factor > 1) or (ybin_factor > 1):
+            if mode == 'mean':
+                zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
+            else:
+                zbinnd_fr = np.sum(np.sum(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
         mrc_new.data[j,:,:] = zbinnd_fr.astype(dt) 
    
     mrc_obj.close()
@@ -2628,13 +2659,6 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
             kwargs_dict['sliding_evaluation_box'] = False
     except:
         pass
-    try:
-        if kwargs_dict['save_asI8'] == 1:
-            kwargs_dict['save_asI8'] = True
-        else:
-            kwargs_dict['save_asI8'] = False
-    except:
-        pass
     
     return kwargs_dict
 
@@ -2732,15 +2756,15 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
 
     fig, axs = subplots(2,1, figsize = (6,7), sharex=True)
     fig.subplots_adjust(left=0.12, bottom=0.06, right=0.99, top=0.96, wspace=0.05, hspace=0.05)
-    axs[0].plot(fr, center_x, label='FOV X center, Data', color='blue')
-    axs[0].plot(fr, center_y, label='FOV Y center, Data', color='red')
+    axs[0].plot(fr, center_x, label='FOV X center, Data', color='red')
+    axs[0].plot(fr, center_y, label='FOV Y center, Data', color='blue')
     axs[0].grid(True)
     axs[0].set_ylabel('FOV Center (Pix)')
     #axs[0].set_xlim(xi, xa)
     axs[0].legend(fontsize=12)
 
-    axs[1].plot(fr, trend_x, label='FOV X center shift, smoothed', color='blue')
-    axs[1].plot(fr, trend_y, label='FOV Y center shift, smoothed', color='red')
+    axs[1].plot(fr, trend_x, label='FOV X center shift, smoothed', color='red')
+    axs[1].plot(fr, trend_y, label='FOV Y center shift, smoothed', color='blue')
     axs[1].grid(True)
     axs[1].set_ylabel('FOV Center Shift (Pix)')
     axs[1].legend(fontsize=12)
@@ -3361,7 +3385,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 mode 1 -> int16
                 mode 2 -> float32
                 mode 4 -> complex64
-                    mode 6 -> uint16
+                mode 6 -> uint16
                 '''
                 if mrc_mode==0:
                     dt_mrc=uint8
@@ -4874,6 +4898,8 @@ class FIBSEM_frame:
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         edge_fraction : float
             fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
+        extrapolate_signal : boolean
+            extrapolate to find signal autocorrelationb at 0-point (without noise). Default is True
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
         disp_res : boolean
@@ -4900,6 +4926,7 @@ class FIBSEM_frame:
         image_name = kwargs.get("image_name", 'RawImageA')
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         edge_fraction = kwargs.get("edge_fraction", 0.10)
+        extrapolate_signal = kwargs.get('extrapolate_signal', True)
         disp_res = kwargs.get("disp_res", True)
         save_res_png = kwargs.get("save_res_png", True)
         default_res_name = os.path.splitext(self.fname)[0] + '_AutoCorr_Noise_Analysis_' + image_name + '.png'
@@ -4907,6 +4934,7 @@ class FIBSEM_frame:
         dpi = kwargs.get("dpi", 300)
 
         SNR_kwargs = {'edge_fraction' : edge_fraction,
+                        'extrapolate_signal' : extrapolate_signal,
                         'disp_res' : disp_res,
                         'save_res_png' : save_res_png,
                         'res_fname' : res_fname,
@@ -6367,7 +6395,7 @@ def transform_and_save_single_frame(params_tss):
         tr_matrix : 2d array
             Transformation matrix
     tr_args : list
-        tr_args = ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, save_asI8, data_min_glob, data_max_glob, ftype, dtp
+        tr_args = ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, data_min_glob, data_max_glob, ftype, dtp
         # should be  tr_args = ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype
 
 
@@ -6376,7 +6404,7 @@ def transform_and_save_single_frame(params_tss):
         Filename of the transformed image
     '''
     fname_orig, fname_transformed, tr_matrix, tr_args = params_tss
-    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, save_asI8, data_min_glob, data_max_glob, ftype, dtp = tr_args
+    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, data_min_glob, data_max_glob, ftype, dtp = tr_args
     # ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype = tr_args
     EMimage_padded = np.zeros((ysz, xsz), dtype=dtp)
     EMframe = FIBSEM_frame(fname_orig, ftype=ftype)
@@ -6398,16 +6426,18 @@ def transform_and_save_single_frame(params_tss):
         EMimage_transformed = warp(EMimage_padded, transf, order = int_order, preserve_range=True)
     else:
         EMimage_transformed = EMimage_padded
-    if save_asI8:
-        EMimage_transformed_clipped = np.clip(((EMimage_transformed - data_min_glob)/(data_max_glob - data_min_glob)*255.0), 0, 255)
-    else:
+    if dtp == int16:
         EMimage_transformed_clipped = EMimage_transformed
+    else:
+        EMimage_transformed_clipped = np.clip(((EMimage_transformed - data_min_glob)/(data_max_glob - data_min_glob)*255.0), 0, 255)
+        
     tiff.imsave(fname_transformed, EMimage_transformed_clipped.astype(dtp))
     return fname_transformed
 
 
 def build_filename(fname, **kwargs):
     ftype = kwargs.get("ftype", 0)
+    dtp = kwargs.get("dtp", int16)                             #  int16 or uint8
     threshold_min = kwargs.get("threshold_min", 1e-3)
     threshold_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
@@ -6423,8 +6453,6 @@ def build_filename(fname, **kwargs):
     max_iter = kwargs.get("max_iter", 1000)
     kp_max_num = kwargs.get("kp_max_num", -1)
     save_res_png  = kwargs.get("save_res_png", True)
-
-    save_asI8 =  kwargs.get("save_asI8", False)         # If true, the data will be converted to I8 using global MIN and MAX values determined in the Step 1
     zbin_factor =  kwargs.get("zbin_factor", 1)             # binning factor in z-direction (milling direction). Default is 1
     preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
@@ -6437,19 +6465,13 @@ def build_filename(fname, **kwargs):
 
     frame = FIBSEM_frame(fname, ftype=ftype)
     dformat_read = 'I8' if frame.EightBit else 'I16'
-    #save_asI8_save = save_asI8 or frame.EightBit==1
 
-    #if save_asI8_save:
-    if save_asI8:
-        dtp = uint8
-        dformat_save = 'I8'
-        mrc_mode = 0
-        fnm_reg = 'Registered_I8.mrc'
-    else:
-        dtp = int16
+    if dtp == int16:
         dformat_save = 'I16'
-        mrc_mode = 1
         fnm_reg = 'Registered_I16.mrc'
+    else:
+        dformat_save = 'I8'
+        fnm_reg = 'Registered_I8.mrc'
 
     if zbin_factor>1:
         fnm_reg = fnm_reg.replace('.mrc', '_zbin{:d}.mrc'.format(zbin_factor))
@@ -6469,7 +6491,7 @@ def build_filename(fname, **kwargs):
 
     if len(suffix)>0:
         fnm_reg = fnm_reg.replace('.mrc', '_' + suffix + '.mrc')
-    return fnm_reg, mrc_mode, dtp
+    return fnm_reg, dtp
 
 def find_fit(tr_matr_cum, fit_params):
     fit_method = fit_params[0]
@@ -7401,7 +7423,6 @@ def transform_two_chunks(params):
     return [image_nsad, image_ncc, image_mi]
 
 
-
 def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds, fls, tr_matr_cum_residual, npts, error_abs_mean, **kwargs):
     '''
     Transform and save FIB-SEM data set. A new vesion, with variable zbin_factor option. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
@@ -7433,50 +7454,15 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         data directory (path)
     fnm_reg : str
         filename for the final registed dataset
+    dump_filename str
+        Path to binary dump (for xlx saving)
     ImgB_fraction : float
         fractional ratio of Image B to be used for constructing the fuksed image:
         ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
-    Sample_ID : str
-        Sample ID
     voxel_size : rec.array(( float,  float,  float), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
         voxel size in nm. Default is isotropic (PixelSize, PixelSize, PixelSize)
-    TransformType : object reference
-            Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
-            Choose from the following options:
-                ShiftTransform - only x-shift and y-shift
-                XScaleShiftTransform  -  x-scale, x-shift, y-shift
-                ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
-                AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
-                RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
-    l2_matrix : 2D float array
-        matrix of regularization (shrinkage) parameters
-    targ_vector = 1D float array
-        target vector for regularization
-    solver : str
-        Solver used for SIFT ('RANSAC' or 'LinReg')
-    drmax : float
-        In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
-        In the case of 'LinReg' - outlier threshold for iterative regression
-    max_iter : int
-        Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-    BFMatcher : boolean
-        If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-    save_matches : boolean
-        If True, matches will be saved into individual files
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
-    preserve_scales : boolean
-        If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
-    fit_params : list
-        Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
-        Other options are:
-            ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
-            ['PF', 2]  - use polynomial fit (in this case of order 2)
-    subtract_linear_fit : [boolean, boolean]
-        List of two Boolean values for two directions: X- and Y-.
-        If True, the linear slopes along X- and Y- directions (respectively)
-        will be subtracted from the cumulative shifts.
-        This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
     pad_edges : boolean
         If True, the data will be padded before transformation to avoid clipping.
     flipY : boolean
@@ -7485,6 +7471,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         binning factor along Z-axis
     perfrom_transformation : boolean
         If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
+    int_order : int
+        The order of interpolation. 1: Bi-linear
     flatten_image : bolean
         perform image flattening
     image_correction_file : str
@@ -7502,74 +7490,78 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         see above
     save_sample_frames_png : bolean
         If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
-    
+    dtp  : dtype
+        Data type for saving. Deafult is int16
+
     Returns:
     reg_summary, reg_summary_xlsx
         reg_summary : pandas DataFrame
         reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
         reg_summary_xlsx : name of the XLSX workbook containing the data
     '''
+    ftype = kwargs.get("ftype", 0)
+    test_frame = FIBSEM_frame(fls[0], ftype=ftype)
+
     use_DASK = kwargs.get("use_DASK", False) and (not save_transformed_dataset)  # do not use DASK the data is to be saved
     DASK_client_retries = kwargs.get("DASK_client_retries", 0)
-    ftype = kwargs.get("ftype", 0)
+    
     data_dir = kwargs.get("data_dir", '')
+    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     dump_filename = kwargs.get('dump_filename', '')
-    test_frame = FIBSEM_frame(fls[0], ftype=ftype)
-    XResolution = kwargs.get("XResolution", test_frame.XResolution)
-    YResolution = kwargs.get("YResolution", test_frame.YResolution)
+    ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
+                                                            # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
+    if test_frame.DetB == 'None':
+        ImgB_fraction=0.0
+
     voxel_size_default = np.rec.array((test_frame.PixelSize,  test_frame.PixelSize,  test_frame.PixelSize), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
     voxel_size = kwargs.get("voxel_size", voxel_size_default)
     voxel_size_angstr = voxel_size.copy()
     voxel_size_angstr.x = voxel_size_angstr.x * 1.0e3
     voxel_size_angstr.y = voxel_size_angstr.y * 1.0e3
     voxel_size_angstr.z = voxel_size_angstr.z * 1.0e3
-    ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
-                                                           # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
-    if test_frame.DetB == 'None':
-        ImgB_fraction=0.0
-    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
-    Sample_ID = kwargs.get("Sample_ID", '')
-    pad_edges =  kwargs.get("pad_edges", True)
+
+    XResolution = kwargs.get("XResolution", test_frame.XResolution)
+    YResolution = kwargs.get("YResolution", test_frame.YResolution)
+
     save_res_png  = kwargs.get("save_res_png", True)
-    save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
-    save_asI8 =  kwargs.get("save_asI8", False)
-    dtp = kwargs.get("dtp", int16)
-    mrc_mode = kwargs.get("mrc_mode", 1)
-    #print('will use data type: ', dtp)
-    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
-    solver = kwargs.get("solver", 'RANSAC')
-    drmax = kwargs.get("drmax", 2.0)
-    max_iter = kwargs.get("max_iter", 1000)
-    BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    pad_edges =  kwargs.get("pad_edges", True)
     flipY = kwargs.get("flipY", False)
     zbin_factor =  kwargs.get("zbin_factor", 1)
+    perfrom_transformation =  kwargs.get("perfrom_transformation", True)
     int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
-    preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
-    fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
-                                                            # window size 701, polynomial order 3
-    subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
-    subtract_FOVtrend_from_fit = kwargs.get("subtract_FOVtrend_from_fit", [True, True]) 
-
     flatten_image = kwargs.get("flatten_image", False)
     image_correction_file = kwargs.get("image_correction_file", '')
-    perfrom_transformation =  kwargs.get("perfrom_transformation", True)
     invert_data =  kwargs.get("invert_data", False)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])  #  [top, height, keft, width]
     sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+
+    save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
+    dtp = kwargs.get("dtp", int16)  # Data type for saving. Deafult is int16
+    '''
+    mode 0 -> uint8
+    mode 1 -> int16
+    mode 2 -> float32
+    mode 4 -> complex64
+    mode 6 -> uint16
+    '''
+    if dtp==int16:
+        dformat_save = 'I16'
+        mrc_mode = 1
+    else:
+        dformat_save = 'I8'
+        mrc_mode = 0
+
     disp_res = kwargs.get("disp_res", True)
-    dformat_save = 'I8' if mrc_mode==0 else 'I16'
 
     nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
     end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
     st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)    # starting frame for each z-bin
     nfrs_zbinned = len(st_frames)                                            # number of frames after z-ninning
-    #frames_new = np.arange(nfrs_zbinned-1)+st_frames[0]//zbin_factor
     frames_new = np.arange(nfrs_zbinned-1)
     
     if pad_edges and perfrom_transformation:
-        #shape = [test_frame.YResolution, test_frame.XResolution]
         shape = [YResolution, XResolution]
         xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual, disp_res)
         padx = int(xmx - xmn)
@@ -7636,19 +7628,13 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
             print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d},  data type:'.format(xsz, ysz, nfrs_zbinned), dtp)
         # Make a new, empty memory-mapped MRC file
         mrc = mrcfile.new_mmap(fpath_reg, shape=(nfrs_zbinned, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
-        # mode 0 -> uint8
+        # mode 0 -> int8
         # mode 1 -> int16:
         #mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
         mrc.header.cella = voxel_size_angstr
         tq_desc = 'Saving into ' + dformat_save + ' MRC File'
     else:
         tq_desc = 'Processing frames'
-
-    #print('will be rounding  ', (mrc_mode==0 and test_frame.EightBit==1))
-    #bin_frs = np.arange(zbin_factor)
-    Pres_scales = 'ON' if  preserve_scales else 'OFF'
-    Subtr_Lin_Fit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
-    Pad_Edg = 'ON' if  pad_edges else 'OFF'
 
     if use_DASK:
         if disp_res:
@@ -7938,8 +7924,8 @@ class FIBSEM_dataset:
         If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
-    save_asI8 : boolean
-        If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
+    dtp : Data Type
+        Data type for saving. Deafult is int16
     zbin_factor : int
         binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
     flipY : boolean
@@ -8098,8 +8084,8 @@ class FIBSEM_dataset:
             If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
-        save_asI8 : boolean
-            If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
+        dtp : Data Type
+            Data type for saving. Deafult is int16
         zbin_factor : int
             binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         preserve_scales : boolean
@@ -8185,7 +8171,6 @@ class FIBSEM_dataset:
         self.SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
         self.SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
         self.save_res_png  = kwargs.get("save_res_png", True)
-        self.save_asI8 =  kwargs.get("save_asI8", False) 
         self.zbin_factor =  kwargs.get("zbin_factor", 1)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         self.flipY = kwargs.get("flipY", False)                     # If True, the registered data will be flipped along Y axis
         self.preserve_scales =  kwargs.get("preserve_scales", True) # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -8204,15 +8189,14 @@ class FIBSEM_dataset:
         self.FOVtrend_x = np.zeros(len(fls))
         self.FOVtrend_y = np.zeros(len(fls))
         self.pad_edges =  kwargs.get("pad_edges", True)
-        build_fnm_reg, build_mrc_mode, build_dtp = build_filename(fls[0], **kwargs)
+        build_fnm_reg, build_dtp = build_filename(fls[0], **kwargs)
         self.fnm_reg = kwargs.get("fnm_reg", build_fnm_reg)
-        self.mrc_mode = kwargs.get("mrc_mode", build_mrc_mode)
         self.dtp = kwargs.get("dtp", build_dtp)
         if disp_res:
             print('Registered data will be saved into: ', self.fnm_reg)
 
 
-        kwargs.update({'mrc_mode' : self.mrc_mode, 'data_dir' : self.data_dir, 'fnm_reg' : self.fnm_reg, 'dtp' : self.dtp})
+        kwargs.update({'data_dir' : self.data_dir, 'fnm_reg' : self.fnm_reg, 'dtp' : self.dtp})
 
         if kwargs.get("recall_parameters", False):
             dump_filename = kwargs.get("dump_filename", '')
@@ -9110,47 +9094,8 @@ class FIBSEM_dataset:
         ImgB_fraction : float
             fractional ratio of Image B to be used for constructing the fuksed image:
             ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
-        Sample_ID : str
-            Sample ID
-        TransformType : object reference
-                Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
-                Choose from the following options:
-                    ShiftTransform - only x-shift and y-shift
-                    XScaleShiftTransform  -  x-scale, x-shift, y-shift
-                    ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
-                    AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
-                    RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
-        l2_matrix : 2D float array
-            matrix of regularization (shrinkage) parameters
-        targ_vector = 1D float array
-            target vector for regularization
-        solver : str
-            Solver used for SIFT ('RANSAC' or 'LinReg')
-        drmax : float
-            In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
-            In the case of 'LinReg' - outlier threshold for iterative regression
-        max_iter : int
-            Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-        BFMatcher : boolean
-            If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-        save_matches : boolean
-            If True, matches will be saved into individual files
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
-        preserve_scales : boolean
-            If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
-        fit_params : list
-            Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
-            Other options are:
-                ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
-                ['PF', 2]  - use polynomial fit (in this case of order 2)
-        subtract_linear_fit : [boolean, boolean]
-            List of two Boolean values for two directions: X- and Y-.
-            If True, the linear slopes along X- and Y- directions (respectively)
-            will be subtracted from the cumulative shifts.
-            This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
-        pad_edges : boolean
-            If True, the data will be padded before transformation to avoid clipping.
         perfrom_transformation : boolean
             If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
         invert_data : boolean
@@ -9209,18 +9154,10 @@ class FIBSEM_dataset:
         ImgB_fraction = kwargs.get("ImgB_fraction", self.ImgB_fraction)
         if self.DetB == 'None':
             ImgB_fraction = 0.0
-        Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
-        save_asI8 =  kwargs.get("save_asI8", self.save_asI8)
-        mrc_mode = kwargs.get("mrc_mode", self.mrc_mode) 
         dtp = kwargs.get("dtp", self.dtp)
-        TransformType = kwargs.get("TransformType", self.TransformType)
-        solver = kwargs.get("solver", self.solver)
-        drmax = kwargs.get("drmax", self.drmax)
-        max_iter = kwargs.get("max_iter", self.max_iter)
-        BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         zbin_factor =  kwargs.get("zbin_factor", self.zbin_factor)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         if hasattr(self, 'voxel_size'):
             voxel_size = kwargs.get("voxel_size", self.voxel_size)
@@ -9237,9 +9174,6 @@ class FIBSEM_dataset:
             dump_filename = kwargs.get("dump_filename", '')
         int_order = kwargs.get("int_order", self.int_order) 
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
-        fit_params =  kwargs.get("fit_params", self.fit_params)
-        subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
-        subtract_FOVtrend_from_fit =  kwargs.get("subtract_FOVtrend_from_fit", self.subtract_FOVtrend_from_fit)
         if hasattr(self, 'flatten_image'):
             flatten_image = kwargs.get("flatten_image", self.flatten_image)
         else:
@@ -9266,27 +9200,16 @@ class FIBSEM_dataset:
                             'XResolution' : XResolution,
                             'YResolution' : YResolution,
                             'data_dir' : data_dir,
-                            'Sample_ID' : Sample_ID,
                             'voxel_size' : voxel_size,
                             'pad_edges' : pad_edges,
                             'ImgB_fraction' : ImgB_fraction,
                             'save_res_png ' : save_res_png ,
                             'dump_filename' : dump_filename,
-                            'save_asI8' : save_asI8,
                             'dtp' : dtp,
-                            'mrc_mode' : mrc_mode,
-                            'TransformType' : TransformType,
-                            'solver' : solver,
-                            'drmax' : drmax,
-                            'max_iter' : max_iter,
-                            'BFMatcher' : BFMatcher,
                             'zbin_factor' : zbin_factor,
                             'flipY' : flipY,
                             'int_order' : int_order,                        
                             'preserve_scales' : preserve_scales,
-                            'fit_params' : fit_params,
-                            'subtract_linear_fit' : subtract_linear_fit,
-                            'subtract_FOVtrend_from_fit' : subtract_FOVtrend_from_fit,
                             'flatten_image' : flatten_image,
                             'image_correction_file' : image_correction_file,
                             'perfrom_transformation' : perfrom_transformation,
@@ -9482,6 +9405,12 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+        sliding_evaluation_box : boolean
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+        start_evaluation_box : list of 4 int
+            see above
+        stop_evaluation_box : list of 4 int
+            see above
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
@@ -9493,6 +9422,12 @@ class FIBSEM_dataset:
             If not provided, the value determined from rSNR ratios will be used.
         invert_data : boolean
             If True - the data is inverted
+        perfrom_transformation : boolean
+            If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed
+        pad_edges : boolean
+            If True, the data will be padded before transformation to avoid clipping.
+        extrapolate_signal : boolean
+            extrapolate to find signal autocorrelationb at 0-point (without noise). Default is True
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         pad_edges : boolean
@@ -9502,6 +9437,9 @@ class FIBSEM_dataset:
         
         '''
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+        start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+        stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
@@ -9511,6 +9449,9 @@ class FIBSEM_dataset:
         save_res_png  = kwargs.get("save_res_png", False )
         ImgB_fraction = kwargs.get("ImgB_fraction", 0.00 )
         flipY = kwargs.get("flipY", False)
+        pad_edges =  kwargs.get("pad_edges", self.pad_edges)
+        perfrom_transformation =  kwargs.get("perfrom_transformation", True) and hasattr(self, 'tr_matr_cum_residual')
+        extrapolate_signal = kwargs.get('extrapolate_signal', True)
 
         fls = self.fls
         nfrs = len(fls)
@@ -9546,6 +9487,96 @@ class FIBSEM_dataset:
         rSNRBs=[]
 
         for j in tqdm(frame_inds, desc='Analyzing Auto-Correlation SNRs '):
+
+            frame = FIBSEM_frame(fls[j], ftype=ftype)
+            if pad_edges and perfrom_transformation:
+                shape = [frame.YResolution, frame.XResolution]
+                xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual, False)
+                padx = np.int16(xmx - xmn)
+                pady = np.int16(ymx - ymn)
+                xi = np.int16(np.max([xmx, 0]))
+                yi = np.int16(np.max([ymx, 0]))
+                # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
+                # so that the transformed images are not clipped.
+                # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
+                # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
+                # those are calculated below base on the amount of padding calculated above
+                shift_matrix = np.array([[1.0, 0.0, xi],
+                                         [0.0, 1.0, yi],
+                                         [0.0, 0.0, 1.0]])
+                inv_shift_matrix = np.linalg.inv(shift_matrix)
+            else:
+                padx = 0
+                pady = 0
+                xi = 0
+                yi = 0
+                shift_matrix = np.eye(3,3)
+                inv_shift_matrix = np.eye(3,3)
+         
+            xsz = frame.XResolution + padx
+            xa = xi + frame.XResolution
+            ysz = frame.YResolution + pady
+            ya = yi + frame.YResolution
+
+            xi_eval = xi + evaluation_box[2]
+            if evaluation_box[3] > 0:
+                xa_eval = xi_eval + evaluation_box[3]
+            else:
+                xa_eval = xa
+            yi_eval = yi + evaluation_box[0]
+            if evaluation_box[1] > 0:
+                ya_eval = yi_eval + evaluation_box[1]
+            else:
+                ya_eval = ya
+
+            if sliding_evaluation_box:
+                dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+                dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+            else:
+                dx_eval = 0
+                dy_eval = 0
+
+            frame_imgA = np.zeros((ysz, xsz))
+            if self.DetB != 'None':
+                frame_imgB = np.zeros((ysz, xsz))
+
+            if invert_data:
+                frame_imgA[yi:ya, xi:xa] = np.negative(frame.RawImageA.astype(float))
+                if self.DetB != 'None':
+                    frame_imgB[yi:ya, xi:xa] = np.negative(frame.RawImageB.astype(float))
+            else:
+                frame_imgA[yi:ya, xi:xa]  = frame.RawImageA.astype(float)
+                if self.DetB != 'None':
+                    frame_imgB[yi:ya, xi:xa]  = frame.RawImageB.astype(float)
+
+            if perfrom_transformation:
+                transf = ProjectiveTransform(matrix = shift_matrix @ (self.tr_matr_cum_residual[j] @ inv_shift_matrix))
+                frame_imgA_reg = warp(frame_imgA, transf, order = int_order, preserve_range=True)
+                if self.DetB != 'None':
+                    frame_imgB_reg = warp(frame_imgB, transf, order = int_order, preserve_range=True)
+            else:
+                frame_imgA_reg = frame_imgA.copy()
+                if self.DetB != 'None':
+                    frame_imgB_reg = frame_imgB.copy()
+
+            if flipY:
+                frame_imgA_reg = np.flip(frame_imgA_reg, axis=0)
+                if self.DetB != 'None':
+                    frame_imgB_reg = np.flip(frame_imgB_reg, axis=0)
+
+            if sliding_evaluation_box:
+                xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
+                yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
+                if start_evaluation_box[3] > 0:
+                    xa_eval = xi_eval + start_evaluation_box[3]
+                else:
+                    xa_eval = xsz
+                if start_evaluation_box[1] > 0:
+                    ya_eval = yi_eval + start_evaluation_box[1]
+                else:
+                    ya_eval = ysz
+
+            '''
             if invert_data:
                 if test_frame.EightBit==0:
                     frame_imgA = np.negative(FIBSEM_frame(fls[j], ftype=ftype).RawImageA)
@@ -9564,19 +9595,19 @@ class FIBSEM_dataset:
             if flipY:
                 frame_imgA = np.flip(frame_imgA, axis=0)
                 frame_imgB = np.flip(frame_imgB, axis=0)
-
-            frame_imgA_eval = frame_imgA[yi_eval:ya_eval, xi_eval:xa_eval]
+            '''
+            frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval]
             SNR_png = os.path.splitext(os.path.split(fls[j])[1])[0] + '.png'
             SNR_png_fname = os.path.join(data_dir, SNR_png)
-            ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval, save_res_png=save_res_png,
+            ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval, extrapolate_signal=extrapolate_signal, save_res_png=save_res_png,
                                                                         res_fname = SNR_png_fname.replace('.png', '_ImgA_SNR.png'),
                                                                         img_label='Image A, frame={:d}'.format(j))
             xSNRAs.append(ImageA_xSNR)
             ySNRAs.append(ImageA_ySNR)
             rSNRAs.append(ImageA_rSNR)
             if self.DetB != 'None':
-                frame_imgB_eval = frame_imgB[yi_eval:ya_eval, xi_eval:xa_eval]
-                ImageB_xSNR, ImageB_ySNR, ImageB_rSNR = Single_Image_SNR(frame_imgB_eval, save_res_png=save_res_png,
+                frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval]
+                ImageB_xSNR, ImageB_ySNR, ImageB_rSNR = Single_Image_SNR(frame_imgB_eval, extrapolate_signal=extrapolate_signal, save_res_png=save_res_png,
                                                                             res_fname = SNR_png_fname.replace('.png', '_ImgB_SNR.png'),
                                                                             img_label='Image B, frame={:d}'.format(j))
                 xSNRBs.append(ImageB_xSNR)
@@ -9604,28 +9635,99 @@ class FIBSEM_dataset:
             ySNRFs=[]
             rSNRFs=[]
             for j in tqdm(frame_inds, desc='Re-analyzing Auto-Correlation SNRs for fused image'):
-                if invert_data:
-                    if test_frame.EightBit==0:
-                        frame_imgA = np.negative(FIBSEM_frame(fls[j], ftype=ftype).RawImageA)
-                        if self.DetB != 'None':
-                            frame_imgB = np.negative(FIBSEM_frame(fls[j], ftype=ftype).RawImageB)
-                    else:
-                        frame_imgA  =  uint8(255) - FIBSEM_frame(fls[j], ftype=ftype).RawImageA
-                        if self.DetB != 'None':
-                            frame_imgB  =  uint8(255) - FIBSEM_frame(fls[j], ftype=ftype).RawImageB
+                frame = FIBSEM_frame(fls[j], ftype=ftype)
+                if pad_edges and perfrom_transformation:
+                    shape = [frame.YResolution, frame.XResolution]
+                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual, False)
+                    padx = np.int16(xmx - xmn)
+                    pady = np.int16(ymx - ymn)
+                    xi = np.int16(np.max([xmx, 0]))
+                    yi = np.int16(np.max([ymx, 0]))
+                    # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
+                    # so that the transformed images are not clipped.
+                    # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
+                    # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
+                    # those are calculated below base on the amount of padding calculated above
+                    shift_matrix = np.array([[1.0, 0.0, xi],
+                                             [0.0, 1.0, yi],
+                                             [0.0, 0.0, 1.0]])
+                    inv_shift_matrix = np.linalg.inv(shift_matrix)
                 else:
-                    frame_imgA  = FIBSEM_frame(fls[j], ftype=ftype).RawImageA
-                    if self.DetB != 'None':
-                        frame_imgB  = FIBSEM_frame(fls[j], ftype=ftype).RawImageB
-                if flipY:
-                    frame_imgA = np.flip(frame_imgA, axis=0)
-                    frame_imgB = np.flip(frame_imgB, axis=0)
+                    padx = 0
+                    pady = 0
+                    xi = 0
+                    yi = 0
+                    shift_matrix = np.eye(3,3)
+                    inv_shift_matrix = np.eye(3,3)
+             
+                xsz = frame.XResolution + padx
+                xa = xi + frame.XResolution
+                ysz = frame.YResolution + pady
+                ya = yi + frame.YResolution
 
-                frame_imgA_eval = frame_imgA[yi_eval:ya_eval, xi_eval:xa_eval]
-                frame_imgB_eval = frame_imgB[yi_eval:ya_eval, xi_eval:xa_eval]
+                xi_eval = xi + evaluation_box[2]
+                if evaluation_box[3] > 0:
+                    xa_eval = xi_eval + evaluation_box[3]
+                else:
+                    xa_eval = xa
+                yi_eval = yi + evaluation_box[0]
+                if evaluation_box[1] > 0:
+                    ya_eval = yi_eval + evaluation_box[1]
+                else:
+                    ya_eval = ya
+
+                if sliding_evaluation_box:
+                    dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+                    dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+                else:
+                    dx_eval = 0
+                    dy_eval = 0
+
+                frame_imgA = np.zeros((ysz, xsz))
+                if self.DetB != 'None':
+                    frame_imgB = np.zeros((ysz, xsz))
+
+                if invert_data:
+                    frame_imgA[yi:ya, xi:xa] = np.negative(frame.RawImageA.astype(float))
+                    if self.DetB != 'None':
+                        frame_imgB[yi:ya, xi:xa] = np.negative(frame.RawImageB.astype(float))
+                else:
+                    frame_imgA[yi:ya, xi:xa]  = frame.RawImageA.astype(float)
+                    if self.DetB != 'None':
+                        frame_imgB[yi:ya, xi:xa]  = frame.RawImageB.astype(float)
+
+                if perfrom_transformation:
+                    transf = ProjectiveTransform(matrix = shift_matrix @ (self.tr_matr_cum_residual[j] @ inv_shift_matrix))
+                    frame_imgA_reg = warp(frame_imgA, transf, order = int_order, preserve_range=True)
+                    if self.DetB != 'None':
+                        frame_imgB_reg = warp(frame_imgB, transf, order = int_order, preserve_range=True)
+                else:
+                    frame_imgA_reg = frame_imgA.copy()
+                    if self.DetB != 'None':
+                        frame_imgB_reg = frame_imgB.copy()
+
+                if flipY:
+                    frame_imgA_reg = np.flip(frame_imgA_reg, axis=0)
+                    if self.DetB != 'None':
+                        frame_imgB_reg = np.flip(frame_imgB_reg, axis=0)
+
+                if sliding_evaluation_box:
+                    xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
+                    yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
+                    if start_evaluation_box[3] > 0:
+                        xa_eval = xi_eval + start_evaluation_box[3]
+                    else:
+                        xa_eval = xsz
+                    if start_evaluation_box[1] > 0:
+                        ya_eval = yi_eval + start_evaluation_box[1]
+                    else:
+                        ya_eval = ysz
+
+                frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval]
+                frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval]
 
                 frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction) + frame_imgB_eval * ImgB_fraction
-                ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval, save_res_png=save_res_png,
+                ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval, extrapolate_signal=extrapolate_signal, save_res_png=save_res_png,
                                                                         res_fname = SNR_png_fname.replace('.png', '_ImgB_fr{:.3f}_SNR.png'.format(ImgB_fraction)),
                                                                         img_label='Fused, ImB_fr={:.4f}, frame={:d}'.format(ImgB_fraction, j))
                 xSNRFs.append(ImageF_xSNR)
@@ -9666,11 +9768,12 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+        extrapolate_signal : boolean
+            extrapolate to find signal autocorrelationb at 0-point (without noise). Default is True
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
             data directory (path)
-        
         Sample_ID : str
             Sample ID
         
@@ -9699,6 +9802,7 @@ class FIBSEM_dataset:
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         save_sample_frames_png = kwargs.get("save_sample_frames_png", False )
+        extrapolate_signal = kwargs.get('extrapolate_signal', True)
 
         nbr = len(ImgB_fractions)
         kwargs['zbin_factor'] = 1
@@ -9760,6 +9864,7 @@ class FIBSEM_dataset:
 
             frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction) + frame_imgB_eval * ImgB_fraction
             ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval,
+                                                                    extrapolate_signal=extrapolate_signal,
                                                                     disp_res=False,
                                                                     save_res_png=False,
                                                                     res_fname = '',
@@ -9835,14 +9940,14 @@ class FIBSEM_dataset:
         axs[2].grid(True)
         axs[2].set_ylabel('Auto-Corr SNR', fontsize=fs)
         
-        axs[3].plot(ImgB_fractions, SNRimpr_cc, 'rd', label='Data (cross-correlation)')
+        axs[3].plot(ImgB_fractions, SNRimpr_cc, 'cs', label='Data (cross-correlation)')
         axs[3].plot(ImgB_fr_fit, SNRimpr_cc_fit, 'b', label='Fit (cross-correlation)')
-        axs[3].plot(SNRimpr_cc_max_position, SNRimpr_cc_max, 'rx', markersize=10, label='Max SNR Improvement (cc)')
+        axs[3].plot(SNRimpr_cc_max_position, SNRimpr_cc_max, 'bx', markersize=10, label='Max SNR Improvement (cc)')
         axs[3].text(0.4, 0.35, 'Max CC SNR Improvement={:.3f}'.format(SNRimpr_cc_max), transform=axs[3].transAxes, fontsize=fs)
         axs[3].text(0.4, 0.25, '@ Img B Fraction ={:.3f}'.format(SNRimpr_cc_max_position), transform=axs[3].transAxes, fontsize=fs)
-        axs[3].plot(ImgB_fractions, SNRimpr_ac, 'gd', label='Data (auto-correlation)')
+        axs[3].plot(ImgB_fractions, SNRimpr_ac, 'rd', label='Data (auto-correlation)')
         axs[3].plot(ImgB_fr_fit, SNRimpr_ac_fit, 'magenta', label='Fit (auto-correlation)')
-        axs[3].plot(SNRimpr_ac_max_position, SNRimpr_ac_max, 'gx', markersize=10, label='Max SNR Improvement (ac)')
+        axs[3].plot(SNRimpr_ac_max_position, SNRimpr_ac_max, 'mx', markersize=10, label='Max SNR Improvement (ac)')
         axs[3].text(0.4, 0.15, 'Max AC SNR Improvement={:.3f}'.format(SNRimpr_ac_max), transform=axs[3].transAxes, fontsize=fs)
         axs[3].text(0.4, 0.05, '@ Img B Fraction ={:.3f}'.format(SNRimpr_ac_max_position), transform=axs[3].transAxes, fontsize=fs)
 
