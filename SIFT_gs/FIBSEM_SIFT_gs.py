@@ -7266,7 +7266,7 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
     ftype : int
         File Type. 0 for Shan's .dat files, 1 for tif files
     dtp : data type
-        python data type for the output data
+        Python data type for saving. Deafult is int16, the other option currently is uint8.
     flatten_image : bolean
         perform image flattening
     image_correction_file : str
@@ -7282,21 +7282,19 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
     perfrom_transformation  : boolean
         perform transformation
     tr_matrices : list of 2D (or 3d array)
-        Transformation matrix for every frame in frame_inds
+        Transformation matrix for every frame in frame_inds.
     shift_matrix : 2d array
         shift matrix
     inv_shift_matrix : 2d array
-        inverse shift matrix
-    dtp : type
-        data type for output
-    ImgB_fraction=0.0 : float
-        Fractional weight of Image B for fused images
-    invert_data=False : boolean
-        Invert data
-    int_order=1 : int
-        Interpolation order (0: Nearest-neighbor, 1: Bi-linear (default), 2: Bi-quadratic, 3: Bi-cubic, 4: Bi-quartic, 5: Bi-quintic)
-    flipY=False : boolean
-        Flip output along Y-axis
+        inverse shift matrix.
+    ImgB_fraction : float
+        Fractional weight of Image B for fused images, default is 0
+    invert_data : boolean
+        Invert data, default is False.
+    int_order : int
+        Default is 1. Interpolation order (0: Nearest-neighbor, 1: Bi-linear (default), 2: Bi-quadratic, 3: Bi-cubic, 4: Bi-quartic, 5: Bi-quintic)
+    flipY : boolean
+        Flip output along Y-axis, default is False.
     
     Returns
     '''
@@ -7491,8 +7489,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     save_sample_frames_png : bolean
         If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
     dtp  : dtype
-        Data type for saving. Deafult is int16
-
+        Python data type for saving. Deafult is int16, the other option currently is uint8.
+        
     Returns:
     reg_summary, reg_summary_xlsx
         reg_summary : pandas DataFrame
@@ -7538,7 +7536,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
 
     save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
-    dtp = kwargs.get("dtp", int16)  # Data type for saving. Deafult is int16
+    dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
     '''
     mode 0 -> uint8
     mode 1 -> int16
@@ -7925,7 +7923,7 @@ class FIBSEM_dataset:
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
     dtp : Data Type
-        Data type for saving. Deafult is int16
+        Python data type for saving. Deafult is int16, the other option currently is uint8.
     zbin_factor : int
         binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
     flipY : boolean
@@ -8085,7 +8083,7 @@ class FIBSEM_dataset:
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         dtp : Data Type
-            Data type for saving. Deafult is int16
+            Python data type for saving. Deafult is int16, the other option currently is uint8.
         zbin_factor : int
             binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         preserve_scales : boolean
