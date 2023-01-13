@@ -245,8 +245,8 @@ You will also need to have these packages installed:
         Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
-    save_asI8 : boolean
-        If True, the data will be converted to I8 using data_min_glob and data_min_glob values determined by calc_data_range method
+    dtp : Data Type
+        Python data type for saving. Deafult is int16, the other option currently is uint8.
     zbin_factor : int
         Bbinning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1
     flipY : boolean
