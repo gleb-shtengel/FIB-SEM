@@ -7490,7 +7490,7 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
     dtp  : dtype
         Python data type for saving. Deafult is int16, the other option currently is uint8.
-        
+
     Returns:
     reg_summary, reg_summary_xlsx
         reg_summary : pandas DataFrame
@@ -9899,8 +9899,8 @@ class FIBSEM_dataset:
         SNRimpr_cc_range = SNRimpr_cc[xi : xa]
         popt = np.polyfit(ImgB_fr_range, SNRimpr_cc_range, 2)
         SNRimpr_cc_fit_max_pos = -0.5 * popt[1] / popt[0]
-        ImgB_fr_fit = np.linspace(ImgB_fr_range[0], ImgB_fr_range[-1], 21)
-        SNRimpr_cc_fit = np.polyval(popt, ImgB_fr_fit)
+        ImgB_fr_fit_cc = np.linspace(ImgB_fr_range[0], ImgB_fr_range[-1], 21)
+        SNRimpr_cc_fit = np.polyval(popt, ImgB_fr_fit_cc)
         if popt[0] < 0 and SNRimpr_cc_fit_max_pos > ImgB_fractions[0] and SNRimpr_cc_fit_max_pos<ImgB_fractions[-1]:
             SNRimpr_cc_max_position = SNRimpr_cc_fit_max_pos
             SNRimpr_cc_max = np.polyval(popt, SNRimpr_cc_max_position)
@@ -9916,8 +9916,8 @@ class FIBSEM_dataset:
         SNRimpr_ac_range = SNRimpr_ac[xi : xa]
         popt = np.polyfit(ImgB_fr_range, SNRimpr_ac_range, 2)
         SNRimpr_ac_fit_max_pos = -0.5 * popt[1] / popt[0]
-        ImgB_fr_fit = np.linspace(ImgB_fr_range[0], ImgB_fr_range[-1], 21)
-        SNRimpr_ac_fit = np.polyval(popt, ImgB_fr_fit)
+        ImgB_fr_fit_ac = np.linspace(ImgB_fr_range[0], ImgB_fr_range[-1], 21)
+        SNRimpr_ac_fit = np.polyval(popt, ImgB_fr_fit_ac)
         if popt[0] < 0 and SNRimpr_ac_fit_max_pos > ImgB_fractions[0] and SNRimpr_ac_fit_max_pos<ImgB_fractions[-1]:
             SNRimpr_ac_max_position = SNRimpr_ac_fit_max_pos
             SNRimpr_ac_max = np.polyval(popt, SNRimpr_ac_max_position)
@@ -9939,12 +9939,12 @@ class FIBSEM_dataset:
         axs[2].set_ylabel('Auto-Corr SNR', fontsize=fs)
         
         axs[3].plot(ImgB_fractions, SNRimpr_cc, 'cs', label='Data (cross-correlation)')
-        axs[3].plot(ImgB_fr_fit, SNRimpr_cc_fit, 'b', label='Fit (cross-correlation)')
+        axs[3].plot(ImgB_fr_fit_cc, SNRimpr_cc_fit, 'b', label='Fit (cross-correlation)')
         axs[3].plot(SNRimpr_cc_max_position, SNRimpr_cc_max, 'bx', markersize=10, label='Max SNR Improvement (cc)')
         axs[3].text(0.4, 0.35, 'Max CC SNR Improvement={:.3f}'.format(SNRimpr_cc_max), transform=axs[3].transAxes, fontsize=fs)
         axs[3].text(0.4, 0.25, '@ Img B Fraction ={:.3f}'.format(SNRimpr_cc_max_position), transform=axs[3].transAxes, fontsize=fs)
         axs[3].plot(ImgB_fractions, SNRimpr_ac, 'rd', label='Data (auto-correlation)')
-        axs[3].plot(ImgB_fr_fit, SNRimpr_ac_fit, 'magenta', label='Fit (auto-correlation)')
+        axs[3].plot(ImgB_fr_fit_ac, SNRimpr_ac_fit, 'magenta', label='Fit (auto-correlation)')
         axs[3].plot(SNRimpr_ac_max_position, SNRimpr_ac_max, 'mx', markersize=10, label='Max SNR Improvement (ac)')
         axs[3].text(0.4, 0.15, 'Max AC SNR Improvement={:.3f}'.format(SNRimpr_ac_max), transform=axs[3].transAxes, fontsize=fs)
         axs[3].text(0.4, 0.05, '@ Img B Fraction ={:.3f}'.format(SNRimpr_ac_max_position), transform=axs[3].transAxes, fontsize=fs)
