@@ -2617,7 +2617,7 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
             try:
                 exec('kwargs_dict["'+str(key)+'"] = '+ str(kwargs_dict_initial[key]))
             except:
-                exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\n', ',') + '"')
+                exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\\', '/').replace('\n', ',') + '"')
     if 'dump_filename' in kwargs.keys():
         kwargs_dict['dump_filename'] = kwargs['dump_filename']
     #correct for pandas mixed read failures
@@ -6381,60 +6381,6 @@ def determine_transformations_dataset(fnms, DASK_client, **kwargs):
     return results_s4
 
 
-def transform_and_save_single_frame(params_tss):
-    '''
-    Transforms a single EM frame with known transformation parameters and saves the new image into TIF file
-
-    Parameters:
-    params_tss : list
-    params_tss = fname_orig, fname_transformed, tr_matrix, tr_args
-        fname_orig : str
-            Filename (full path) of the original image 
-        fname_transformed : str
-            Filename (full path) of the transformed image
-        tr_matrix : 2d array
-            Transformation matrix
-    tr_args : list
-        tr_args = ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, data_min_glob, data_max_glob, ftype, dtp
-        # should be  tr_args = ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype
-
-
-    Returns:
-    fname_transformed : str
-        Filename of the transformed image
-    '''
-    fname_orig, fname_transformed, tr_matrix, tr_args = params_tss
-    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, perfrom_transformation, data_min_glob, data_max_glob, ftype, dtp = tr_args
-    # ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype = tr_args
-    EMimage_padded = np.zeros((ysz, xsz), dtype=dtp)
-    EMframe = FIBSEM_frame(fname_orig, ftype=ftype)
-
-    if ImgB_fraction < 1e-5:
-        EMimage = EMframe.RawImageA
-    else:
-        EMimage = EMframe.RawImageA * (1.0 - ImgB_fraction) + EMframe.RawImageB * ImgB_fraction
-
-    if invert_data:
-        if EMframe.EightBit==0:
-            EMimage_padded[yi:ya, xi:xa]  = np.negative(EMimage)
-        else:
-            EMimage_padded[yi:ya, xi:xa]  =  uint8(255) - EMimage    
-    else:
-        EMimage_padded[yi:ya, xi:xa]  = EMimage
-    if perfrom_transformation:
-        transf = ProjectiveTransform(matrix = tr_matrix)
-        EMimage_transformed = warp(EMimage_padded, transf, order = int_order, preserve_range=True)
-    else:
-        EMimage_transformed = EMimage_padded
-    if dtp == int16:
-        EMimage_transformed_clipped = EMimage_transformed
-    else:
-        EMimage_transformed_clipped = np.clip(((EMimage_transformed - data_min_glob)/(data_max_glob - data_min_glob)*255.0), 0, 255)
-        
-    tiff.imsave(fname_transformed, EMimage_transformed_clipped.astype(dtp))
-    return fname_transformed
-
-
 def build_filename(fname, **kwargs):
     ftype = kwargs.get("ftype", 0)
     dtp = kwargs.get("dtp", int16)                             #  int16 or uint8
@@ -6492,6 +6438,7 @@ def build_filename(fname, **kwargs):
     if len(suffix)>0:
         fnm_reg = fnm_reg.replace('.mrc', '_' + suffix + '.mrc')
     return fnm_reg, dtp
+
 
 def find_fit(tr_matr_cum, fit_params):
     fit_method = fit_params[0]
@@ -9938,18 +9885,18 @@ class FIBSEM_dataset:
         axs[2].grid(True)
         axs[2].set_ylabel('Auto-Corr SNR', fontsize=fs)
         
-        axs[3].plot(ImgB_fractions, SNRimpr_cc, 'cs', label='Data (cross-correlation)')
-        axs[3].plot(ImgB_fr_fit_cc, SNRimpr_cc_fit, 'b', label='Fit (cross-correlation)')
-        axs[3].plot(SNRimpr_cc_max_position, SNRimpr_cc_max, 'bx', markersize=10, label='Max SNR Improvement (cc)')
+        axs[3].plot(ImgB_fractions, SNRimpr_cc, 'cs', label='Data (cross-corr.)')
+        axs[3].plot(ImgB_fr_fit_cc, SNRimpr_cc_fit, 'b', label='Fit (cross-corr.)')
+        axs[3].plot(SNRimpr_cc_max_position, SNRimpr_cc_max, 'bx', markersize=10, label='Max SNR Impr. (cc)')
         axs[3].text(0.4, 0.35, 'Max CC SNR Improvement={:.3f}'.format(SNRimpr_cc_max), transform=axs[3].transAxes, fontsize=fs)
         axs[3].text(0.4, 0.25, '@ Img B Fraction ={:.3f}'.format(SNRimpr_cc_max_position), transform=axs[3].transAxes, fontsize=fs)
-        axs[3].plot(ImgB_fractions, SNRimpr_ac, 'rd', label='Data (auto-correlation)')
-        axs[3].plot(ImgB_fr_fit_ac, SNRimpr_ac_fit, 'magenta', label='Fit (auto-correlation)')
-        axs[3].plot(SNRimpr_ac_max_position, SNRimpr_ac_max, 'mx', markersize=10, label='Max SNR Improvement (ac)')
+        axs[3].plot(ImgB_fractions, SNRimpr_ac, 'rd', label='Data (auto-corr.)')
+        axs[3].plot(ImgB_fr_fit_ac, SNRimpr_ac_fit, 'magenta', label='Fit (auto-corr.)')
+        axs[3].plot(SNRimpr_ac_max_position, SNRimpr_ac_max, 'mx', markersize=10, label='Max SNR Impr. (ac)')
         axs[3].text(0.4, 0.15, 'Max AC SNR Improvement={:.3f}'.format(SNRimpr_ac_max), transform=axs[3].transAxes, fontsize=fs)
         axs[3].text(0.4, 0.05, '@ Img B Fraction ={:.3f}'.format(SNRimpr_ac_max_position), transform=axs[3].transAxes, fontsize=fs)
 
-        axs[3].legend(fontsize=fs)
+        axs[3].legend(fontsize=fs-2, loc='upper left')
         axs[3].grid(True)
         axs[3].set_ylabel('Mean SNR improvement', fontsize=fs)
         axs[3].set_xlabel('Image B fraction', fontsize=fs)
