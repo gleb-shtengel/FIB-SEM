@@ -13,22 +13,26 @@ RL_gs.py
 Background_level_subrtraction.ipynb
 Dask_examples.ipynb
 dask-profile.html
+dask_work.py
+examples_h5writing.ipynb
 Comparison_of_J10_and_J9.ipynb
 FIB-SEM Dask Array Dev.ipynb
 FIB-SEM Registration Dev.ipynb
 FIB-SEM_Noise_Analysis.ipynb
 FIB-SEM_Noise_Analysis_new.ipynb
+iPALM_Calibration_Zextraction_LID613.ipynb
 Register_FIB-SEM_stack_DASK_v1_HeLa3.ipynb
 Evaluate_registrations_HeLa3.ipynb
 Evaluate_registrations_LID277_cell11.ipynb
 Read_analyze_TIFF_stack_registration.ipynb
 LID609_ROI2_streaking_study.ipynb
 HeLa3_crop.ipynb
+FIB-SEM_resolution_evaluation_with_SIFT_FRC.ipynb
 Register_FIB-SEM_stack_DASK_v1_HeLa3.ipynb
 Register_FIB-SEM_stack_DASK_v1_FS162v2.ipynb
 Register_FIB-SEM_stack_DASK_v2_Weinberg_jrc_mus-nacc-1.ipynb
-Register_FIB-SEM_stack_DASK_v2_Weinberg_sample1.ipynb
-Register_FIB-SEM_stack_DASK_v2_Weinberg_sample2.ipynb
+Register_FIB-SEM_stack_DASK_v3_Weinberg_sample1.ipynb
+Register_FIB-SEM_stack_DASK_v3_Weinberg_sample2.ipynb
 Register_FIB-SEM_stack_DASK_v2_Pietro WT-DS-8.ipynb
 Register_FIB-SEM_stack_DASK_v1_Z1215-01m_n1.ipynb
 Register_FIB-SEM_stack_DASK_v1_Z0517-51m_VNC_Sec16.ipynb

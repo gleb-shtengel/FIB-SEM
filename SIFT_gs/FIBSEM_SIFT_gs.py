@@ -1,5 +1,5 @@
 import numpy as np
-use_cp = True
+use_cp = False
 if use_cp:
     import cupy as cp
 import pandas as pd
@@ -54,6 +54,8 @@ from dask.diagnostics import ProgressBar
 import cv2
 print('Open CV version: ', cv2. __version__)
 import mrcfile
+import h5py
+import npy2bdv
 import pickle
 import webbrowser
 from IPython.display import IFrame
@@ -1398,7 +1400,7 @@ def Two_Image_FSC(img1, img2, **kwargs):
         range of x axis in FSC plot in inverse pixels
         if not provided [0, 0.5] range will be used
     
-    Returns FSC_sp_frequencies, FSC_data, x2, T
+    Returns FSC_sp_frequencies, FSC_data, x2, T, FSC_bw
         FSC_sp_frequencies : float array 
             Spatial Frequency (/Nyquist) - for FSC plot
         FSC_data: float array
@@ -1425,10 +1427,11 @@ def Two_Image_FSC(img1, img2, **kwargs):
     xrange = kwargs.get("xrange", [0, 0.5])
     
     #Check whether the inputs dimensions match and the images are square
-    if ( np.shape(img1) != np.shape(img2) ) :
-        print('input images must have the same dimensions')
-    if ( np.shape(img1)[0] != np.shape(img1)[1]) :
-        print('input images must be squares')
+    if disp_res:
+        if ( np.shape(img1) != np.shape(img2) ) :
+            print('input images must have the same dimensions')
+        if ( np.shape(img1)[0] != np.shape(img1)[1]) :
+            print('input images must be squares')
     I1 = fftshift(fftn(ifftshift(img1)))  # I1 and I2 store the FFT of the images to be used in the calcuation for the FSC
     I2 = fftshift(fftn(ifftshift(img2)))
 
@@ -1472,8 +1475,8 @@ def Two_Image_FSC(img1, img2, **kwargs):
             axs3 = fig.add_subplot(3,2,4)
             ax = fig.add_subplot(3,1,3)
             fig.subplots_adjust(left=0.01, bottom=0.06, right=0.99, top=0.975, wspace=0.25, hspace=0.10)
-            vmin1, vmax1 = get_min_max_thresholds(img1)
-            vmin2, vmax2 = get_min_max_thresholds(img2)
+            vmin1, vmax1 = get_min_max_thresholds(img1, disp_res=False)
+            vmin2, vmax2 = get_min_max_thresholds(img2, disp_res=False)
             axs0.imshow(img1, cmap='Greys', vmin=vmin1, vmax=vmax1)
             axs1.imshow(img2, cmap='Greys', vmin=vmin2, vmax=vmax2)
             x = np.linspace(0, 1.41, 500)
@@ -1528,6 +1531,51 @@ def Two_Image_FSC(img1, img2, **kwargs):
             fig.savefig(res_fname, dpi=dpi)
             print('Saved the results into the file: ', res_fname)
     return (FSC_sp_frequencies, FSC_data, x2, T, FSC_bw)
+
+
+def Two_Image_Analysis(params):
+    '''
+    Analyzes the registration  quality between two frames (for DASK registration analysis)
+
+    Parameterss:
+    params : list of params
+        params = [frame1_filename, frame2_filename, eval_bounds, eval_metrics]
+        eval_bounds = [xi,  xa, yi, ya]
+        eval_metrics = ['NSAD', 'NCC', 'NMI', 'FSC']
+
+    Returns
+        results : list of results
+    '''
+    frame1_filename, frame2_filename, eval_bounds, eval_metrics = params
+    xi_eval,  xa_eval, yi_eval, ya_eval = eval_bounds
+
+
+    I1 = tiff.imread(frame1_filename)
+    I1c = I1[yi_eval:ya_eval, xi_eval:xa_eval]
+    I2 = tiff.imread(frame2_filename)
+    I2c = I2[yi_eval:ya_eval, xi_eval:xa_eval]
+    fr_mean = abs(I1c/2.0 + I2c/2.0)
+    dy, dx = shape(I2c)
+
+    results = []
+    for metric in eval_metrics:
+        if metric == 'NSAD':
+            results.append(mean(abs(I1c-I2c))/(np.mean(fr_mean)-np.amin(fr_mean)))
+        if metric == 'NCC':
+            results.append(Two_Image_NCC_SNR(I1c, I2c)[0])
+        if metric == 'NMI':
+            results.append(mutual_information_2d(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
+        if metric == 'FSC':
+            #SNRt is SNR threshold for determining the resolution bandwidth
+            # force square images for FSC
+            if dx != dy:
+                d=min((dx//2, dy//2))
+                results.append(Two_Image_FSC(I1c[dy//2-d:dy//2+d, dx//2-d:dx//2+d], I2c[dy//2-d:dy//2+d, dx//2-d:dx//2+d], SNRt=0.143, disp_res=False)[4])
+            else:
+                results.append(Two_Image_FSC(I1c, I2c, SNRt=0.143, disp_res=False)[4])
+
+    return results
+
 
 
 ##########################################
@@ -2017,7 +2065,7 @@ def zbin_crop_mrc_stack(mrc_filename, **kwargs):
         mode 6 -> uint16
     '''
     mrc_mode = mrc_obj.header.mode
-    voxel_size_angstr = mrc_obj.header.cella
+    voxel_size_angstr = mrc_obj.voxel_size
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
     frmax = kwargs.get('frmax', nz)
     xi = kwargs.get('xi', 0)
@@ -2045,10 +2093,10 @@ def zbin_crop_mrc_stack(mrc_filename, **kwargs):
     voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
     voxel_size_angstr_new.y = voxel_size_angstr.y * ybin_factor
     voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
-    mrc_new.header.cella = voxel_size_angstr_new
     print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
     print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
-    #mrc_new.voxel_size = vx
+    mrc_new.voxel_size = voxel_size_angstr_new
+    #mrc_new.header.cella = voxel_size_angstr_new
 
     for j, st_frame in enumerate(tqdm(st_frames, desc='Binning MRC stack')):
         # need to fix this
@@ -2065,6 +2113,322 @@ def zbin_crop_mrc_stack(mrc_filename, **kwargs):
    
     mrc_obj.close()
     mrc_new.close()
+
+
+def bin_crop_mrc_stack(mrc_filename, **kwargs):
+    '''
+    Bins a 3D mrc stack along Z-direction (optional binning in X-Y plane as well) and crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
+
+    Parameters:
+        mrc_filename : str
+            name (full path) of the mrc file to be binned
+    **kwargs:
+        fnm_types : list of strings.
+            File type(s) for output data. Options are: ['h5', 'mrc'].
+            Defauls is ['mrc']. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
+        zbin_factor : int
+            binning factor in z-direction
+        xbin_factor : int
+            binning factor in x-direction
+        ybin_factor : int
+            binning factor in y-direction
+        mode  : str
+            Binning mode. Default is 'mean', other option is 'sum'
+        frmax : int
+            Maximum frame to bin. If not present, the entire file is binned
+        binned_copped_filename : str
+            name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
+        xi : int
+            left edge of the crop
+        xa : int
+            right edge of the crop
+        yi : int
+            top edge of the crop
+        ya : int
+            bottom edge of the crop
+        fri : int
+            start frame
+        fra : int
+            stop frame
+    Returns:
+        fnms_saved : list of str
+            Names of the new (binned and cropped) data files.
+    '''
+    fnm_types = kwargs.get("fnm_types", ['mrc'])
+    xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
+    ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
+    zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
+
+    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    header = mrc_obj.header
+    '''
+        mode 0 -> uint8
+        mode 1 -> int16
+        mode 2 -> float32
+        mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    mrc_mode = mrc_obj.header.mode
+    voxel_size_angstr = mrc_obj.voxel_size
+    voxel_size_angstr_new = voxel_size_angstr.copy()
+    voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
+    voxel_size_angstr_new.y = voxel_size_angstr.y * ybin_factor
+    voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
+    voxel_size_new = voxel_size_angstr.copy()
+    voxel_size_new.x = voxel_size_angstr_new.x / 10.0
+    voxel_size_new.y = voxel_size_angstr_new.y / 10.0
+    voxel_size_new.z = voxel_size_angstr_new.z / 10.0
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    frmax = kwargs.get('frmax', nz)
+    xi = kwargs.get('xi', 0)
+    xa = kwargs.get('xa', nx)
+    yi = kwargs.get('yi', 0)
+    ya = kwargs.get('ya', ny)
+    fri = kwargs.get('fri', 0)
+    fra = kwargs.get('fra', nz)
+    nx_binned = (xa-xi)//xbin_factor
+    ny_binned = (ya-yi)//ybin_factor
+    xa = xi + nx_binned * xbin_factor
+    ya = yi + ny_binned * ybin_factor
+    binned_copped_filename_default = os.path.splitext(mrc_filename)[0] + '_binned_croped.mrc'
+    binned_copped_filename = kwargs.get('binned_copped_filename', binned_copped_filename_default)
+    binned_mrc_filename = os.path.splitext(binned_copped_filename)[0] + '.mrc'
+    dt = type(mrc_obj.data[0,0,0])
+    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    if mode == 'sum':
+        mrc_mode = 1
+        dt = int16
+    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    st_frames = np.arange(fri, fra, zbin_factor)
+    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
+
+    fnms_saved = []
+    if 'mrc' in fnm_types:
+        fnms_saved.append(binned_mrc_filename)
+        mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
+        mrc_new.voxel_size = voxel_size_angstr_new
+        #mrc_new.header.cella = voxel_size_angstr_new
+        print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
+        desc = 'Saving the data stack into MRC file'
+
+    if 'h5' in fnm_types:
+        binned_h5_filename = os.path.splitext(binned_mrc_filename)[0] + '.h5'
+        try:
+            os.remove(binned_h5_filename)
+        except:
+            pass
+        fnms_saved.append(binned_h5_filename)
+        bdv_writer = npy2bdv.BdvWriter(binned_h5_filename, nchannels=1, blockdim=((1, 256, 256),))
+        bdv_writer.append_view(stack=None, virtual_stack_dim=(len(st_frames),ny_binned,nx_binned),
+                    time=0, channel=0,
+                    voxel_size_xyz=(voxel_size_new.x, voxel_size_new.y, voxel_size_new.z), voxel_units='nm')
+        if 'mrc' in fnm_types:
+            desc = 'Saving the data stack into MRC and H5 files'
+        else:
+            desc = 'Saving the data stack into H5 file'
+
+    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
+        # need to fix this
+        if mode == 'mean':
+            zbinnd_fr = np.mean(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
+        else:
+            zbinnd_fr = np.sum(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
+        if (xbin_factor > 1) or (ybin_factor > 1):
+            if mode == 'mean':
+                zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
+            else:
+                zbinnd_fr = np.sum(np.sum(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
+        if 'mrc' in fnm_types:
+            mrc_new.data[j,:,:] = zbinnd_fr.astype(dt)
+        if 'h5' in fnm_types:
+            bdv_writer.append_plane(plane=zbinnd_fr, z=j, time=0, channel=0)
+
+    if 'mrc' in fnm_types:
+        mrc_new.close()
+
+    if 'h5' in fnm_types:
+        bdv_writer.write_xml()
+        bdv_writer.close()
+
+    mrc_obj.close()
+
+    return fnms_saved
+
+
+def bin_crop_frames(bin_crop_parameters):
+    '''
+    Help function used by bin_crop_mrc_stack_DASK
+    '''
+    import logging
+    logger = logging.getLogger("distributed.utils_perf")
+    logger.setLevel(logging.ERROR)
+    mrc_filename, save_filename, dtp, start_frame, stop_frame, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya = bin_crop_parameters
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    if mode == 'mean':
+        zbinnd_fr = np.mean(mrc_obj.data[start_frame:stop_frame, yi:ya, xi:xa], axis=0)
+    else:
+        zbinnd_fr = np.sum(mrc_obj.data[start_frame:stop_frame, yi:ya, xi:xa], axis=0)
+    if (xbin_factor > 1) or (ybin_factor > 1):
+        if mode == 'mean':
+            zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
+        else:
+            zbinnd_fr = np.sum(np.sum(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
+    tiff.imsave(save_filename, zbinnd_fr.astype(dtp))
+    mrc_obj.close()
+    return save_filename
+
+
+def bin_crop_mrc_stack_DASK(DASK_client, mrc_filename, **kwargs):
+    '''
+    Bins a 3D mrc stack along Z-direction (optional binning in X-Y plane as well) and crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
+
+    Parameters:
+        DASK_client
+        mrc_filename : str
+            name (full path) of the mrc file to be binned
+    **kwargs:
+        use_DASK : boolean
+            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
+        fnm_types : list of strings.
+            File type(s) for output data. Options are: ['h5', 'mrc'].
+            Defauls is ['mrc']. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
+        zbin_factor : int
+            binning factor in z-direction
+        xbin_factor : int
+            binning factor in x-direction
+        ybin_factor : int
+            binning factor in y-direction
+        mode  : str
+            Binning mode. Default is 'mean', other option is 'sum'
+        frmax : int
+            Maximum frame to bin. If not present, the entire file is binned
+        binned_copped_filename : str
+            name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
+        xi : int
+            left edge of the crop
+        xa : int
+            right edge of the crop
+        yi : int
+            top edge of the crop
+        ya : int
+            bottom edge of the crop
+        fri : int
+            start frame
+        fra : int
+            stop frame
+        disp_res : bolean
+            Display messages and intermediate results
+    Returns:
+        fnms_saved : list of str
+            Names of the new (binned and cropped) data files.
+    '''
+    use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
+    fnm_types = kwargs.get("fnm_types", ['mrc'])
+    xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
+    ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
+    zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
+    disp_res  = kwargs.get("disp_res", True )
+
+    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    header = mrc_obj.header
+    '''
+        mode 0 -> uint8
+        mode 1 -> int16
+        mode 2 -> float32
+        mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    mrc_mode = mrc_obj.header.mode
+    #voxel_size_angstr = mrc_obj.header.cella
+    voxel_size_angstr = mrc_obj.voxel_size
+    voxel_size_angstr_new = voxel_size_angstr.copy()
+    voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
+    voxel_size_angstr_new.y = voxel_size_angstr.y * ybin_factor
+    voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
+    voxel_size_new = voxel_size_angstr.copy()
+    voxel_size_new.x = voxel_size_angstr_new.x / 10.0
+    voxel_size_new.y = voxel_size_angstr_new.y / 10.0
+    voxel_size_new.z = voxel_size_angstr_new.z / 10.0
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    frmax = kwargs.get('frmax', nz)
+    xi = kwargs.get('xi', 0)
+    xa = kwargs.get('xa', nx)
+    yi = kwargs.get('yi', 0)
+    ya = kwargs.get('ya', ny)
+    fri = kwargs.get('fri', 0)
+    fra = kwargs.get('fra', nz)
+    nx_binned = (xa-xi)//xbin_factor
+    ny_binned = (ya-yi)//ybin_factor
+    xa = xi + nx_binned * xbin_factor
+    ya = yi + ny_binned * ybin_factor
+    binned_copped_filename_default = os.path.splitext(mrc_filename)[0] + '_binned_croped.mrc'
+    binned_copped_filename = kwargs.get('binned_copped_filename', binned_copped_filename_default)
+    binned_mrc_filename = os.path.splitext(binned_copped_filename)[0] + '.mrc'
+    dtp = type(mrc_obj.data[0,0,0])
+    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dtp)
+    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    if mode == 'sum':
+        mrc_mode = 1
+        dtp = int16
+    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dtp)
+    
+    st_frames = np.arange(fri, fra, zbin_factor)
+    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
+
+    bin_crop_parameters_dataset = []
+    for j, st_frame in enumerate(tqdm(st_frames, desc='Setting up DASK parameter sets', display=disp_res)):
+        save_filename = os.path.join(os.path.split(mrc_filename)[0],'Binned_Cropped_Frame_{:d}.tif'.format(j))
+        start_frame = st_frame
+        stop_frame = min(st_frame+zbin_factor, nz-1)
+        bin_crop_parameters_dataset.append([mrc_filename, save_filename, dtp, start_frame, stop_frame, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya])
+
+    print('Binning / Cropping and Saving Intermediate Frames')
+    if use_DASK:
+        if disp_res:
+            print('Starting DASK jobs')
+        futures_bin_crop = DASK_client.map(bin_crop_frames, bin_crop_parameters_dataset, retries = DASK_client_retries)
+        binned_cropped_filenames = np.array(DASK_client.gather(futures_bin_crop))
+        if disp_res:
+            print('Finished DASK jobs')
+    else:   # if DASK is not used - perform local computations
+        if disp_res:
+            print('Will perform local computations')
+        binned_cropped_filenames = []
+        for bin_crop_parameters in tqdm(bin_crop_parameters_dataset, desc = 'Transforming and saving frame chunks', display = disp_res):
+            binned_cropped_filenames.append(bin_crop_frames(bin_crop_parameters))
+                
+    print("Creating Dask Array Stack")
+    # now build dask array of the transformed dataset
+    # read the first file to get the shape and dtype (ASSUMING THAT ALL FILES SHARE THE SAME SHAPE/TYPE)
+    frame0 = tiff.imread(binned_cropped_filenames[0])
+    lazy_imread = dask.delayed(tiff.imread)  # lazy reader
+    lazy_arrays = [lazy_imread(fn) for fn in binned_cropped_filenames]
+    dask_arrays = [ da.from_delayed(delayed_reader, shape=frame0.shape, dtype=frame0.dtype)   for delayed_reader in lazy_arrays]
+    # Stack infividual frames into one large dask.array
+    FIBSEMstack = da.stack(dask_arrays, axis=0)
+    nz, ny, nx = FIBSEMstack.shape
+    
+    print('Saving Intermediate Frames into Final Stacks')
+    save_kwargs = {'fnm_types' : fnm_types,
+                'fnm_reg' : binned_mrc_filename,
+                'voxel_size' : voxel_size_new,
+                'dtp' : dtp,
+                'disp_res' : True}
+    fnms_saved = save_data_stack(FIBSEMstack, **save_kwargs)
+    
+    for fnm in tqdm(binned_cropped_filenames, desc='Removing Intermediate Files: ', display = disp_res):
+        try:
+            os.remove(os.path.join(fnm))
+        except:
+            pass
+
+    return fnms_saved
 
 
 ##########################################
@@ -3241,7 +3605,7 @@ def generate_report_transf_matrix_details(transf_matrix_bin_file, *kwarrgs):
         fig5.savefig(fn.replace('.mrc', '_Transform_Summary.png'), dpi=300)
 
 
-def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
+def generate_report_from_xls_registration_summary_old(file_xlsx, **kwargs):
     '''
     Generate Report Plot for FIB-SEM data set registration from xlxs workbook file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
     XLS file should have pages (sheets):
@@ -3523,6 +3887,264 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     fig.savefig(png_file, dpi=300)
 
 
+def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
+    '''
+    Generate Report Plot for FIB-SEM data set registration from xlxs workbook file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
+    XLS file should have pages (sheets):
+        - 'Registration Quality Statistics' - containing columns with the the evaluation box data and registration quality metrics data: 
+            'Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI'
+        - 'Stack Info' - containing the fields:
+            'Stack Filename' and 'data_dir'
+        - 'SIFT kwargs' (optional) - containg the kwargs with SIFT registration parameters.
+
+    Parameters:
+    xlsx_fname : str
+        full path to the XLSX workbook file
+    
+    kwargs
+    ---------
+    sample_frame_files : list
+        List of paths to sample frame images
+    png_file : str
+        filename to save the results. Default is file_xlsx with extension '.xlsx' replaced with '.png'
+    invert_data : bolean
+        If True, the representative data frames will use inverse LUT. 
+    dump_filename : str
+        Filename of a binary dump of the FIBSEM_dataset object.
+
+    '''
+    xlsx_name = os.path.basename(os.path.abspath(file_xlsx))
+    base_dir = os.path.dirname(os.path.abspath(file_xlsx))
+    sample_frame_mask = xlsx_name.replace('_RegistrationQuality.xlsx', '_sample_image_frame*.*')
+    unsorted_sample_frame_files = glob.glob(os.path.join(base_dir, sample_frame_mask))
+    try:
+        unsorter_frames = [int(x.split('frame')[1].split('.png')[0]) for x in unsorted_sample_frame_files]
+        sorted_inds = argsort(unsorter_frames)
+        existing_sample_frame_files = [unsorted_sample_frame_files[i] for i in sorted_inds]
+    except:
+        existing_sample_frame_files = unsorted_sample_frame_files
+    sample_frame_files = kwargs.get('sample_frame_files', existing_sample_frame_files)
+    png_file_default = file_xlsx.replace('.xlsx','.png')
+    png_file = kwargs.get("png_file", png_file_default)
+    dump_filename = kwargs.get("dump_filename", '')
+    
+    Regisration_data = pd.read_excel(file_xlsx, sheet_name='Registration Quality Statistics')
+    # columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
+    frames = Regisration_data['Frame']
+    xi_evals = Regisration_data['xi_eval']
+    xa_evals = Regisration_data['xa_eval']
+    yi_evals = Regisration_data['yi_eval']
+    ya_evals = Regisration_data['ya_eval']
+    
+    '''
+    image_nsad = Regisration_data['NSAD']
+    image_ncc = Regisration_data['NCC']
+    image_nmi = Regisration_data['NMI']
+    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
+    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
+    nmis = [np.mean(image_nmi), np.median(image_nmi), np.std(image_nmi)]
+    '''
+    eval_metrics = Regisration_data.columns[5:]
+    num_metrics = len(eval_metrics)
+    
+    num_frames = len(frames)
+    
+    stack_info_dict = read_kwargs_xlsx(file_xlsx, 'Stack Info', **kwargs)
+    if 'dump_filename' in stack_info_dict.keys():
+        dump_filename = kwargs.get("dump_filename", stack_info_dict['dump_filename'])
+    else:
+        dump_filename = kwargs.get("dump_filename", '')
+    try:
+        if np.isnan(dump_filename):
+            dump_filename = ''
+    except:
+        pass
+    stack_info_dict['dump_filename'] = dump_filename
+    
+    try:
+        invert_data =  kwargs.get("invert_data", stack_info_dict['invert_data'])
+    except:
+        invert_data =  kwargs.get("invert_data", False)
+
+    default_stack_name = file_xlsx.replace('_RegistrationQuality.xlsx','.mrc')
+    stack_filename = os.path.normpath(stack_info_dict.get('Stack Filename', default_stack_name))
+    data_dir = stack_info_dict.get('data_dir', '')
+    ftype = stack_info_dict.get("ftype", 0)
+       
+    
+    heights = [0.8]*3 + [1.5]*num_metrics
+    gs_kw = dict(height_ratios=heights)
+    fig, axs = subplots((num_metrics+3), 1, figsize=(6, 2*(num_metrics+2)), gridspec_kw=gs_kw)
+    fig.subplots_adjust(left=0.14, bottom=0.04, right=0.99, top=0.98, wspace=0.18, hspace=0.04)
+    for ax in axs[0:3]:
+        ax.axis('off')
+    
+    
+    fs=12
+    lwl=1
+    
+    if len(sample_frame_files)>0:
+        sample_frame_images_available = True
+        for jf, ax in enumerate(axs[0:3]):
+            try:
+                ax.imshow(mpimg.imread(sample_frame_files[jf]))
+                ax.axis(False)
+            except:
+                pass
+    else:
+        sample_frame_images_available = False
+        sample_data_available = True
+        if stack_exists:
+            print('Will use sample images from the registered stack')
+            use_raw_data = False
+            if Path(stack_filename).suffix == '.mrc':
+                mrc_obj = mrcfile.mmap(stack_filename, mode='r')
+                header = mrc_obj.header 
+                mrc_mode = header.mode
+                '''
+                mode 0 -> uint8
+                mode 1 -> int16
+                mode 2 -> float32
+                mode 4 -> complex64
+                mode 6 -> uint16
+                '''
+                if mrc_mode==0:
+                    dt_mrc=uint8
+                if mrc_mode==1:
+                    dt_mrc=int16
+                if mrc_mode==2:
+                    dt_mrc=float32
+                if mrc_mode==4:
+                    dt_mrc=complex64
+                if mrc_mode==6:
+                    dt_mrc=uint16
+        else:
+            print('Will use sample images from the raw data')
+            if os.path.exists(dump_filename):
+                print('Trying to recall the data from ', dump_filename)
+            try:
+                print('Looking for the raw data in the directory', data_dir)
+                if ftype == 0:
+                    fls = sorted(glob.glob(os.path.join(data_dir,'*.dat')))
+                    if len(fls) < 1:
+                        fls = sorted(glob.glob(os.path.join(data_dir,'*/*.dat')))
+                if ftype == 1:
+                    fls = sorted(glob.glob(os.path.join(data_dir,'*.tif')))
+                    if len(fls) < 1:
+                        fls = sorted(glob.glob(os.path.join(data_dir,'*/*.tif')))
+                num_frames = len(fls)
+                stack_info_dict['disp_res']=False
+                raw_dataset = FIBSEM_dataset(fls, recall_parameters=os.path.exists(dump_filename), **stack_info_dict)
+                XResolution = raw_dataset.XResolution
+                YResolution = raw_dataset.YResolution
+                if pad_edges and perfrom_transformation:
+                    #shape = [test_frame.YResolution, test_frame.XResolution]
+                    shape = [YResolution, XResolution]
+                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual, False)
+                    padx = int(xmx - xmn)
+                    pady = int(ymx - ymn)
+                    xi = int(np.max([xmx, 0]))
+                    yi = int(np.max([ymx, 0]))
+                    # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
+                    # so that the transformed images are not clipped.
+                    # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
+                    # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
+                    # those are calculated below base on the amount of padding calculated above
+                    shift_matrix = np.array([[1.0, 0.0, xi],
+                                             [0.0, 1.0, yi],
+                                             [0.0, 0.0, 1.0]])
+                    inv_shift_matrix = np.linalg.inv(shift_matrix)
+                else:
+                    padx = 0
+                    pady = 0
+                    xi = 0
+                    yi = 0
+                    shift_matrix = np.eye(3,3)
+                    inv_shift_matrix = np.eye(3,3)
+                xsz = XResolution + padx
+                xa = xi + XResolution
+                ysz = YResolution + pady
+                ya = yi + YResolution
+                use_raw_data = True
+            except:
+                sample_data_available = False
+                use_raw_data = False
+        if sample_data_available:
+            print('Sample data is available')
+        else:
+            print('Sample data is NOT available')
+     
+        if num_frames//10*9 > 0:
+            ev_ind2 = num_frames//10*9
+        else:
+            ev_ind2 = num_frames-1
+        eval_inds = [num_frames//10,  num_frames//2, ev_ind2]
+        #print(eval_inds)
+
+        for j, eval_ind in enumerate(eval_inds):
+            ax = axs[j]
+            if sample_data_available:
+                if stack_exists:
+                    if Path(stack_filename).suffix == '.mrc':
+                        frame_img = (mrc_obj.data[frames[eval_ind], :, :].astype(dt_mrc)).astype(float)
+                    if Path(stack_filename).suffix == '.tif':
+                        frame_img = tiff.imread(stack_filename, key=eval_ind)
+                else:
+                    dtp=float
+                    chunk_frames = np.arange(eval_ind, min(eval_ind+zbin_factor, len(fls)-2))
+                    frame_filenames = np.array(raw_dataset.fls)[chunk_frames]
+                    tr_matrices = np.array(raw_dataset.tr_matr_cum_residual)[chunk_frames]
+                    frame_img = transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
+                            flatten_image, image_correction_file,
+                            perfrom_transformation, tr_matrices, shift_matrix, inv_shift_matrix,
+                            xi, xa, yi, ya,
+                            ImgB_fraction=0.0,
+                            invert_data=False,
+                            int_order=1,
+                            flipY = raw_dataset.flipY)
+                #print(eval_ind, np.shape(frame_img), yi_evals[eval_ind], ya_evals[eval_ind], xi_evals[eval_ind], xa_evals[eval_ind])
+                if use_raw_data:
+                    eval_ind = eval_ind//zbin_factor
+                dmin, dmax = get_min_max_thresholds(frame_img[yi_evals[eval_ind]:ya_evals[eval_ind], xi_evals[eval_ind]:xa_evals[eval_ind]])
+                if invert_data:
+                    ax.imshow(frame_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
+                else:
+                    ax.imshow(frame_img, cmap='Greys', vmin=dmin, vmax=dmax)
+
+                ax.text(0.03, 1.01, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frames[eval_ind], image_nsad[eval_ind], image_ncc[eval_ind], image_nmi[eval_ind]), color='red', transform=ax.transAxes)
+                rect_patch = patches.Rectangle((xi_evals[eval_ind], yi_evals[eval_ind]),abs(xa_evals[eval_ind]-xi_evals[eval_ind])-2,abs(ya_evals[eval_ind]-yi_evals[eval_ind])-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+                ax.add_patch(rect_patch)
+            ax.axis('off')
+
+        if stack_exists:
+            if Path(stack_filename).suffix == '.mrc':
+                mrc_obj.close()
+    
+    axes_names = {'NSAD' : 'Norm. Sum of Abs. Diff',
+                 'NCC' : 'Norm. Cross-Corr.',
+                  'NMI' : 'Norm. Mutual Inf.',
+                 'FSC' : 'FSC BW (inv pix)'}
+    colors = ['red', 'blue', 'green', 'magenta', 'lime']
+    
+    for j, metric in enumerate(eval_metrics):
+        metric_data = Regisration_data[metric]
+        nmis = []
+        axs[j+3].plot(frames, Regisration_data[metric], linewidth=lwl, color = colors[j])
+        try:
+            axs[j+3].set_ylabel(axes_names[metric], fontsize=fs-2)
+        except:
+            axs[j+3].set_ylabel(metric, fontsize=fs-2)
+        axs[j+3].text(0.02, 0.04, (metric+' mean = {:.3f}   ' + metric + ' median = {:.3f}  ' + metric + ' STD = {:.3f}').format(np.mean(metric_data), np.median(metric_data), np.std(metric_data)), transform=axs[j+3].transAxes, fontsize = fs-4)
+        
+    axs[-1].set_xlabel('Binned Frame #')
+    for ax in axs[2:]:
+        ax.grid(True)
+        
+    axs[0].text(-0.15, 2.7,stack_filename, transform=axs[3].transAxes)
+    fig.savefig(png_file, dpi=300)
+
+
+
 def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     '''
     Read and plot together multiple registration quality summaries.
@@ -3610,14 +4232,24 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         pf = labels[j]
         lw0 = linewidths[j]
         if len(frame_inds)>0:
-            image_nsad = np.array(reg_data['Image NSAD'])[frame_inds]
-            image_ncc = np.array(reg_data['Image NCC'])[frame_inds]
-            image_nmi = np.array(reg_data['Image MI'])[frame_inds]
+            try:
+                image_nsad = np.array(reg_data['Image NSAD'])[frame_inds]
+                image_ncc = np.array(reg_data['Image NCC'])[frame_inds]
+                image_nmi = np.array(reg_data['Image MI'])[frame_inds]
+            except:
+                image_nsad = np.array(reg_data['NSAD'])[frame_inds]
+                image_ncc = np.array(reg_data['NCC'])[frame_inds]
+                image_nmi = np.array(reg_data['NMI'])[frame_inds]
             frame_inds_loc = frame_inds.copy()
         else:
-            image_nsad = np.array(reg_data['Image NSAD'])
-            image_ncc = np.array(reg_data['Image NCC'])
-            image_nmi = np.array(reg_data['Image MI'])
+            try:
+                image_nsad = np.array(reg_data['Image NSAD'])
+                image_ncc = np.array(reg_data['Image NCC'])
+                image_nmi = np.array(reg_data['Image MI'])
+            except:
+                image_nsad = np.array(reg_data['NSAD'])
+                image_ncc = np.array(reg_data['NCC'])
+                image_nmi = np.array(reg_data['NMI'])
             frame_inds_loc = np.arange(len(image_ncc))
         fr_i = min(frame_inds_loc) - (max(frame_inds_loc) - min(frame_inds_loc))*0.05
         fr_a = max(frame_inds_loc) + (max(frame_inds_loc) - min(frame_inds_loc))*0.05
@@ -3628,9 +4260,9 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         image_nmis.append(image_nmi)
         frame_inds_glob.append(frame_inds_loc)
 
-        metrics = [image_nsad, image_ncc, image_snr, image_nmi]
-        spreads.append([get_spread(metr) for metr in metrics])
-        means.append([np.mean(metr) for metr in metrics])
+        eval_metrics = [image_nsad, image_ncc, image_snr, image_nmi]
+        spreads.append([get_spread(metr) for metr in eval_metrics])
+        means.append([np.mean(metr) for metr in eval_metrics])
 
         ax_nsad.plot(frame_inds_loc, image_nsad, c=my_col, linewidth=lw0)
         ax_nsad.plot(image_nsad[0], c=my_col, linewidth=lw1, label=pf)
@@ -3738,10 +4370,16 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         pf = labels[j]
         lw0 = linewidths[j]
         if len(frame_inds)>0:
-            image_ncc = np.array(reg_data['Image NCC'])[frame_inds]
+            try:
+                image_ncc = np.array(reg_data['Image NCC'])[frame_inds]
+            except:
+                image_ncc = np.array(reg_data['NCC'])[frame_inds]
             frame_inds_loc = frame_inds.copy()
         else:
-            image_ncc = np.array(reg_data['Image NCC'])
+            try:
+                image_ncc = np.array(reg_data['Image NCC'])
+            except:
+                image_ncc = np.array(reg_data['NCC'])
             frame_inds_loc = np.arange(len(image_ncc))
 
         axs3[1].plot(frame_inds_loc, image_ncc, c=my_col, linewidth=lw0)
@@ -3838,7 +4476,7 @@ class FIBSEM_frame:
         Number of channels
     EightBit : int
         8-bit data switch: 0 for 16-bit data, 1 for 8-bit data
-    ScalingS : 2D array of floats
+    Scaling : 2D array of floats
         scaling parameters allowing to convert I16 data into actual electron counts 
     Sample_ID : str
         Sample_ID
@@ -3930,6 +4568,7 @@ class FIBSEM_frame:
             self.PixelSize = kwargs.get("PixelSize", 8.0)
             self.Sample_ID = kwargs.get("Sample_ID", '')
             self.YResolution, self.XResolution = self.RawImageA.shape
+            self.Scaling = np.array([[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]).T
 
     # for Shan Xu's data files 
         if self.ftype == 0:
@@ -6638,7 +7277,11 @@ def determine_pad_offsets(shape, tr_matr, disp_res):
         xmaxs[j] = np.max(a[:, 0])
         ymins[j] = np.min(a[:, 1])
         ymaxs[j] = np.max(a[:, 1])
-    return np.min(xmins), np.max(xmaxs)-xsz, np.min(ymins), np.max(ymaxs)-ysz
+        xmin = np.min((np.min(xmins), 0.0))
+        xmax = np.max(xmaxs)-xsz
+        ymin = np.min((np.min(ymins), 0.0))
+        ymax = np.max(ymaxs)-ysz
+    return xmin, xmax, ymin, ymax
 
 
 def SIFT_find_keypoints_dataset(fr, **kwargs):
@@ -7212,8 +7855,6 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
         Y-size (pixels)
     ftype : int
         File Type. 0 for Shan's .dat files, 1 for tif files
-    dtp : data type
-        Python data type for saving. Deafult is int16, the other option currently is uint8.
     flatten_image : bolean
         perform image flattening
     image_correction_file : str
@@ -7299,6 +7940,118 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
     '''
 
     return transformed_img
+    
+
+def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
+    '''
+    Transform Chunk of Frames and save into a single transformed frame. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
+
+    Parameters
+    chunk_of_frame_parametrs : list of following parameters
+        [save_filename, frame_filenames, tr_matrices, tr_args]
+    
+    save_filename : path
+        Filename for saving the transformed frame
+    frame_filenames : list of strings
+        Filenames (Full paths) of FIB-SEM frame files for every frame in frame_inds
+    tr_matrices : list of 2D (or 3d array)
+        Transformation matrix for every frame in frame_inds.
+
+    tr_args : list of lowwowing parameters:
+        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perfrom_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
+    
+    ImgB_fraction : float
+        Fractional weight of Image B for fused images, default is 0
+    xsz  :  int
+        X-size (pixels)
+    ysz  :  int
+        Y-size (pixels)
+    xi : int
+        Low X-axis bound for placing the transformed frame into the image before transformation
+    xa : int
+        High X-axis bound for placing the transformed frame into the image before transformation
+    yi : int
+        Low Y-axis bound for placing the transformed frame into the image before transformation
+    ya : int
+        High Y-axis bound for placing the transformed frame into the image before transformation
+    int_order : int
+        Default is 1. Interpolation order (0: Nearest-neighbor, 1: Bi-linear (default), 2: Bi-quadratic, 3: Bi-cubic, 4: Bi-quartic, 5: Bi-quintic)
+    invert_data : boolean
+        Invert data, default is False.
+    flipY : boolean
+        Flip output along Y-axis, default is False.
+    flatten_image : bolean
+        perform image flattening
+    image_correction_file : str
+        full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
+    perfrom_transformation  : boolean
+        perform transformation     
+    shift_matrix : 2d array
+        shift matrix
+    inv_shift_matrix : 2d array
+        inverse shift matrix.
+    ftype : int
+        File Type. 0 for Shan's .dat files, 1 for tif files
+    dtp : data type
+        Python data type for saving. Deafult is int16, the other option currently is uint8.
+
+    Returns
+    '''
+    save_filename, frame_filenames, tr_matrices, tr_args = chunk_of_frame_parametrs
+    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perfrom_transformation, shift_matrix, inv_shift_matrix, ftype, dtp = tr_args
+    num_frames = len(frame_filenames)
+    transformed_img = np.zeros((ysz, xsz), dtype=float)
+    frame_img = np.zeros((ysz, xsz), dtype=float)
+    
+    for frame_filename, tr_matrix in zip(frame_filenames, tr_matrices):
+        frame = FIBSEM_frame(frame_filename, ftype=ftype)
+
+        if ImgB_fraction < 1e-5:
+            #image = frame.RawImageA.astype(float)
+            if flatten_image:
+                image = (frame.flatten_image(image_correction_file = image_correction_file)[0]).astype(float)
+            else:
+                image = frame.RawImageA.astype(float)
+        else:
+            if flatten_image:
+                flattened_images = frame.flatten_image(image_correction_file = image_correction_file)
+                flattened_RawImageA = flattened_images[0].astype(float)
+                if len(flattened_images)>1:
+                    flattened_RawImageB = flattened_images[1].astype(float)
+                else:
+                    flattened_RawImageB = frame.RawImageB.astype(float)
+                image = flattened_RawImageA* (1.0 - ImgB_fraction) + flattened_RawImageB * ImgB_fraction
+            else:
+                image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
+
+        if invert_data:
+            frame_img[yi:ya, xi:xa] = np.negative(image)
+            '''
+            if frame.EightBit==0:
+                frame_img[yi:ya, xi:xa] = np.negative(image)
+            else:
+                frame_img[yi:ya, xi:xa]  =  uint8(255) - image
+            '''
+        else:
+            frame_img[yi:ya, xi:xa]  = image
+
+        if perfrom_transformation:
+            transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
+            frame_img_reg = warp(frame_img, transf, order = int_order,  preserve_range=True)
+        else:
+            frame_img_reg = frame_img.copy()
+
+        transformed_img = transformed_img + frame_img_reg
+        
+    if num_frames > 1:
+        transformed_img = transformed_img/num_frames
+
+    if flipY:
+        transformed_img = np.flip(transformed_img, axis=0)
+
+    tiff.imsave(save_filename, transformed_img.astype(dtp))
+
+    return save_filename
 
 
 def transform_two_chunks(params):
@@ -7368,24 +8121,164 @@ def transform_two_chunks(params):
     return [image_nsad, image_ncc, image_mi]
 
 
-def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds, fls, tr_matr_cum_residual, npts, error_abs_mean, **kwargs):
+def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
     '''
     Transform and save FIB-SEM data set. A new vesion, with variable zbin_factor option. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
 
     Parameters
     DASK_client : 
-    save_transformed_dataset : boolean
-        If true, the transformed data set will be saved into MRC file
+    frame_filenames : list of strings
+        List of filenames (one for each transformed / z-binned frame)
+    
+    kwargs
+    ---------
+    use_DASK : boolean
+        perform remote DASK computations
+    DASK_client_retries : int (default to 0)
+        Number of allowed automatic retries if a task fails
+    save_registration_summary : boolean
+        If True (default), the rgistration analysis will be saved
+    data_dir : str
+        data directory (path)
+    frame_inds : int array
+        Array of frame indecis. If not set or set to np.array((-1)), all frames will be analyzed
+    fnm_reg : str
+        filename for the final registed dataset
+    npts : array or list of int
+        Numbers of Keypoints used for registration
+    error_abs_mean : array or list of float
+        mean abs error between registered key-points
+    eval_bounds : list of [xi_eval, xa_eval, yi_eval, ya_eval] lists of int
+        Evaluation boundaries for analysis
+    eval_metrics : list of str
+        list of evaluation metrics to use. default is ['NSAD', 'NCC', 'NMI', 'FSC']
+    save_sample_frames_png : bolean
+        If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
+    sample_frame_inds : list of int
+        list of sample frame indecis
+    save_registration_summary : boolean
+        If True, the registration summary is saved into XLSX file
+    disp_res : bolean
+        If True (default), intermediate messages and results will be displayed.
+
+    Returns:
+    reg_summary, reg_summary_xlsx
+        reg_summary : pandas DataFrame
+        reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
+        reg_summary_xlsx : name of the XLSX workbook containing the data
+    '''
+
+    use_DASK = kwargs.get("use_DASK", True)  # do not use DASK the data is to be saved
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    
+    data_dir = kwargs.get("data_dir", '')
+    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
+    fpath_reg = os.path.join(data_dir, fnm_reg)
+
+    save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
+    disp_res = kwargs.get("disp_res", True)
+    save_registration_summary = kwargs.get('save_registration_summary', True)
+    dump_filename = kwargs.get('dump_filename', '')
+
+    frame_inds_default = np.arange(len(frame_filenames))
+    frame_inds = np.array(kwargs.get("frame_inds", frame_inds_default))
+    nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
+    sample_frame_inds = kwargs.get("sample_frame_inds", [frame_inds[nfrs//10], frame_inds[nfrs//2], frame_inds[nfrs//10*9-1]])
+    npts = kwargs.get("npts", False)
+    error_abs_mean = kwargs.get("error_abs_mean", False)
+
+    first_frame = tiff.imread(frame_filenames[frame_inds[0]])
+    ya, xa = first_frame.shape
+    eval_bounds = kwargs.get("eval_bounds", [[0, xa, 0, ya]]*nfrs)
+    eval_metrics = kwargs.get('eval_metrics', ['NSAD', 'NCC', 'NMI', 'FSC'])
+
+    params_frames = []
+    for j, frame_ind in enumerate(tqdm(frame_inds[0:-1], desc='Setting up parameter sets', display=disp_res)):
+        params_frames.append([frame_filenames[frame_ind], frame_filenames[frame_ind+1], eval_bounds[j], eval_metrics])
+
+    if use_DASK:
+        if disp_res:
+            print('Will perform distributed computations using DASK')
+        if disp_res:
+            print('Starting DASK jobs')
+        futures_til = DASK_client.map(Two_Image_Analysis, params_frames, retries = DASK_client_retries)
+        results_til = DASK_client.gather(futures_til)
+        image_metrics = np.array(results_til)  # 2D array  np.array([[image_nsad, image_ncc, image_mi]])
+        if disp_res:
+            print('Finished DASK jobs')
+
+    else:   # if DASK is not used - perform local computations
+        if disp_res:
+            print('Will perform local computations')
+        image_metrics = np.zeros((nfrs-1, len(eval_metrics)), dtype=float)
+        for j, params_frame in enumerate(tqdm(params_frames, desc = 'Analyzing frame pairs', display = disp_res)):
+            image_metrics[j, :] = Two_Image_Analysis(params_frame)
+        results_til = []
+     
+    # save sample frames
+    if save_sample_frames_png:
+        for frame_ind in sample_frame_inds:
+            filename_frame_png = os.path.splitext(fpath_reg)[0]+'_sample_image_frame{:d}.png'.format(frame_ind)
+            fr_img = tiff.imread(frame_filenames[frame_ind]).astype(float)
+            yshape, xshape = fr_img.shape
+            fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
+            fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
+            xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[frame_ind]
+            dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
+            ax.imshow(fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
+            sample_text = 'Frame={:d}'.format(frame_ind)
+            for k, metric in enumerate(eval_metrics):
+                sample_text = sample_text + ',  '+ metric + '={:.3f}'.format(image_metrics[frame_ind, k])
+            ax.text(0.06, 0.95, sample_text, color='red', transform=ax.transAxes, fontsize=12)
+            rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+            ax.add_patch(rect_patch)
+            ax.axis('off')
+            fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
+            plt.close(fig)
+
+    columns = ['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval'] + eval_metrics
+    reg_summary = pd.DataFrame(np.vstack((frame_inds[1:].T, np.array(eval_bounds)[frame_inds[1:], :].T, np.array(image_metrics).T)).T, columns = columns, index = None)
+    if npts:
+        reg_summary['Npts'] = npts
+        columns = columns + ['Npts']
+    if error_abs_mean:
+        reg_summary['Mean Abs Error'] = error_abs_mean
+        columns = columns + ['Mean Abs Error']
+    
+    if save_registration_summary:
+        registration_summary_xlsx = fpath_reg.replace('.mrc', '_RegistrationQuality.xlsx')
+        if disp_res:
+            print('Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
+        # Create a Pandas Excel writer using XlsxWriter as the engine.
+        xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
+        reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
+        Stack_info = pd.DataFrame([{'Stack Filename' : fnm_reg, 'dump_filename' : dump_filename}]).T # prepare to be save in transposed format
+        try:
+            del kwargs['eval_bounds']
+        except:
+            pass
+        SIFT_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
+        Stack_info = Stack_info.append(SIFT_info)
+        Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
+        xlsx_writer.save()
+    else:
+        registration_summary_xlsx = 'Registration data not saved'
+
+    return reg_summary, registration_summary_xlsx
+
+
+def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual, **kwargs):
+    '''frank power supply
+    Transform and save FIB-SEM data set. A new vesion, with variable zbin_factor option. ©G.Shtengel 01/2023 gleb.shtengel@gmail.com
+
+    Parameters
+    DASK_client : DASK client
     frame_inds : int array
         Array of frame indecis. If not set or set to np.array((-1)), all frames will be transformed
     fls : array of strings
         full array of filenames
     tr_matr_cum_residual : array
         transformation matrix
-    npts : array
-        array of number of keypoints (only passed through to the output)
-    error_abs_mean: array
-        array of errors (only passed through to the output)
     
     kwargs
     ---------
@@ -7397,17 +8290,9 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         file type (0 - Shan Xu's .dat, 1 - tif)
     data_dir : str
         data directory (path)
-    fnm_reg : str
-        filename for the final registed dataset
-    dump_filename str
-        Path to binary dump (for xlx saving)
     ImgB_fraction : float
         fractional ratio of Image B to be used for constructing the fuksed image:
         ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
-    voxel_size : rec.array(( float,  float,  float), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
-        voxel size in nm. Default is isotropic (PixelSize, PixelSize, PixelSize)
-    save_res_png  : boolean
-        Save PNG images of the intermediate processing statistics and final registration quality check
     pad_edges : boolean
         If True, the data will be padded before transformation to avoid clipping.
     flipY : boolean
@@ -7424,32 +8309,21 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
         full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
     invert_data : boolean
         If True - the data is inverted.
-    evaluation_box : list of 4 int
-        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
-        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-    sliding_evaluation_box : boolean
-        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
-    start_evaluation_box : list of 4 int
-        see above
-    stop_evaluation_box : list of 4 int
-        see above
-    save_sample_frames_png : bolean
-        If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
     dtp  : dtype
         Python data type for saving. Deafult is int16, the other option currently is uint8.
+    disp_res : bolean
+        Default is False
 
     Returns:
-    reg_summary, reg_summary_xlsx
-        reg_summary : pandas DataFrame
-        reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
-        reg_summary_xlsx : name of the XLSX workbook containing the data
+    registered_filenames : list of filenames (one for each transformed / z-binned frame)
+    
     '''
     ftype = kwargs.get("ftype", 0)
     test_frame = FIBSEM_frame(fls[0], ftype=ftype)
-
-    use_DASK = kwargs.get("use_DASK", False) and (not save_transformed_dataset)  # do not use DASK the data is to be saved
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     
+    save_transformed_dataset = kwargs.get("save_transformed_dataset", True)
+    use_DASK = kwargs.get("use_DASK", False)  # do not use DASK the data is to be saved
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     dump_filename = kwargs.get('dump_filename', '')
@@ -7458,17 +8332,8 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     if test_frame.DetB == 'None':
         ImgB_fraction=0.0
 
-    voxel_size_default = np.rec.array((test_frame.PixelSize,  test_frame.PixelSize,  test_frame.PixelSize), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
-    voxel_size = kwargs.get("voxel_size", voxel_size_default)
-    voxel_size_angstr = voxel_size.copy()
-    voxel_size_angstr.x = voxel_size_angstr.x * 1.0e3
-    voxel_size_angstr.y = voxel_size_angstr.y * 1.0e3
-    voxel_size_angstr.z = voxel_size_angstr.z * 1.0e3
-
     XResolution = kwargs.get("XResolution", test_frame.XResolution)
     YResolution = kwargs.get("YResolution", test_frame.YResolution)
-
-    save_res_png  = kwargs.get("save_res_png", True)
     pad_edges =  kwargs.get("pad_edges", True)
     flipY = kwargs.get("flipY", False)
     zbin_factor =  kwargs.get("zbin_factor", 1)
@@ -7477,33 +8342,13 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     flatten_image = kwargs.get("flatten_image", False)
     image_correction_file = kwargs.get("image_correction_file", '')
     invert_data =  kwargs.get("invert_data", False)
-    evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])  #  [top, height, keft, width]
-    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
-    start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
-    stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
-
-    save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
     dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
-    '''
-    mode 0 -> uint8
-    mode 1 -> int16
-    mode 2 -> float32
-    mode 4 -> complex64
-    mode 6 -> uint16
-    '''
-    if dtp==int16:
-        dformat_save = 'I16'
-        mrc_mode = 1
-    else:
-        dformat_save = 'I8'
-        mrc_mode = 0
-
-    disp_res = kwargs.get("disp_res", True)
-
+    disp_res = kwargs.get("disp_res", False)
     nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
     end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
-    st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)    # starting frame for each z-bin
+    st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)             # starting frame for each z-bin
     nfrs_zbinned = len(st_frames)                                            # number of frames after z-ninning
+
     frames_new = np.arange(nfrs_zbinned-1)
     
     if pad_edges and perfrom_transformation:
@@ -7536,204 +8381,126 @@ def transform_and_save_dataset(DASK_client, save_transformed_dataset, save_regis
     ysz = YResolution + pady
     ya = yi + YResolution
 
-    xi_eval = xi + evaluation_box[2]
-    if evaluation_box[3] > 0:
-        xa_eval = xi_eval + evaluation_box[3]
-    else:
-        xa_eval = xa
-    yi_eval = yi + evaluation_box[0]
-    if evaluation_box[1] > 0:
-        ya_eval = yi_eval + evaluation_box[1]
-    else:
-        ya_eval = ya
-
-    frame_img = np.zeros((ysz, xsz), dtype=float)
-    prev_frame_img = frame_img.copy()
-    xi_evals = np.zeros((nfrs_zbinned-1), dtype=int16)
-    xa_evals = np.zeros((nfrs_zbinned-1), dtype=int16)
-    yi_evals = np.zeros((nfrs_zbinned-1), dtype=int16)
-    ya_evals = np.zeros((nfrs_zbinned-1), dtype=int16)
-    image_nsad = np.zeros((nfrs_zbinned-1), dtype=float)
-    image_ncc = np.zeros((nfrs_zbinned-1), dtype=float)
-    image_mi = np.zeros((nfrs_zbinned-1), dtype=float)
-    image_errors = np.zeros((nfrs_zbinned-1), dtype=float)
-    image_npts = np.zeros((nfrs_zbinned-1), dtype=float)
-
-    if sliding_evaluation_box:
-        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
-        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
-    else:
-        dx_eval = 0
-        dy_eval = 0
-
-    if save_transformed_dataset:
-        if disp_res:
-            print('Saving the registered and {:d}-x z-binned stack into the file: '.format(zbin_factor), fpath_reg)
-            #print('There will be {:d} frames in the saved stack'.format(nfrs_zbinned))
-            print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d},  data type:'.format(xsz, ysz, nfrs_zbinned), dtp)
-        # Make a new, empty memory-mapped MRC file
-        mrc = mrcfile.new_mmap(fpath_reg, shape=(nfrs_zbinned, ysz, xsz), mrc_mode=mrc_mode, overwrite=True)
-        # mode 0 -> int8
-        # mode 1 -> int16:
-        #mrc.voxel_size = np.round(test_frame.PixelSize)*0.001
-        mrc.header.cella = voxel_size_angstr
-        tq_desc = 'Saving into ' + dformat_save + ' MRC File'
-    else:
-        tq_desc = 'Processing frames'
+    '''
+    transform_and_save_chunk_of_frames(save_filename, frame_filenames, tr_matrices, tr_args):
+    chunk_of_frame_parametrs = save_filename, frame_filenames, tr_matrices_cum_residual, tr_args
+    tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perfrom_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
+    process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
+    chunk_of_frame_parametrs_dataset.append([save_filename, process_frames, np.array(tr_matr_cum_residual)[process_frames], tr_args])
+    
+    '''
+    tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perfrom_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
+    chunk_of_frame_parametrs_dataset = []
+    for j, st_frame in enumerate(tqdm(st_frames, desc='Setting up DASK parameter sets', display=disp_res)):
+        save_filename = os.path.join(os.path.split(fls[st_frame])[0],'Registered_Frame_{:d}.tif'.format(j))
+        process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
+        chunk_of_frame_parametrs_dataset.append([save_filename, np.array(fls)[process_frames], np.array(tr_matr_cum_residual)[process_frames], tr_args])
 
     if use_DASK:
         if disp_res:
-            print('Will perform distributed computations using DASK')
-        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perfrom_transformation, ftype]
-        tr_params = []
-        for j, st_frame in enumerate(tqdm(st_frames[0:-1], desc='Setting up DASK parameter sets', display=disp_res)):
-            if sliding_evaluation_box:
-                xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
-                yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
-                if start_evaluation_box[3] > 0:
-                    xa_eval = xi_eval + start_evaluation_box[3]
-                else:
-                    xa_eval = xsz
-                if start_evaluation_box[1] > 0:
-                    ya_eval = yi_eval + start_evaluation_box[1]
-                else:
-                    ya_eval = ysz
-            chunk0_frames = np.arange(st_frame, min(st_frame+zbin_factor, frame_inds[-1]+1))
-            chunk1_frames = np.arange(st_frames[j+1], min(st_frames[j+1]+zbin_factor, frame_inds[-1]+1))
-            chunk0_filenames = np.array(fls)[chunk0_frames]
-            chunk1_filenames = np.array(fls)[chunk1_frames]
-            chunk0_tr_matrices = tr_matr_cum_residual[chunk0_frames]
-            chunk1_tr_matrices = tr_matr_cum_residual[chunk1_frames]
-            chunk0_frames_tr = [i for i in chunk0_frames if i<(nfrs_zbinned-1)]
-            xi_evals[chunk0_frames_tr] = xi_eval
-            xa_evals[chunk0_frames_tr] = xa_eval
-            yi_evals[chunk0_frames_tr] = yi_eval
-            ya_evals[chunk0_frames_tr] = ya_eval
-            chunk1_frames_tr = [i for i in chunk1_frames if i<(nfrs_zbinned-1)]
-            xi_evals[chunk1_frames_tr] = xi_eval
-            xa_evals[chunk1_frames_tr] = xa_eval
-            yi_evals[chunk1_frames_tr] = yi_eval
-            ya_evals[chunk1_frames_tr] = ya_eval
-            if j in [nfrs_zbinned//10, nfrs_zbinned//2, nfrs_zbinned//10*9]:
-                save_frame_png = save_sample_frames_png
-                filename_frame_png = os.path.splitext(fpath_reg)[0]+'_sample_image_frame{:d}.png'.format(st_frame)
-            else:
-                save_frame_png = False
-                filename_frame_png = 'test_frame.png'
-            if len(chunk1_frames)>0:
-                tr_params.append([chunk0_filenames, chunk1_filenames, chunk0_tr_matrices, chunk1_tr_matrices, shift_matrix, inv_shift_matrix, xi_eval, xa_eval, yi_eval, ya_eval, save_frame_png, j, filename_frame_png, tr_args])
-            image_errors[j-1] = np.mean(error_abs_mean[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
-            image_npts[j-1] = np.mean(npts[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
-        if disp_res:
             print('Starting DASK jobs')
-        futures = DASK_client.map(transform_two_chunks, tr_params, retries = DASK_client_retries)
-        registration_stats = np.array(DASK_client.gather(futures))  # 2D array  np.array([[image_nsad, image_ncc, image_mi]])
-        xl=len(registration_stats)
-        image_nsad = registration_stats[:, 0]
-        image_ncc = registration_stats[:, 1]
-        image_mi = registration_stats[:, 2]
-
+        futures_td = DASK_client.map(transform_and_save_chunk_of_frames, chunk_of_frame_parametrs_dataset, retries = DASK_client_retries)
+        registered_filenames = np.array(DASK_client.gather(futures_td))
+        if disp_res:
+            print('Finished DASK jobs')
     else:   # if DASK is not used - perform local computations
         if disp_res:
             print('Will perform local computations')
-        for j, st_frame in enumerate(tqdm(st_frames, desc = tq_desc, display = disp_res)):
-            process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
-            binned_fr_img = transform_chunk_of_frames(np.array(fls)[process_frames], xsz, ysz, ftype,
-                                flatten_image, image_correction_file,
-                                perfrom_transformation, np.array(tr_matr_cum_residual)[process_frames], shift_matrix, inv_shift_matrix,
-                                xi, xa, yi, ya,
-                                ImgB_fraction = ImgB_fraction,
-                                invert_data = invert_data,
-                                int_order = int_order,
-                                flipY=flipY)
-            if save_transformed_dataset:
-                mrc.data[j,:,:] = binned_fr_img.astype(dtp)
+        registered_filenames = []
+        for chunk_of_frame_parametrs in tqdm(chunk_of_frame_parametrs_dataset, desc = 'Transforming and saving frame chunks', display = disp_res):
+            registered_filenames.append(transform_and_save_chunk_of_frames(chunk_of_frame_parametrs))
 
-            if j>0:     # perform registration analysis for all frames starting with the second frame
-                if sliding_evaluation_box:
-                    xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs_zbinned
-                    yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs_zbinned
-                    if start_evaluation_box[3] > 0:
-                        xa_eval = xi_eval + start_evaluation_box[3]
-                    else:
-                        xa_eval = xsz
-                    if start_evaluation_box[1] > 0:
-                        ya_eval = yi_eval + start_evaluation_box[1]
-                    else:
-                        ya_eval = ysz
-                if use_cp:
-                    I1c = cp.array(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
-                    I2c = cp.array(prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
-                    fr_mean = cp.abs(I1c/2.0 + I2c/2.0)
-                else:
-                    I1c = binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval]
-                    I2c = prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval]
-                    fr_mean = abs(I1c/2.0 + I2c/2.0)
-                xi_evals[j-1] = xi_eval
-                xa_evals[j-1] = xa_eval
-                yi_evals[j-1] = yi_eval
-                ya_evals[j-1] = ya_eval
-                if use_cp:
-                    image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(I1c-I2c))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
-                    image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True))
-                else:
-                    image_nsad[j-1] =  mean(abs(I1c-I2c))/(np.mean(fr_mean)-np.amin(fr_mean))
-                    image_mi[j-1] = mutual_information_2d(I1c.ravel(), I2c.ravel(), sigma=1.0, bin=2048, normalized=True)
-                image_ncc[j-1] = Two_Image_NCC_SNR(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], prev_binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval])[0]
-                image_errors[j-1] = np.mean(error_abs_mean[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
-                image_npts[j-1] = np.mean(npts[st_frame:min(st_frame+zbin_factor, (frame_inds[-1]+1))])
-                if use_cp:
-                    del I1c, I2c
-                if (j in [nfrs_zbinned//10, nfrs_zbinned//2, nfrs_zbinned//10*9]) and save_sample_frames_png:
-                    filename_frame_png = os.path.splitext(fpath_reg)[0]+'_sample_image_frame{:d}.png'.format(st_frame)
-                    yshape, xshape = binned_fr_img.shape
-                    fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
-                    fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
-                    dmin, dmax = get_min_max_thresholds(binned_fr_img[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
-                    if invert_data:
-                        ax.imshow(binned_fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
-                    else:
-                        ax.imshow(binned_fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
-                    ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(j, image_nsad[j-1], image_ncc[j-1], image_mi[j-1]), color='red', transform=ax.transAxes, fontsize=12)
-                    rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
-                    ax.add_patch(rect_patch)
-                    ax.axis('off')
-                    fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
-                    plt.close(fig)
+    return registered_filenames
 
-            prev_binned_fr_img = binned_fr_img.copy()  # update the previous frame for future registration
 
-        if save_transformed_dataset:
-            mrc.close()
-
-    # Generate a figure with analysis of registration quality - Image NSAD, NCC, NMI's vs. frames.
-    #image_nsad = image_nsad[1:-1]
-    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
-    #image_ncc = image_ncc[1:-1]
-    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
-    nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
+def save_data_stack(FIBSEMstack, **kwargs):
+    '''
+    Saves the dataset into a file.
     
-    columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
-    reg_summary = pd.DataFrame(np.vstack((frames_new, xi_evals, xa_evals, yi_evals, ya_evals, image_npts, image_errors, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
+    Parameters
+        FIBSEMstack : 3D array (may be DASK array)
+            Data set to be saved
+        
+    kwargs
+    ---------
+        data_dir : str
+            data directory for saving the data
+        fnm_reg : str
+            filename for the final registed dataset
+        fnm_types : list of strings
+            File type(s) for output data. Options are: ['h5', 'mrc'].
+            Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
+        voxel_size : rec array of 3 elemets
+            voxel size in nm
+        dtp  : dtype
+            Python data type for saving. Deafult is int16, the other option currently is uint8.
+        disp_res : bolean
+            Display messages and intermediate results
+        
+    Returns:
+        fnms_saved : list of strings
+            Paths to the files where the data set was saved.
+    
+    '''
+    data_dir = kwargs.get("data_dir", '')
+    fnm_reg = kwargs.get("fnm_reg", 'Registered_set.mrc')
+    fpath_reg = os.path.join(data_dir, fnm_reg)
+    fnm_types = kwargs.get("fnm_types", ['mrc'])
+    voxel_size_default = np.rec.array((8.0, 8.0, 8.0), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
+    voxel_size = kwargs.get("voxel_size", voxel_size_default)
+    dtp = kwargs.get("dtp", int16)
+    disp_res  = kwargs.get("disp_res", False )
+    nz, ny, nx = FIBSEMstack.shape
+    if disp_res:
+        print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d},  data type:'.format(nx, ny, nz), dtp)
 
-    if save_registration_summary:
-        registration_summary_xlsx = fpath_reg.replace('.mrc', '_RegistrationQuality.xlsx')
-        if disp_res:
-            print('Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
-        # Create a Pandas Excel writer using XlsxWriter as the engine.
-        xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
-        columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
-        reg_summary = pd.DataFrame(np.vstack((frames_new, xi_evals, xa_evals, yi_evals, ya_evals, image_npts, image_errors, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
-        reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
-        Stack_info = pd.DataFrame([{'Stack Filename' : fpath_reg, 'dump_filename' : dump_filename}]).T # prepare to be save in transposed format
-        SIFT_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
-        Stack_info = Stack_info.append(SIFT_info)
-        Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
-        xlsx_writer.save()
+    fnms_saved = []
+    if len(fnm_types)>0:
+        for fnm_type in fnm_types:
+            # save dataset at HDF5 file
+            if fnm_type == 'h5':
+                fpath_reg_h5 = fpath_reg.replace('.mrc', '.h5')
+                try:
+                    os.remove(fpath_reg_h5)
+                except:
+                    pass
+                fnms_saved.append(fpath_reg_h5)
+                if disp_res:
+                    print('Saving dataset into Big Data Viewer HDF5 file: ', fpath_reg_h5)
+                bdv_writer = npy2bdv.BdvWriter(fpath_reg_h5, nchannels=1, blockdim=((1, 256, 256),))
+                bdv_writer.append_view(stack=FIBSEMstack,
+                       virtual_stack_dim=(nz,ny,nx),
+                       time=0, channel=0, 
+                       voxel_size_xyz=(voxel_size.x, voxel_size.y, voxel_size.z),
+                       voxel_units='nm')
+                bdv_writer.write_xml()
+                bdv_writer.close()
+            if fnm_type == 'mrc':
+                if disp_res:
+                    print('Saving dataset into MRC file: ', fpath_reg)
+                fnms_saved.append(fpath_reg)
+                '''
+                mode 0 -> uint8
+                mode 1 -> int16
+                '''
+                if dtp==int16:
+                    mrc_mode = 1
+                else:
+                    mrc_mode = 0
+                # Make a new, empty memory-mapped MRC file
+                mrc = mrcfile.new_mmap(fpath_reg, shape=(nz, ny, nx), mrc_mode=mrc_mode, overwrite=True)
+                voxel_size_angstr = voxel_size.copy()
+                voxel_size_angstr.x = voxel_size_angstr.x * 10.0
+                voxel_size_angstr.y = voxel_size_angstr.y * 10.0
+                voxel_size_angstr.z = voxel_size_angstr.z * 10.0
+                #mrc.header.cella = voxel_size_angstr
+                mrc.voxel_size = voxel_size_angstr
+                for j, FIBSEMframe in enumerate(tqdm(FIBSEMstack, desc = 'Saving Frames into MRC File: ', display = disp_res)):
+                    mrc.data[j,:,:] = FIBSEMframe.astype(dtp)
+                mrc.close()
     else:
-        registration_summary_xlsx = 'Registration data not saved'
-
-    return reg_summary, registration_summary_xlsx
+        print('Registered data set is NOT saved into a file')
+    return fnms_saved
 
 
 def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
@@ -7806,6 +8573,8 @@ class FIBSEM_dataset:
         pixel size in nm. This is inherited from FIBSEM_frame object. Default is 8.0
     voxel_size : rec.array(( float,  float,  float), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
         voxel size in nm. Default is isotropic (PixelSize, PixelSize, PixelSize)
+    Scaling : 2D array of floats
+        scaling parameters allowing to convert I16 data into actual electron counts 
     fnm_reg : str
         filename for the final registed dataset
     use_DASK : boolean
@@ -7970,6 +8739,8 @@ class FIBSEM_dataset:
                 Sample ID
         PixelSize : float
             pixel size in nm. Default is 8.0
+        Scaling : 2D array of floats
+            scaling parameters allowing to convert I16 data into actual electron counts 
         threshold_min : float
             CDF threshold for determining the minimum data value
         threshold_max : float
@@ -8071,6 +8842,7 @@ class FIBSEM_dataset:
         mid_frame = FIBSEM_frame(fls[self.nfrs//2], ftype = self.ftype)
         self.XResolution = kwargs.get("XResolution", mid_frame.XResolution)
         self.YResolution = kwargs.get("YResolution", mid_frame.YResolution)
+        self.Scaling = kwargs.get("Scaling", mid_frame.Scaling)
         if hasattr(mid_frame, 'PixelSize'):
             self.PixelSize = kwargs.get("PixelSize", mid_frame.PixelSize)
         else:
@@ -8117,6 +8889,8 @@ class FIBSEM_dataset:
         self.SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
         self.save_res_png  = kwargs.get("save_res_png", True)
         self.zbin_factor =  kwargs.get("zbin_factor", 1)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
+        self.eval_metrics = kwargs.get('eval_metrics', ['NSAD', 'NCC', 'NMI', 'FSC'])
+        self.fnm_types = kwargs.get("fnm_types", ['mrc'])
         self.flipY = kwargs.get("flipY", False)                     # If True, the registered data will be flipped along Y axis
         self.preserve_scales =  kwargs.get("preserve_scales", True) # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
         self.fit_params =  kwargs.get("fit_params", False)          # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
@@ -8514,8 +9288,8 @@ class FIBSEM_dataset:
         MV_fit_coef = np.polyfit(frame_inds, MillingYVoltage, 1)
         rate_MV = MV_fit_coef[0]*Mill_Volt_Rate_um_per_V*-1.0e3
 
-        Z_pixel_size_WD = rate_WD * self.zbin_factor
-        Z_pixel_size_MV = rate_MV * self.zbin_factor
+        Z_pixel_size_WD = rate_WD
+        Z_pixel_size_MV = rate_MV
 
         return self.milling_data[0], Z_pixel_size_WD, Z_pixel_size_MV, self.milling_data[3], self.milling_data[4]
 
@@ -9011,8 +9785,7 @@ class FIBSEM_dataset:
 
     def transform_and_save(self, DASK_client, save_transformed_dataset=True, save_registration_summary=True, frame_inds=np.array((-1)), **kwargs):
         '''
-        Transform the frames using the cumulative transformation matrix and save the data set into .mrc file
-        
+        Transform the frames using the cumulative transformation matrix and save the data set into .mrc and/or .h5 file
 
         Parameters
         DASK_client : instance of the DASK client object
@@ -9022,7 +9795,6 @@ class FIBSEM_dataset:
             If True, the registration analysis data will be saved into XLSX file
         frame_inds : int array (or list)
             Array of frame indecis. If not set or set to np.array((-1)), all frames will be transformed
-
         
         kwargs
         ---------
@@ -9034,11 +9806,16 @@ class FIBSEM_dataset:
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
             data directory (path)
+        fnm_types : list of strings
+            File type(s) for output data. Options are: ['h5', 'mrc'].
+            Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
         fnm_reg : str
             filename for the final registed dataset
         ImgB_fraction : float
             fractional ratio of Image B to be used for constructing the fuksed image:
             ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
+        add_offset : boolean
+            If True - the Dark Oount offset will be added before saving to make values positive (set True if saving into BigDataViewer HDF5 - it uses UI16 data format)
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         perfrom_transformation : boolean
@@ -9053,6 +9830,8 @@ class FIBSEM_dataset:
             If True, the data will be flipped along Y-axis. Default is False.
         zbin_factor : int
             binning factor along Z-axis
+        eval_metrics : list of str
+            list of evaluation metrics to use. default is ['NSAD', 'NCC', 'NMI', 'FSC']
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -9063,7 +9842,11 @@ class FIBSEM_dataset:
         stop_evaluation_box : list of 4 int
             see above
         save_sample_frames_png : bolean
-            If True, sample frames with superimposed eval box and registration analysis data will be saved into png files. Default is True.
+            If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
+        dtp  : dtype
+            Python data type for saving. Deafult is int16, the other option currently is uint8.
+        disp_res : bolean
+            If True (default), intermediate messages and results will be displayed.
         
         Returns:
         reg_summary, reg_summary_xlsx
@@ -9096,19 +9879,35 @@ class FIBSEM_dataset:
         YResolution = kwargs.get("YResolution", YResolution_default)
 
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
+        if hasattr(self, 'fnm_types'):
+            fnm_types = kwargs.get("fnm_types", self.fnm_types)
+        else:
+            fnm_types = kwargs.get("fnm_types", ['mrc'])
         ImgB_fraction = kwargs.get("ImgB_fraction", self.ImgB_fraction)
         if self.DetB == 'None':
             ImgB_fraction = 0.0
+        if hasattr(self, 'add_offset'):
+            add_offset = kwargs.get("add_offset", self.add_offset)
+        else:
+            add_offset = kwargs.get("add_offset", False)
         save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
-        dtp = kwargs.get("dtp", self.dtp)
-        zbin_factor =  kwargs.get("zbin_factor", self.zbin_factor)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
+        if hasattr(self, 'eval_metrics'):
+            eval_metrics =  kwargs.get("eval_metrics", self.eval_metrics)
+        else:
+            eval_metrics = kwargs.get('eval_metrics', ['NSAD', 'NCC', 'NMI', 'FSC'])
+        if hasattr(self, 'zbin_factor'):
+            zbin_factor =  kwargs.get("zbin_factor", self.zbin_factor)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
+        else:
+            zbin_factor =  kwargs.get("zbin_factor", 1)
         if hasattr(self, 'voxel_size'):
             voxel_size = kwargs.get("voxel_size", self.voxel_size)
         else:
             voxel_size_default = np.rec.array((self.PixelSize,  self.PixelSize,  self.PixelSize), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
             voxel_size = kwargs.get("voxel_size", voxel_size_default)
+        voxel_size_zbinned = voxel_size.copy()
+        voxel_size_zbinned.z = voxel_size.z * zbin_factor
         if hasattr(self, 'flipY'):
             flipY = kwargs.get("flipY", self.flipY)
         else:
@@ -9137,44 +9936,123 @@ class FIBSEM_dataset:
         start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
         stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         disp_res  = kwargs.get("disp_res", True )
+        dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
         
-        save_kwargs = {'fnm_reg' : fnm_reg,
-                            'use_DASK' : use_DASK,
-                            'DASK_client_retries' : DASK_client_retries,
-                            'ftype' : ftype,
-                            'XResolution' : XResolution,
-                            'YResolution' : YResolution,
-                            'data_dir' : data_dir,
-                            'voxel_size' : voxel_size,
-                            'pad_edges' : pad_edges,
-                            'ImgB_fraction' : ImgB_fraction,
-                            'save_res_png ' : save_res_png ,
-                            'dump_filename' : dump_filename,
-                            'dtp' : dtp,
-                            'zbin_factor' : zbin_factor,
-                            'flipY' : flipY,
-                            'int_order' : int_order,                        
-                            'preserve_scales' : preserve_scales,
-                            'flatten_image' : flatten_image,
-                            'image_correction_file' : image_correction_file,
-                            'perfrom_transformation' : perfrom_transformation,
-                            'invert_data' : invert_data,
-                            'evaluation_box' : evaluation_box,
-                            'sliding_evaluation_box' : sliding_evaluation_box,
-                            'start_evaluation_box' : start_evaluation_box,
-                            'stop_evaluation_box' : stop_evaluation_box,
-                            'save_sample_frames_png' : save_sample_frames_png,
-                            'disp_res' : disp_res}
+        save_kwargs = {'fnm_types' : fnm_types,
+                        'fnm_reg' : fnm_reg,
+                        'use_DASK' : use_DASK,
+                        'DASK_client_retries' : DASK_client_retries,
+                        'ftype' : ftype,
+                        'XResolution' : XResolution,
+                        'YResolution' : YResolution,
+                        'data_dir' : data_dir,
+                        'voxel_size' : voxel_size_zbinned,
+                        'pad_edges' : pad_edges,
+                        'ImgB_fraction' : ImgB_fraction,
+                        'save_res_png ' : save_res_png ,
+                        'dump_filename' : dump_filename,
+                        'dtp' : dtp,
+                        'zbin_factor' : zbin_factor,
+                        'eval_metrics' : eval_metrics,
+                        'flipY' : flipY,
+                        'int_order' : int_order,                        
+                        'preserve_scales' : preserve_scales,
+                        'flatten_image' : flatten_image,
+                        'image_correction_file' : image_correction_file,
+                        'perfrom_transformation' : perfrom_transformation,
+                        'invert_data' : invert_data,
+                        'evaluation_box' : evaluation_box,
+                        'sliding_evaluation_box' : sliding_evaluation_box,
+                        'start_evaluation_box' : start_evaluation_box,
+                        'stop_evaluation_box' : stop_evaluation_box,
+                        'save_sample_frames_png' : save_sample_frames_png,
+                        'save_registration_summary' : save_registration_summary,
+                        'disp_res' : disp_res}
 
-        if perfrom_transformation and hasattr(self, 'tr_matr_cum_residual'):
-            reg_summary, reg_summary_xlsx = transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds,
-                self.fls, self.tr_matr_cum_residual, self.npts, self.error_abs_mean, **save_kwargs)
+        # first, transform, bin and save frame chunks into individual tif files
+        if disp_res:
+            print('Transforming and Saving Intermediate Registered Frames')
+        registered_filenames = transform_and_save_frames(DASK_client, frame_inds, self.fls, self.tr_matr_cum_residual, **save_kwargs)
+        
+        frame0 = tiff.imread(registered_filenames[0])
+        ny, nx = np.shape(frame0)
+        if disp_res:
+            print('Analyzing Registration Quality')
+        if pad_edges and perfrom_transformation:
+            xmn, xmx, ymn, ymx = determine_pad_offsets([ny, nx], self.tr_matr_cum_residual, disp_res)
+            padx = int(xmx - xmn)
+            pady = int(ymx - ymn)
+            xi = int(np.max([xmx, 0]))
+            yi = int(np.max([ymx, 0]))
         else:
-            error_abs_mean = np.zeros(len(self.fls)-1)
-            npts = np.zeros(len(self.fls)-1)
-            tr_matr_cum_residual = np.array([np.eye(3,3) for i in np.arange(len(self.fls))])
-            reg_summary, reg_summary_xlsx = transform_and_save_dataset(DASK_client, save_transformed_dataset, save_registration_summary, frame_inds,
-                self.fls, tr_matr_cum_residual, npts, error_abs_mean, **save_kwargs)
+            padx = 0
+            pady = 0
+            xi = 0
+            yi = 0
+        if sliding_evaluation_box:
+            dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+            dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+        else:
+            dx_eval = 0
+            dy_eval = 0
+
+        eval_bounds = []
+        for j, registered_filename in enumerate(tqdm(registered_filenames, desc='Setting up evaluation bounds', display = disp_res)):
+            if sliding_evaluation_box:
+                xi_eval = xi + start_evaluation_box[2] + dx_eval*j//nz
+                yi_eval = yi + start_evaluation_box[0] + dy_eval*j//nz
+                if start_evaluation_box[3] > 0:
+                    xa_eval = xi_eval + start_evaluation_box[3]
+                else:
+                    xa_eval = nx
+                if start_evaluation_box[1] > 0:
+                    ya_eval = yi_eval + start_evaluation_box[1]
+                else:
+                    ya_eval = ny
+            else:
+                xi_eval = xi + evaluation_box[2]
+                if evaluation_box[3] > 0:
+                    xa_eval = xi_eval + evaluation_box[3]
+                else:
+                    xa_eval = nx
+                yi_eval = yi + evaluation_box[0]
+                if evaluation_box[1] > 0:
+                    ya_eval = yi_eval + evaluation_box[1]
+                else:
+                    ya_eval = ny
+            eval_bounds.append([xi_eval, xa_eval, yi_eval, ya_eval])
+
+        save_kwargs['eval_bounds'] = eval_bounds
+
+        reg_summary, reg_summary_xlsx = analyze_registration_frames(DASK_client, registered_filenames, **save_kwargs)
+
+        if save_transformed_dataset:
+            if add_offset:
+                offset = self.Scaling[1, 0] * (1.0-ImgB_fraction) + self.Scaling[1, 1] * ImgB_fraction
+            if disp_res:
+                print("Creating Dask Array Stack")
+            # now build dask array of the transformed dataset
+            # read the first file to get the shape and dtype (ASSUMING THAT ALL FILES SHARE THE SAME SHAPE/TYPE)
+            lazy_imread = dask.delayed(tiff.imread)  # lazy reader
+            lazy_arrays = [lazy_imread(fn) for fn in registered_filenames]
+            dask_arrays = [ da.from_delayed(delayed_reader, shape=frame0.shape, dtype=frame0.dtype)   for delayed_reader in lazy_arrays]
+            # Stack infividual frames into one large dask.array
+            if add_offset:
+                FIBSEMstack = da.stack(dask_arrays, axis=0) - offset
+            else:
+                FIBSEMstack = da.stack(dask_arrays, axis=0)
+            #nz, ny, nx = FIBSEMstack.shape
+            fnms_saved = save_data_stack(FIBSEMstack, **save_kwargs)
+        else:
+            if disp_res:
+                print('Registered data set is NOT saved into a file')
+
+        # Remove Intermediate Registered Frame Files
+        for registered_filename in tqdm(registered_filenames, desc='Removing Intermediate Registered Frame Files: ', display = disp_res):
+            try:
+                os.remove(registered_filename)
+            except:
+                pass
 
         return reg_summary, reg_summary_xlsx
 
@@ -9784,7 +10662,15 @@ class FIBSEM_dataset:
             kwargs['flipY'] = flipY
             kwargs['invert_data'] = invert_data
             DASK_client = ''
-            br_res, br_res_xlsx = self.transform_and_save(DASK_client, save_transformed_dataset=False, save_registration_summary=False, frame_inds=frame_inds, use_DASK=False, save_sample_frames_png=False, **kwargs)
+            kwargs['disp_res'] = False 
+            br_res, br_res_xlsx = self.transform_and_save(DASK_client,
+                                                                save_transformed_dataset=False,
+                                                                save_registration_summary=False,
+                                                                frame_inds=frame_inds,
+                                                                use_DASK=False,
+                                                                save_sample_frames_png=False,
+                                                                eval_metrics = ['NCC'],
+                                                                **kwargs)
             br_results.append(br_res)
 
             if invert_data:
@@ -9820,14 +10706,20 @@ class FIBSEM_dataset:
 
         fig, axs = subplots(4,1, figsize=(6,11))
         fig.subplots_adjust(left=0.12, bottom=0.06, right=0.99, top=0.96, wspace=0.25, hspace=0.24)
-        ncc0 = (br_results[0])['Image NCC']
+        try:
+            ncc0 = (br_results[0])['NCC']
+        except:
+            ncc0 = (br_results[0])['Image NCC']
         SNR0 = ncc0 / (1-ncc0)
         SNRimpr_cc = []
         SNRs = []
 
         for j, (ImgB_fraction, br_result) in enumerate(zip(ImgB_fractions, br_results)):
             my_col = get_cmap("gist_rainbow_r")((nbr-j)/(nbr-1))
-            ncc = br_result['Image NCC']
+            try:
+                ncc = br_result['NCC']
+            except:
+                ncc = br_result['Image NCC']
             SNR = ncc / (1.0-ncc)
             frames_local = br_result['Frame']
             axs[0].plot(frames_local, SNR, color=my_col, label = 'ImgB fraction = {:.2f}'.format(ImgB_fraction))
