@@ -2016,108 +2016,9 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     mrc.close()
 
 
-def zbin_crop_mrc_stack(mrc_filename, **kwargs):
-    '''
-    Bins a 3D mrc stack along Z-direction (optional binning in X-Y plane as well) and crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
-
-    Parameters:
-        mrc_filename : str
-            name (full path) of the mrc file to be binned
-    **kwargs:
-        zbin_factor : int
-            binning factor in z-direction
-        xbin_factor : int
-            binning factor in x-direction
-        ybin_factor : int
-            binning factor in y-direction
-        mode  : str
-            Binning mode. Default is 'mean', other option is 'sum'
-        frmax : int
-            Maximum frame to bin. If not present, the entire file is binned
-        binned_mrc_filename : str
-            name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
-        xi : int
-            left edge of the crop
-        xa : int
-            right edge of the crop
-        yi : int
-            top edge of the crop
-        ya : int
-            bottom edge of the crop
-        fri : int
-            start frame
-        fra : int
-            stop frame
-    
-    '''
-    xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
-    ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
-    zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
-
-    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
-    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
-    header = mrc_obj.header
-    '''
-        mode 0 -> uint8
-        mode 1 -> int16
-        mode 2 -> float32
-        mode 4 -> complex64
-        mode 6 -> uint16
-    '''
-    mrc_mode = mrc_obj.header.mode
-    voxel_size_angstr = mrc_obj.voxel_size
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
-    frmax = kwargs.get('frmax', nz)
-    xi = kwargs.get('xi', 0)
-    xa = kwargs.get('xa', nx)
-    yi = kwargs.get('yi', 0)
-    ya = kwargs.get('ya', ny)
-    fri = kwargs.get('fri', 0)
-    fra = kwargs.get('fra', nz)
-    nx_binned = (xa-xi)//xbin_factor
-    ny_binned = (ya-yi)//ybin_factor
-    xa = xi + nx_binned * xbin_factor
-    ya = yi + ny_binned * ybin_factor
-    binned_mrc_filename_default = mrc_filename.replace('.mrc', '_zbin{:d}_crop.mrc'.format(zbin_factor))
-    binned_mrc_filename = kwargs.get('binned_mrc_filename', binned_mrc_filename_default)
-    dt = type(mrc_obj.data[0,0,0])
-    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
-    if mode == 'sum':
-        mrc_mode = 1
-        dt = int16
-    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    st_frames = np.arange(fri, fra, zbin_factor)
-    mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
-    voxel_size_angstr_new = voxel_size_angstr.copy()
-    voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
-    voxel_size_angstr_new.y = voxel_size_angstr.y * ybin_factor
-    voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
-    print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
-    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
-    mrc_new.voxel_size = voxel_size_angstr_new
-    #mrc_new.header.cella = voxel_size_angstr_new
-
-    for j, st_frame in enumerate(tqdm(st_frames, desc='Binning MRC stack')):
-        # need to fix this
-        if mode == 'mean':
-            zbinnd_fr = np.mean(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
-        else:
-            zbinnd_fr = np.sum(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
-        if (xbin_factor > 1) or (ybin_factor > 1):
-            if mode == 'mean':
-                zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
-            else:
-                zbinnd_fr = np.sum(np.sum(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
-        mrc_new.data[j,:,:] = zbinnd_fr.astype(dt) 
-   
-    mrc_obj.close()
-    mrc_new.close()
-
-
 def bin_crop_mrc_stack(mrc_filename, **kwargs):
     '''
-    Bins a 3D mrc stack along Z-direction (optional binning in X-Y plane as well) and crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
+    Bins and crops a 3D mrc stack along X-, Y-, or Z-directions and saves it into MRC or HDF5 format. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
 
     Parameters:
         mrc_filename : str
@@ -9832,6 +9733,9 @@ class FIBSEM_dataset:
             binning factor along Z-axis
         eval_metrics : list of str
             list of evaluation metrics to use. default is ['NSAD', 'NCC', 'NMI', 'FSC']
+        fnm_types : list of strings
+            File type(s) for output data. Options are: ['h5', 'mrc'].
+            Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.

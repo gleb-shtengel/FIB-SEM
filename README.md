@@ -74,6 +74,8 @@ You will also need to have these packages installed:
         Read MRC stack and analyze registration - calculate NSAD, NCC, and MI.
     show_eval_box_mrc_stack(mrc_filename, **kwargs)
         Read MRC stack and display the eval box for each frame from the list.
+    bin_crop_mrc_stack(mrc_filename, **kwargs)
+        Bins and crops a 3D mrc stack along X-, Y-, or Z-directions and saves it into MRC or HDF5 format
 
 
 ## TIF stack evaluation Functions
@@ -249,6 +251,11 @@ You will also need to have these packages installed:
         Python data type for saving. Deafult is int16, the other option currently is uint8.
     zbin_factor : int
         Bbinning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1
+    eval_metrics : list of str
+            list of evaluation metrics to use. default is ['NSAD', 'NCC', 'NMI', 'FSC']
+    fnm_types : list of strings
+            File type(s) for output data. Options are: ['h5', 'mrc'].
+            Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
     flipY : boolean
         If True, the registered data will be flipped along Y-axis when saved. Default is False.
     preserve_scales : boolean
