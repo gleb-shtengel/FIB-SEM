@@ -292,10 +292,10 @@ You will also need to have these packages installed:
     -------
     SIFT_evaluation(eval_fls = [], **kwargs)
         Evaluate SIFT settings and perfromance of few test frames (eval_fls).
-    convert_raw_data_to_tif_files(sDASK_client = '', **kwargs):
+    convert_raw_data_to_tif_files(sDASK_client = '', **kwargs)
         Convert binary ".dat" files into ".tif" files
-    calc_data_range(DASK_client, **kwargs)
-        Calculate Min and Max range for I8 conversion of the data (open CV SIFT requires I8)
+    evaluate_FIBSEM_statistics(self, DASK_client, **kwargs)
+        Evaluates parameters of FIBSEM data set (data Min/Max, Working Distance, Milling Y Voltage, FOV center positions).
     extract_keypoints(DASK_client, **kwargs)
         Extract Key-Points and Descriptors
     determine_transformations(DASK_client, **kwargs)

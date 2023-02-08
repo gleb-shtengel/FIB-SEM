@@ -2949,7 +2949,10 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", Saved_Mill_Volt_Rate_um_per_V)
     
     print('Loading Working Distance and Milling Y Voltage Data')
-    int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='Milling Rate Data')
+    try:
+        int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='FIBSEM Data')
+    except:
+        int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='Milling Rate Data')
     fr = int_results['Frame']
     WD = int_results['Working Distance (mm)']
     MillingYVoltage = int_results['Milling Y Voltage (V)']
@@ -2978,12 +2981,12 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     axs[1].legend(fontsize=12)
     axs[1].text(0.02, 0.05, 'Milling Voltage to Z conversion: {:.4f} µm/V'.format(Mill_Volt_Rate_um_per_V), transform=axs[1].transAxes, fontsize=12)
     axs[1].set_xlabel('Frame')
-    ldm = 50
-    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
+    ldm = 70
+    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]
     try:
-        axs[0].text(-0.1, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
+        axs[0].text(-0.15, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
     except:
-        axs[0].text(-0.1, 1.05, data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
+        axs[0].text(-0.15, 1.05, data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
     fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','.png')), dpi=300)
 
 
@@ -3008,7 +3011,10 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     Sample_ID = saved_kwargs.get("Sample_ID", '')
     
     print('Loading FOV Center Location Data')
-    int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='Milling Rate Data')
+    try:
+        int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='FIBSEM Data')
+    except:
+        int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='Milling Rate Data')
     fr = int_results['Frame']
     center_x = int_results['FOV X Center (Pix)']
     center_y = int_results['FOV Y Center (Pix)']
@@ -3034,14 +3040,14 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     axs[1].set_ylabel('FOV Center Shift (Pix)')
     axs[1].legend(fontsize=12)
     axs[1].set_xlabel('Frame')
-    ldm = 50
-    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
+    ldm = 70
+    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]
     try:
-        axs[0].text(-0.1, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
+        axs[0].text(-0.15, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
     except:
-        axs[0].text(-0.1, 1.05, data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
+        axs[0].text(-0.15, 1.05, data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
     fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','_FOV_XYcenter.png')), dpi=300)
-    return trend_x, trend_y
+    return
 
 
 def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
@@ -3064,7 +3070,10 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
     
     print('Loading MinMax Data')
-    int_results = pd.read_excel(minmax_xlsx_file, sheet_name='MinMax Data')
+    try:
+        int_results = pd.read_excel(minmax_xlsx_file, sheet_name='FIBSEM Data')
+    except:
+        int_results = pd.read_excel(minmax_xlsx_file, sheet_name='MinMax Data')
     frames = int_results['Frame']
     frame_min = int_results['Min']
     frame_max = int_results['Max']
@@ -3102,12 +3111,19 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     ax0.text(len(frame_min)/20.0, data_max_glob+dxn/2.25, 'data_max_glob={:.1f}'.format(data_max_glob), fontsize = fs-2, c='r')
     ax0.text(len(frame_min)/20.0, data_min_glob+dxn*4.5, 'threshold_min={:.1e}'.format(threshold_min), fontsize = fs-2, c='b')
     ax0.text(len(frame_min)/20.0, data_min_glob+dxn*5.5, 'threshold_max={:.1e}'.format(threshold_max), fontsize = fs-2, c='r')
-    ldm = 50
-    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]  
+    ldm = 70
+    data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]
+
+    try:
+        ax0.text(-0.15, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
+    except:
+        ax0.text(-0.15, 1.05, data_dir_short, fontsize = fs-2, transform=ax0.transAxes)
+    '''
     try:
         fig0.suptitle(Sample_ID + '    ' +  data_dir_short, fontsize = fs-2)
     except:
         fig0.suptitle(data_dir_short, fontsize = fs-2)
+    '''
     fig0.savefig(os.path.join(data_dir, minmax_xlsx_file.replace('.xlsx','.png')), dpi=300)
 
 
@@ -3506,288 +3522,6 @@ def generate_report_transf_matrix_details(transf_matrix_bin_file, *kwarrgs):
         fig5.savefig(fn.replace('.mrc', '_Transform_Summary.png'), dpi=300)
 
 
-def generate_report_from_xls_registration_summary_old(file_xlsx, **kwargs):
-    '''
-    Generate Report Plot for FIB-SEM data set registration from xlxs workbook file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
-    XLS file should have pages (sheets):
-        - 'Registration Quality Statistics' - containing columns with the the evaluation box data and registration quality metrics data: 
-            'Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI'
-        - 'Stack Info' - containing the fields:
-            'Stack Filename' and 'data_dir'
-        - 'SIFT kwargs' (optional) - containg the kwargs with SIFT registration parameters.
-
-    Parameters:
-    xlsx_fname : str
-        full path to the XLSX workbook file
-    
-    kwargs
-    ---------
-    sample_frame_files : list
-        List of paths to sample frame images
-    png_file : str
-        filename to save the results. Default is file_xlsx with extension '.xlsx' replaced with '.png'
-    invert_data : bolean
-        If True, the representative data frames will use inverse LUT. 
-    dump_filename : str
-        Filename of a binary dump of the FIBSEM_dataset object.
-
-    '''
-    xlsx_name = os.path.basename(os.path.abspath(file_xlsx))
-    base_dir = os.path.dirname(os.path.abspath(file_xlsx))
-    sample_frame_mask = xlsx_name.replace('_RegistrationQuality.xlsx', '_sample_image_frame*.*')
-    unsorted_sample_frame_files = glob.glob(os.path.join(base_dir, sample_frame_mask))
-    try:
-        unsorter_frames = [int(x.split('frame')[1].split('.png')[0]) for x in unsorted_sample_frame_files]
-        sorted_inds = argsort(unsorter_frames)
-        existing_sample_frame_files = [unsorted_sample_frame_files[i] for i in sorted_inds]
-    except:
-        existing_sample_frame_files = unsorted_sample_frame_files
-    sample_frame_files = kwargs.get('sample_frame_files', existing_sample_frame_files)
-    png_file_default = file_xlsx.replace('.xlsx','.png')
-    png_file = kwargs.get("png_file", png_file_default)
-    dump_filename = kwargs.get("dump_filename", '')
-    
-    Regisration_data = pd.read_excel(file_xlsx, sheet_name='Registration Quality Statistics')
-    # columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
-    frames = Regisration_data['Frame']
-    xi_evals = Regisration_data['xi_eval']
-    xa_evals = Regisration_data['xa_eval']
-    yi_evals = Regisration_data['yi_eval']
-    ya_evals = Regisration_data['ya_eval']
-    image_nsad = Regisration_data['Image NSAD']
-    image_ncc = Regisration_data['Image NCC']
-    image_nmi = Regisration_data['Image MI']
-    nsads = [np.mean(image_nsad), np.median(image_nsad), np.std(image_nsad)] 
-    nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
-    nmis = [np.mean(image_nmi), np.median(image_nmi), np.std(image_nmi)]
-    num_frames = len(frames)
-    
-    stack_info_dict = read_kwargs_xlsx(file_xlsx, 'Stack Info', **kwargs)
-    if 'dump_filename' in stack_info_dict.keys():
-        dump_filename = kwargs.get("dump_filename", stack_info_dict['dump_filename'])
-    else:
-        dump_filename = kwargs.get("dump_filename", '')
-    try:
-        if np.isnan(dump_filename):
-            dump_filename = ''
-    except:
-        pass
-    stack_info_dict['dump_filename'] = dump_filename
-    
-    invert_data =  kwargs.get("invert_data", stack_info_dict['invert_data'])
-
-    default_stack_name = file_xlsx.replace('_RegistrationQuality.xlsx','.mrc')
-    stack_filename = os.path.normpath(stack_info_dict.get('Stack Filename', default_stack_name))
-    data_dir = stack_info_dict.get('data_dir', '')
-    ftype = stack_info_dict.get("ftype", 0)
-    
-    zbin_factor = stack_info_dict.get("zbin_factor", 1)
-    ImgB_fraction = stack_info_dict.get("ImgB_fraction", 0.0)         # fusion fraction. In case if Img B is present, the fused image 
-                                                           # for each frame will be constructed ImgF = (1.0-ImgB_fraction)*ImgA + ImgB_fraction*ImgB
-    Sample_ID = stack_info_dict.get("Sample_ID", '')
-    if Sample_ID is nan:
-        Sample_ID = ''
-    pad_edges =  stack_info_dict.get("pad_edges", True)      
-    solver = stack_info_dict.get("solver", 'RANSAC')
-    drmax = stack_info_dict.get("drmax", 2.0)
-    
-    preserve_scales =  stack_info_dict.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
-    fit_params =  stack_info_dict.get("fit_params", ['LF', 0, 0])           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
-                                                            # window size 701, polynomial order 3
-    subtract_linear_fit =  stack_info_dict.get("subtract_linear_fit", [True, True])   # If True, the linear slope will be subtracted from the cumulative shifts.
-    subtract_FOVtrend_from_fit = stack_info_dict.get("subtract_FOVtrend_from_fit", [True, True]) 
-    perfrom_transformation =  stack_info_dict.get("perfrom_transformation", True)
-    disp_res = stack_info_dict.get("disp_res", True)
-    stack_exists = os.path.exists(stack_filename)
-    flatten_image = stack_info_dict.get("flatten_image", False)
-    image_correction_file = stack_info_dict.get("image_correction_file", '')
-    zbin_factor = stack_info_dict.get("zbin_factor", 1)
-    
-    try:
-        transform_name = re.search('FIBSEM_SIFT_gs.(.+?)Transform', stack_info_dict['TransformType']).group(1)+'Transform'
-        transform_name = kwargs.get('TransformType', transform_name)
-        if preserve_scales:
-            preserve_scales_string = 'Preserve Scales: ON, Meth: ' + fit_params[0] + ', ' + str(fit_params[1:])
-        else:
-            preserve_scales_string = 'Preserve Scales: OFF'
-        Subtr_Lin_Fit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
-        Pad_Edg = 'ON' if  pad_edges else 'OFF'
-        cond_str = transform_name + ' w/ ' + solver + ', drmax={:.1f},  '.format(drmax) + preserve_scales_string + '.    Subtract Linear Fit:' + Subtr_Lin_Fit + ',  Pad Edges:'+Pad_Edg
-    except:
-        transform_name = kwargs.get('TransformType', '')
-        cond_str = transform_name
-    
-    fig, axs = subplots(2,2, figsize=(12, 8), sharex=True)
-    fig.subplots_adjust(left=0.06, bottom=0.06, right=0.99, top=0.92, wspace=0.18, hspace=0.04)
-    axs[0,0].axis('off')
-    axs_fr0 = fig.add_subplot(6,2,1)
-    axs_fr1 = fig.add_subplot(6,2,3)
-    axs_fr2 = fig.add_subplot(6,2,5)
-    axs_frms = [axs_fr0, axs_fr1, axs_fr2]
-    fs=12
-    lwl=1
-    
-    if len(sample_frame_files)>0:
-        sample_frame_images_available = True
-        for jf, ax in enumerate(axs_frms):
-            try:
-                ax.imshow(mpimg.imread(sample_frame_files[jf]))
-                ax.axis(False)
-            except:
-                pass
-    else:
-        sample_frame_images_available = False
-        sample_data_available = True
-        if stack_exists:
-            print('Will use sample images from the registered stack')
-            use_raw_data = False
-            if Path(stack_filename).suffix == '.mrc':
-                mrc_obj = mrcfile.mmap(stack_filename, mode='r')
-                header = mrc_obj.header 
-                mrc_mode = header.mode
-                '''
-                mode 0 -> uint8
-                mode 1 -> int16
-                mode 2 -> float32
-                mode 4 -> complex64
-                mode 6 -> uint16
-                '''
-                if mrc_mode==0:
-                    dt_mrc=uint8
-                if mrc_mode==1:
-                    dt_mrc=int16
-                if mrc_mode==2:
-                    dt_mrc=float32
-                if mrc_mode==4:
-                    dt_mrc=complex64
-                if mrc_mode==6:
-                    dt_mrc=uint16
-        else:
-            print('Will use sample images from the raw data')
-            if os.path.exists(dump_filename):
-                print('Trying to recall the data from ', dump_filename)
-            try:
-                print('Looking for the raw data in the directory', data_dir)
-                if ftype == 0:
-                    fls = sorted(glob.glob(os.path.join(data_dir,'*.dat')))
-                    if len(fls) < 1:
-                        fls = sorted(glob.glob(os.path.join(data_dir,'*/*.dat')))
-                if ftype == 1:
-                    fls = sorted(glob.glob(os.path.join(data_dir,'*.tif')))
-                    if len(fls) < 1:
-                        fls = sorted(glob.glob(os.path.join(data_dir,'*/*.tif')))
-                num_frames = len(fls)
-                stack_info_dict['disp_res']=False
-                raw_dataset = FIBSEM_dataset(fls, recall_parameters=os.path.exists(dump_filename), **stack_info_dict)
-                XResolution = raw_dataset.XResolution
-                YResolution = raw_dataset.YResolution
-                if pad_edges and perfrom_transformation:
-                    #shape = [test_frame.YResolution, test_frame.XResolution]
-                    shape = [YResolution, XResolution]
-                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual, False)
-                    padx = int(xmx - xmn)
-                    pady = int(ymx - ymn)
-                    xi = int(np.max([xmx, 0]))
-                    yi = int(np.max([ymx, 0]))
-                    # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
-                    # so that the transformed images are not clipped.
-                    # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
-                    # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
-                    # those are calculated below base on the amount of padding calculated above
-                    shift_matrix = np.array([[1.0, 0.0, xi],
-                                             [0.0, 1.0, yi],
-                                             [0.0, 0.0, 1.0]])
-                    inv_shift_matrix = np.linalg.inv(shift_matrix)
-                else:
-                    padx = 0
-                    pady = 0
-                    xi = 0
-                    yi = 0
-                    shift_matrix = np.eye(3,3)
-                    inv_shift_matrix = np.eye(3,3)
-                xsz = XResolution + padx
-                xa = xi + XResolution
-                ysz = YResolution + pady
-                ya = yi + YResolution
-                use_raw_data = True
-            except:
-                sample_data_available = False
-                use_raw_data = False
-        if sample_data_available:
-            print('Sample data is available')
-        else:
-            print('Sample data is NOT available')
-     
-        if num_frames//10*9 > 0:
-            ev_ind2 = num_frames//10*9
-        else:
-            ev_ind2 = num_frames-1
-        eval_inds = [num_frames//10,  num_frames//2, ev_ind2]
-        #print(eval_inds)
-
-        for j, eval_ind in enumerate(eval_inds):
-            ax = axs_frms[j]
-            if sample_data_available:
-                if stack_exists:
-                    if Path(stack_filename).suffix == '.mrc':
-                        frame_img = (mrc_obj.data[frames[eval_ind], :, :].astype(dt_mrc)).astype(float)
-                    if Path(stack_filename).suffix == '.tif':
-                        frame_img = tiff.imread(stack_filename, key=eval_ind)
-                else:
-                    dtp=float
-                    chunk_frames = np.arange(eval_ind, min(eval_ind+zbin_factor, len(fls)-2))
-                    frame_filenames = np.array(raw_dataset.fls)[chunk_frames]
-                    tr_matrices = np.array(raw_dataset.tr_matr_cum_residual)[chunk_frames]
-                    frame_img = transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
-                            flatten_image, image_correction_file,
-                            perfrom_transformation, tr_matrices, shift_matrix, inv_shift_matrix,
-                            xi, xa, yi, ya,
-                            ImgB_fraction=0.0,
-                            invert_data=False,
-                            int_order=1,
-                            flipY = raw_dataset.flipY)
-                #print(eval_ind, np.shape(frame_img), yi_evals[eval_ind], ya_evals[eval_ind], xi_evals[eval_ind], xa_evals[eval_ind])
-                if use_raw_data:
-                    eval_ind = eval_ind//zbin_factor
-                dmin, dmax = get_min_max_thresholds(frame_img[yi_evals[eval_ind]:ya_evals[eval_ind], xi_evals[eval_ind]:xa_evals[eval_ind]])
-                if invert_data:
-                    ax.imshow(frame_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
-                else:
-                    ax.imshow(frame_img, cmap='Greys', vmin=dmin, vmax=dmax)
-
-                ax.text(0.03, 1.01, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frames[eval_ind], image_nsad[eval_ind], image_ncc[eval_ind], image_nmi[eval_ind]), color='red', transform=ax.transAxes)
-                rect_patch = patches.Rectangle((xi_evals[eval_ind], yi_evals[eval_ind]),abs(xa_evals[eval_ind]-xi_evals[eval_ind])-2,abs(ya_evals[eval_ind]-yi_evals[eval_ind])-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
-                ax.add_patch(rect_patch)
-            ax.axis('off')
-
-        if stack_exists:
-            if Path(stack_filename).suffix == '.mrc':
-                mrc_obj.close()
-    
-    axs[1,0].plot(frames, image_nsad, 'r', linewidth=lwl)
-    axs[1,0].set_ylabel('Normalized Sum of Abs. Diff')
-    axs[1,0].text(0.02, 0.04, 'NSAD mean = {:.3f}   NSAD median = {:.3f}  NSAD STD = {:.3f}'.format(nsads[0], nsads[1], nsads[2]), transform=axs[1,0].transAxes, fontsize = fs-1)
-    axs[1,0].set_xlabel('Binned Frame #')
-
-    axs[0,1].plot(frames, image_ncc, 'b', linewidth=lwl)
-    axs[0,1].set_ylabel('Normalized Cross-Correlation')
-    axs[0,1].grid(True)
-    axs[0,1].text(0.02, 0.04, 'NCC mean = {:.3f}   NCC median = {:.3f}  NCC STD = {:.3f}'.format(nccs[0], nccs[1], nccs[2]), transform=axs[0,1].transAxes, fontsize = fs-1)
-
-    axs[1,1].plot(frames, image_nmi, 'g', linewidth=lwl)
-    axs[1,1].set_ylabel('Normalized Mutual Information')
-    axs[1,1].set_xlabel('Binned Frame #')
-    axs[1,1].grid(True)
-    axs[1,1].text(0.02, 0.04, 'NMI mean = {:.3f}   NMI median = {:.3f}  NMI STD = {:.3f}'.format(nmis[0], nmis[1], nmis[2]), transform=axs[1,1].transAxes, fontsize = fs-1)
-    
-    for ax in axs.ravel()[1:-1]:
-        ax.grid(True)
-        
-    fig.suptitle(stack_filename, fontsize = fs-2)
-    axs[0,0].text(-0.1, 1.04, Sample_ID + '    ' +  cond_str, transform=axs[0,0].transAxes)
-    fig.savefig(png_file, dpi=300)
-
-
 def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     '''
     Generate Report Plot for FIB-SEM data set registration from xlxs workbook file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
@@ -3879,7 +3613,6 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     fig.subplots_adjust(left=0.14, bottom=0.04, right=0.99, top=0.98, wspace=0.18, hspace=0.04)
     for ax in axs[0:3]:
         ax.axis('off')
-    
     
     fs=12
     lwl=1
@@ -4045,7 +3778,6 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     fig.savefig(png_file, dpi=300)
 
 
-
 def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     '''
     Read and plot together multiple registration quality summaries.
@@ -4089,7 +3821,6 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     nmi_bounds = kwargs.get("nmi_bounds", [0.0, 0.0])
     frame_inds = kwargs.get("frame_inds", [])
 
-    
     nfls = len(data_files)
     reg_datas = []
     for data_file in data_files:
@@ -6410,10 +6141,12 @@ def list_to_kp(inp_list):
     kp.class_id = inp_list[5]
     return kp
 
-def get_min_max_thresholds_file(params):
-    '''
-    Calculates the data range of the EM data ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
 
+def evaluate_FIBSEM_frame(params):
+    '''
+    Evaluates single FIB-SEM frame and extract parameters: data min/max, milling rate, FOV center.
+
+    1. Calculates the data range of the EM data ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
     Calculates histogram of pixel intensities of of the loaded image
     with number of bins determined by parameter nbins (default = 256)
     and normalizes it to get the probability distribution function (PDF),
@@ -6421,6 +6154,8 @@ def get_min_max_thresholds_file(params):
     Then given the threshold_min, threshold_max parameters,
     the minimum and maximum values for the image are found by finding
     the intensities at which CDF= threshold_min and (1- threshold_max), respectively.
+
+    2. Extracts WD, MillingYVoltage, center_x, center_y data from the header
     
     Parameters:
     ----------
@@ -6448,8 +6183,173 @@ def get_min_max_thresholds_file(params):
     thr_min = kwargs.get("threshold_min", 1e-3)
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
-    dmin, dmax = FIBSEM_frame(fl, ftype=ftype).get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins)
-    return [dmin, dmax]
+    frame = FIBSEM_frame(fl, ftype=ftype)
+    if frame.EightBit ==1:
+        dmin = uint8(0)
+        dmax =  uint8(255)
+    else:
+        dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins)
+    if ftype == 0:
+        try:
+            WD = frame.WD
+            MillingYVoltage = frame.MillingYVoltage
+        except:
+            WD = 0
+            MillingYVoltage = 0
+        try:
+            center_x = (frame.FirstPixelX + frame.XResolution/2.0)
+            center_y = (frame.FirstPixelY + frame.YResolution/2.0)
+        except:
+            center_x = 0
+            center_y = 0
+    else:
+        WD = 0
+        MillingYVoltage = 0
+        center_x = 0
+        center_y = 0
+
+    return dmin, dmax, WD, MillingYVoltage, center_x, center_y
+
+
+def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
+    '''
+    Evaluates parameters of FIBSEM data set (Min/Max, Working Distance (WD), Milling Y Voltage (MV), FOV center positions).
+
+    Parameters:
+    use_DASK : boolean
+        perform remote DASK computations
+    DASK_client_retries : int (default to 0)
+        Number of allowed automatic retries if a task fails
+
+    kwargs:
+    ftype : int
+        file type (0 - Shan Xu's .dat, 1 - tif)
+    frame_inds : array
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+    data_dir : str
+        data directory (path) for saving the data
+    threshold_min : float
+        CDF threshold for determining the minimum data value
+    threshold_max : float
+        CDF threshold for determining the maximum data value
+    nbins : int
+        number of histogram bins for building the PDF and CDF
+    sliding_minmax : boolean
+        if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
+        if False - same data_min_glob and data_max_glob will be used for all files
+    fit_params : list
+        Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
+        Other options are:
+            ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
+            ['PF', 2]  - use polynomial fit (in this case of order 2)
+    Mill_Volt_Rate_um_per_V : float
+        Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+    FIBSEM_Data_xlsx : str
+        Filepath of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)
+    disp_res : bolean
+        If True (default), intermediate messages and results will be displayed.
+
+    Returns:
+    list of 9 parameters: FIBSEM_Data_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y
+        FIBSEM_Data_xlsx : str
+            path to Excel file with the FIBSEM data
+        data_min_glob : float   
+            min data value for I8 conversion (open CV SIFT requires I8)
+        data_man_glob : float   
+            max data value for I8 conversion (open CV SIFT requires I8)
+        data_min_sliding : float array
+            min data values (one per file) for I8 conversion
+        data_max_sliding : float array
+            max data values (one per file) for I8 conversion
+        
+        mill_rate_WD : float array
+            Milling rate calculated based on Working Distance (WD)
+        mill_rate_MV : float array
+            Milling rate calculated based on Milling Y Voltage (MV)
+        center_x : float array
+            FOV Center X-coordinate extrated from the header data
+        center_y : float array
+            FOV Center Y-coordinate extrated from the header data
+    '''
+
+    nfrs = len(fls)
+    use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    ftype = kwargs.get("ftype", 0)
+    frame_inds = kwargs.get("frame_inds", np.arange(len(fls)))
+    data_dir = kwargs.get("data_dir", '')
+    threshold_min = kwargs.get("threshold_min", 1e-3)
+    threshold_max = kwargs.get("threshold_max", 1e-3)
+    nbins = kwargs.get("nbins", 256)
+    sliding_minmax = kwargs.get("sliding_minmax", True)
+    fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+                                                            # window size 701, polynomial order 3
+    Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
+    kwargs['Mill_Volt_Rate_um_per_V'] = Mill_Volt_Rate_um_per_V
+    
+    FIBSEM_Data_xlsx = kwargs.get('FIBSEM_data_xlsx', 'FIBSEM_Data.xlsx')
+    FIBSEM_Data_xlsx_path = os.path.join(data_dir, FIBSEM_Data_xlsx)
+    disp_res = kwargs.get("disp_res", False)
+
+    frame = FIBSEM_frame(fls[0], ftype=ftype)
+    if frame.EightBit == 1 and ftype == 1:
+        if disp_res:
+            print('Original data is 8-bit, no need to find Min and Max for 8-bit conversion')
+        data_min_glob = uint8(0)
+        data_max_glob =  uint8(255)
+        data_min_sliding = np.zeros(nfrs, dtype=uint8)
+        data_max_sliding = np.zeros(nfrs, dtype=uint8)+ uint8(255)
+        data_minmax_glob = np.zeros((nfrs, 2), dtype=uint8)
+        data_minmax_glob[1, :] = uint8(255)
+        mill_rate_WD = np.zeros(nfrs, dtype=float)
+        mill_rate_MV = np.zeros(nfrs, dtype=float)
+        center_x = np.zeros(nfrs, dtype=float)
+        center_y = np.zeros(nfrs, dtype=float)
+
+    else:
+        params_s2 = [[fl, kwargs] for fl in fls]
+
+        if use_DASK:
+            if disp_res:
+                print('Using DASK distributed')
+            futures = DASK_client.map(evaluate_FIBSEM_frame, params_s2, retries = DASK_client_retries)
+            results_s2 = np.array(DASK_client.gather(futures))
+        else:
+            if disp_res:
+                print('Using Local Computation')
+            results_s2 = np.zeros((nfrs, 6))
+            for j, param_s2 in enumerate(tqdm(params_s2, desc='Evaluating FIB-SEM frames (data min/max, mill rate, FOV shifts): '), display = disp_res):
+                results_s2[j, :] = evaluate_FIBSEM_frame(param_s2)
+
+        data_minmax_glob = results_s2[:, 0:2]
+        data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
+        trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
+        data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
+        data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
+        mill_rate_WD = results_s2[:, 2]
+        mill_rate_MV = results_s2[:, 3]
+        center_x = results_s2[:, 4]
+        center_y = results_s2[:, 5]
+
+    if disp_res:
+        print('Saving the FIBSEM dataset statistics (Min/Max, Mill Rate, FOV Shifts into the file: ', FIBSEM_Data_xlsx_path)
+        # Create a Pandas Excel writer using XlsxWriter as the engine.
+    xlsx_writer = pd.ExcelWriter(FIBSEM_Data_xlsx_path, engine='xlsxwriter')
+    columns=['Frame', 'Min', 'Max', 'Sliding Min', 'Sliding Max', 'Working Distance (mm)', 'Milling Y Voltage (V)', 'FOV X Center (Pix)', 'FOV Y Center (Pix)']
+    minmax_df = pd.DataFrame(np.vstack((frame_inds.T,
+        data_minmax_glob.T,
+        data_min_sliding.T,
+        data_max_sliding.T,
+        mill_rate_WD.T,
+        mill_rate_MV.T,
+        center_x.T,
+        center_y.T)).T, columns = columns, index = None)
+    minmax_df.to_excel(xlsx_writer, index=None, sheet_name='FIBSEM Data')
+    kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
+    kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
+    xlsx_writer.save()
+           
+    return FIBSEM_Data_xlsx_path, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y
 
 
 # Routines to extract Key-Points and Descriptors
@@ -7423,7 +7323,6 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     Returns:
     dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts
     '''
-
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
@@ -7589,151 +7488,6 @@ def save_inlens_data(fname):
     tfr = FIBSEM_frame(fname)
     tfr.save_images_tif('A')
     return fname
-
-def calc_data_range_dataset(fls, DASK_client, **kwargs):
-    nfrs = len(fls)
-    use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
-    ftype = kwargs.get("ftype", 0)
-    Sample_ID = kwargs.get("Sample_ID", '')
-    data_dir = kwargs.get("data_dir", '')
-    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
-    EightBit = kwargs.get("EightBit", 0)
-    threshold_min = kwargs.get("threshold_min", 1e-3)
-    threshold_max = kwargs.get("threshold_max", 1e-3)
-    nbins = kwargs.get("nbins", 256)
-    sliding_minmax = kwargs.get("sliding_minmax", True)
-    disp_res = kwargs.get("disp_res", True)
-    minmax_xlsx = kwargs.get('minmax_xlsx', 'Data_MinMax.xlsx')
-    fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
-                                                            # window size 701, polynomial order 3
-    if EightBit == 1:
-        print('Original data is 8-bit, no need to find Min and Max for 8-bit conversion')
-        data_min_glob = uint8(0)
-        data_max_glob =  uint8(255)
-        data_min_sliding = np.zeros(nfrs, dtype=uint8)
-        data_max_sliding = np.zeros(nfrs, dtype=uint8)+ uint8(255)
-        data_minmax_glob = np.zeros((nfrs, 2), dtype=uint8)
-        data_minmax_glob[1, :] = uint8(255)
-    else:
-        params_s2 = [[fl, kwargs] for fl in fls]
-
-        if use_DASK:
-            print('Using DASK distributed')
-            futures = DASK_client.map(get_min_max_thresholds_file, params_s2, retries = DASK_client_retries)
-            data_minmax_glob = np.array(DASK_client.gather(futures))
-        else:
-            print('Using Local Computation')
-            data_minmax_glob = np.zeros((nfrs, 2))
-            for j, param_s2 in enumerate(tqdm(params_s2, desc='Calculating the Global Data Range: ')):
-                data_minmax_glob[j, :] = get_min_max_thresholds_file(param_s2)
-
-        #data_min_glob = np.min(data_minmax_glob)
-        #data_max_glob = np.max(data_minmax_glob)
-        data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
-        trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
-
-        data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
-        data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
-
-    if disp_res:
-        print('Saving the Data Min/Max Statistics into the file: ', minmax_xlsx)
-        # Create a Pandas Excel writer using XlsxWriter as the engine.
-    xlsx_writer = pd.ExcelWriter(minmax_xlsx, engine='xlsxwriter')
-    columns=['Frame', 'Min', 'Max', 'Sliding Min', 'Sliding Max']
-    minmax_df = pd.DataFrame(np.vstack((np.arange(len(fls)).T, data_minmax_glob.T, data_min_sliding, data_max_sliding)).T, columns = columns, index = None)
-    minmax_df.to_excel(xlsx_writer, index=None, sheet_name='MinMax Data')
-    kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
-    kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
-    xlsx_writer.save()
-           
-    return [minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding]
-
-
-def Get_WD_MillYVolt_CenterXY(fl, **kwargs):
-    ftype = kwargs.get("ftype", 0)
-    frame = FIBSEM_frame(fl, ftype=ftype)
-    try:
-        WD = frame.WD
-        MillingYVoltage = frame.MillingYVoltage
-    except:
-        WD = 0
-        MillingYVoltage = 0
-    try:
-        center_x = (frame.FirstPixelX + frame.XResolution/2.0)
-        center_y = (frame.FirstPixelY + frame.YResolution/2.0)
-    except:
-        center_x = 0
-        center_y = 0
-    return WD, MillingYVoltage, center_x, center_y
-
-
-def evaluate_milling_rate(fls, DASK_client, **kwargs):
-    '''
-    Evaluate Milling Rate from Working Distance and Milling Y Voltage Data. ©G.Shtengel 12/2022 gleb.shtengel@gmail.com
-    Parameters
-    DASK_client : 
-    fls : array of strings
-        full array of filenames
-        
-    kwargs
-    ---------
-    use_DASK : boolean
-        perform remote DASK computations
-    DASK_client_retries : int (default to 0)
-        Number of allowed automatic retries if a task fails
-    ftype : int
-        file type (0 - Shan Xu's .dat, 1 - tif)
-    data_dir : str
-        data directory (path)
-    mill_rate_data_xlsx : str
-        Filepath of the Excell file for the Working Distance (WD) and and Milling Y Voltage (MV) data to be saved
-    frame_inds : array
-        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
-    save_res_png  : boolean
-        Save PNG images of the intermediate processing statistics and final registration quality check
-    Mill_Volt_Rate_um_per_V : float
-        Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
-    Returns:
-    mill_rate_data_xlsx, mill_rate_WD, mill_rate_MV
-    Filepath of the Excell file with the Working Distance (WD) and and Milling Y Voltage (MV) data.
-    '''
-    use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
-    disp_res = kwargs.get("disp_res", False)
-    Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
-    kwargs['Mill_Volt_Rate_um_per_V'] = Mill_Volt_Rate_um_per_V
-    frame_inds = kwargs.get("frame_inds", np.arange(len(fls)))
-    mill_rate_data_xlsx = kwargs.get('mill_rate_data_xlsx', 'Mill_Rate_Data.xlsx')
-    
-    if use_DASK:
-        futures = DASK_client.map(Get_WD_MillYVolt_CenterXY, np.take(fls, frame_inds), retries = DASK_client_retries)
-        results = DASK_client.gather(futures)
-    else:
-        results = []
-        try:
-            for fl in tqdm(np.take(fls, frame_inds), desc='Collecting WD and MV data', display = disp_res):
-                results.append(Get_WD_MillYVolt_CenterXY(fl))
-        except:
-            pass
-    results = np.array(results)
-    mill_rate_WD = results[:, 0]
-    mill_rate_MV = results[:, 1]
-    center_x = results[:, 2]
-    center_y = results[:, 3]
-
-    if disp_res:
-        print('Saving the Working Distance, Milling Y Voltage, and FOV Center data into the file: ', minmax_xlsx)
-        # Create a Pandas Excel writer using XlsxWriter as the engine.
-    xlsx_writer = pd.ExcelWriter(mill_rate_data_xlsx, engine='xlsxwriter')
-    columns=['Frame', 'Working Distance (mm)', 'Milling Y Voltage (V)', 'FOV X Center (Pix)', 'FOV Y Center (Pix)' ]
-    millrate_df = pd.DataFrame(np.vstack((frame_inds.T, mill_rate_WD.T, mill_rate_MV.T, center_x.T, center_y.T)).T, columns = columns, index = None)
-    millrate_df.to_excel(xlsx_writer, index=None, sheet_name='Milling Rate Data')
-    kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be saved in transposed format
-    kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
-    xlsx_writer.save()
-    
-    return mill_rate_data_xlsx, mill_rate_WD, mill_rate_MV, center_x, center_y
 
 
 def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
@@ -8583,6 +8337,9 @@ class FIBSEM_dataset:
     convert_raw_data_to_tif_files(DASK_client = '', **kwargs):
         Convert binary ".dat" files into ".tif" files
 
+    evaluate_FIBSEM_statistics(self, DASK_client, **kwargs):
+        Evaluates parameters of FIBSEM data set (data Min/Max, Working Distance, Milling Y Voltage, FOV center positions).
+
     calc_data_range(DASK_client, **kwargs):
         Calculate Min and Max range for I8 conversion of the data (open CV SIFT requires I8)
 
@@ -9025,6 +8782,143 @@ class FIBSEM_dataset:
             print('Step 2a: Quick check if all files were converted: ', np.array_equal(self.fls, fls_new))
         else:
             print('Step 2a: data is already in TIF format')
+
+
+    def evaluate_FIBSEM_statistics(self, DASK_client, **kwargs):
+        '''
+        Evaluates parameters of FIBSEM data set (Min/Max, Working Distance (WD), Milling Y Voltage (MV), FOV center positions).
+
+        Parameters:
+        use_DASK : boolean
+            perform remote DASK computations
+        DASK_client_retries : int (default to 0)
+            Number of allowed automatic retries if a task fails
+
+        kwargs:
+        ftype : int
+            file type (0 - Shan Xu's .dat, 1 - tif)
+        frame_inds : array
+            Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+        data_dir : str
+            data directory (path)  for saving the data
+        threshold_min : float
+            CDF threshold for determining the minimum data value
+        threshold_max : float
+            CDF threshold for determining the maximum data value
+        nbins : int
+            number of histogram bins for building the PDF and CDF
+        sliding_minmax : boolean
+            if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
+            if False - same data_min_glob and data_max_glob will be used for all files
+        fit_params : list
+            Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
+            Other options are:
+                ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
+                ['PF', 2]  - use polynomial fit (in this case of order 2)
+        Mill_Volt_Rate_um_per_V : float
+            Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+        FIBSEM_Data_xlsx : str
+            Filepath of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)
+        disp_res : bolean
+            If True (default), intermediate messages and results will be displayed.
+
+        Returns:
+        list of 9 parameters: FIBSEM_Data_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y
+            FIBSEM_Data_xlsx : str
+                path to Excel file with the FIBSEM data
+            data_min_glob : float   
+                min data value for I8 conversion (open CV SIFT requires I8)
+            data_man_glob : float   
+                max data value for I8 conversion (open CV SIFT requires I8)
+            data_min_sliding : float array
+                min data values (one per file) for I8 conversion
+            data_max_sliding : float array
+                max data values (one per file) for I8 conversion
+            
+            mill_rate_WD : float array
+                Milling rate calculated based on Working Distance (WD)
+            mill_rate_MV : float array
+                Milling rate calculated based on Milling Y Voltage (MV)
+            center_x : float array
+                FOV Center X-coordinate extrated from the header data
+            center_y : float array
+                FOV Center Y-coordinate extrated from the header data
+        '''
+        if hasattr(self, "use_DASK"):
+            use_DASK = kwargs.get("use_DASK", self.use_DASK)
+        else:
+            use_DASK = kwargs.get("use_DASK", False)
+        if hasattr(self, "DASK_client_retries"):
+            DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
+        else:
+            DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+        ftype = kwargs.get("ftype", self.ftype)
+        frame_inds = kwargs.get("frame_inds", np.arange(len(self.fls)))
+        data_dir = self.data_dir
+        threshold_min = kwargs.get("threshold_min", self.threshold_min)
+        threshold_max = kwargs.get("threshold_max", self.threshold_max)
+        nbins = kwargs.get("nbins", self.nbins)
+        sliding_minmax = kwargs.get("sliding_minmax", self.sliding_minmax)
+        fit_params = kwargs.get("fit_params", self.fit_params)
+
+        if hasattr(self, 'Mill_Volt_Rate_um_per_V'):
+            Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", self.Mill_Volt_Rate_um_per_V)
+        else:
+            Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
+        FIBSEM_Data_xlsx = kwargs.get('FIBSEM_Data_xlsx', 'FIBSEM_Data_xlsx.xlsx')
+        disp_res = kwargs.get('disp_res', True)
+
+        local_kwargs = {'use_DASK' : use_DASK,
+                        'DASK_client_retries' : DASK_client_retries,
+                        'ftype' : ftype,
+                        'frame_inds' : frame_inds,
+                        'data_dir' : data_dir,
+                        'threshold_min' : threshold_min,
+                        'threshold_max' : threshold_max,
+                        'nbins' : nbins,
+                        'sliding_minmax' : sliding_minmax,
+                        'fit_params' : fit_params,
+                        'Mill_Volt_Rate_um_per_V' : Mill_Volt_Rate_um_per_V,
+                        'FIBSEM_Data_xlsx' : FIBSEM_Data_xlsx,
+                        'disp_res' : disp_res}
+
+        if disp_res:
+            print('Evaluating the parameters of FIBSEM data set (data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)')
+        self.FIBSEM_Data = evaluate_FIBSEM_frames_dataset(self.fls, DASK_client, **local_kwargs)
+        self.data_minmax = self.FIBSEM_Data[0:5]
+        WD = self.FIBSEM_Data[5]
+        MillingYVoltage = self.FIBSEM_Data[6]
+
+        apert = np.min((51, len(self.FIBSEM_Data[7])-1))
+        self.FOVtrend_x = savgol_filter(self.FIBSEM_Data[7]*1.0, apert, 1) - self.FIBSEM_Data[7][0]
+        self.FOVtrend_y = savgol_filter(self.FIBSEM_Data[8]*1.0, apert, 1) - self.FIBSEM_Data[8][0]
+
+        WD_fit_coef = np.polyfit(frame_inds, WD, 1)
+        rate_WD = WD_fit_coef[0]*1.0e6
+    
+        MV_fit_coef = np.polyfit(frame_inds, MillingYVoltage, 1)
+        rate_MV = MV_fit_coef[0]*Mill_Volt_Rate_um_per_V*-1.0e3
+
+        Z_pixel_size_WD = rate_WD
+        Z_pixel_size_MV = rate_MV
+
+        if ftype == 0:
+            if disp_res:
+                if self.zbin_factor > 1:
+                    print('Z pixel (after {:d}-x Z-binning) = {:.2f} nm - based on WD data'.format(self.zbin_factor, Z_pixel_size_WD*self.zbin_factor))
+                    print('Z pixel (after {:d}-x Z-binning) = {:.2f} nm - based on Milling Voltage data'.format(self.zbin_factor, Z_pixel_size_MV*self.zbin_factor))
+                else:
+                    print('Z pixel = {:.2f} nm  - based on WD data'.format(Z_pixel_size_WD))
+                    print('Z pixel = {:.2f} nm  - based on Milling Voltage data'.format(Z_pixel_size_MV))
+
+            self.voxel_size = np.rec.array((self.PixelSize,  self.PixelSize,  Z_pixel_size_WD), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
+        else:
+            if disp_res:
+                print('No milling rate data is available, isotropic voxel size is set to {:.2f} nm'.format(self.PixelSize))
+            self.voxel_size = np.rec.array((self.PixelSize,  self.PixelSize,  Z_pixel_size_WD), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
+
+        return self.FIBSEM_Data
+
 
 
     def calc_data_range(self, DASK_client, **kwargs):
