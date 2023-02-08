@@ -1,4 +1,11 @@
 # This is a repository for FIB-SEM data processing and analysis
+The main features of this workflow:
+-   Performs analysis of image noise statistics that allows determining optimal ratio of InLens and ESB signals for fused image with increased SNR.
+-   Performs image flattening to correct for non-uniform detector sensitivity.
+-   Allows various transformation models for stack registration (Rigid Translation, Translation and Scale, Similarity Transformation, Affine Transformation, as well as Regularized Affine Transformation).
+-   Allows for evaluation of the registration quality using various metrics (Normalized Sum of Absolute Differences, Normalized Cross-Correlation, Normalized Mutual Information, Fourier Shell Correlation).
+-   The resulting registered stack can be saved as a single MRC or HDF5 file (the registered stack is a DASK array, so extending it to Zarr or N5 should also be straightforward).
+-   Can be performed on a single workstation (with decent number of cores and memory). A month-long FIB-SEM acquisition takes about 2-3 days to process.
 
 ## "Register_FIB-SEM_stack_DASK_v3.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
 
