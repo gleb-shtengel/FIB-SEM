@@ -32,7 +32,7 @@ You will also need to have these packages installed:
 -	pickle
 -	webbrowser
 -	IPython
--   cupy (you will need to have CUDA toolkit installed first)
+-   npy2bdv (used to save the data into Big Data Viewer – compatible HDF5 format)
 
 
 ## General Help Functions
