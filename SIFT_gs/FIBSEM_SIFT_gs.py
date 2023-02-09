@@ -2853,6 +2853,8 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
     kwargs_sheet_name : str
         Name of the worksheet containing SIFT parameters
     '''
+    disp_res_local = kwargs.get('disp_res', False)
+
     kwargs_dict_initial = {}
     try:
         stack_info = pd.read_excel(file_xlsx, header=None, sheet_name=kwargs_sheet_name).T                #read from transposed
@@ -2863,7 +2865,8 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
             else:
                 kwargs_dict_initial['Stack Filename'] = stack_info.index[1]
     except:
-        print('No stack info record present, using defaults')
+        if disp_res_local:
+            print('No stack info record present, using defaults')
     kwargs_dict = {}
     for key in kwargs_dict_initial:
         if 'TransformType' in key:
@@ -2941,14 +2944,17 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
         Milling Voltage to Z conversion (µm/V). Default is 31.235258870176065.
 
     '''
-    print('Loading kwarg info')
+    disp_res = kwargs.get('disp_res', False)
+    if disp_res:
+        print('Loading kwarg Data')
     saved_kwargs = read_kwargs_xlsx(Mill_Rate_Data_xlsx, 'kwargs Info', **kwargs)
     data_dir = saved_kwargs.get("data_dir", '')
     Sample_ID = saved_kwargs.get("Sample_ID", '')
     Saved_Mill_Volt_Rate_um_per_V = saved_kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
     Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", Saved_Mill_Volt_Rate_um_per_V)
     
-    print('Loading Working Distance and Milling Y Voltage Data')
+    if disp_res:
+        print('Loading Working Distance and Milling Y Voltage Data')
     try:
         int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='FIBSEM Data')
     except:
@@ -2957,7 +2963,8 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     WD = int_results['Working Distance (mm)']
     MillingYVoltage = int_results['Milling Y Voltage (V)']
 
-    print('Generating Plot')
+    if disp_res:
+        print('Generating Plot')
     fs = 12
     Mill_Volt_Rate_um_per_V = 31.235258870176065
 
@@ -3005,12 +3012,15 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     Returns: trend_x, trend_y
         Smoothed FOV shifts
     '''
-    print('Loading kwarg info')
+    disp_res = kwargs.get('disp_res', False)
+    if disp_res:
+        print('Loading kwarg Data')
     saved_kwargs = read_kwargs_xlsx(Mill_Rate_Data_xlsx, 'kwargs Info', **kwargs)
     data_dir = saved_kwargs.get("data_dir", '')
     Sample_ID = saved_kwargs.get("Sample_ID", '')
     
-    print('Loading FOV Center Location Data')
+    if disp_res:
+        print('Loading FOV Center Location Data')
     try:
         int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='FIBSEM Data')
     except:
@@ -3022,7 +3032,8 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     trend_x = savgol_filter(center_x*1.0, apert, 1) - center_x[0]
     trend_y = savgol_filter(center_y*1.0, apert, 1) - center_y[0]
 
-    print('Generating Plot')
+    if disp_res:
+        print('Generating Plot')
     fs = 12
 
     fig, axs = subplots(2,1, figsize = (6,7), sharex=True)
@@ -3058,7 +3069,9 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     minmax_xlsx_file : str
         Path to the xlsx workbook containing Min-Max data
     '''
-    print('Loading SIFT kwarg Data')
+    disp_res = kwargs.get('disp_res', False)
+    if disp_res:
+        print('Loading kwarg Data')
     saved_kwargs = read_kwargs_xlsx(minmax_xlsx_file, 'kwargs Info', **kwargs)
     data_dir = saved_kwargs.get("data_dir", '')
     fnm_reg = saved_kwargs.get("fnm_reg", 'Registration_file.mrc')
@@ -3069,7 +3082,8 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     fit_params = kwargs.get("fit_params", fit_params_saved)
     preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
     
-    print('Loading MinMax Data')
+    if disp_res:
+        print('Loading MinMax Data')
     try:
         int_results = pd.read_excel(minmax_xlsx_file, sheet_name='FIBSEM Data')
     except:
@@ -3086,7 +3100,8 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     sliding_min = savgol_filter(frame_min.astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
     sliding_max = savgol_filter(frame_max.astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
 
-    print('Generating Plot')
+    if disp_res:
+        print('Generating Plot')
     fs = 12
     fig0, ax0 = subplots(1,1,figsize=(6,4))
     fig0.subplots_adjust(left=0.14, bottom=0.11, right=0.99, top=0.94)
@@ -3136,7 +3151,9 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
         Path to the xlsx workbook containing Transformation Matrix data
 
     '''
-    print('Loading SIFT kwarg Data')
+    disp_res = kwargs.get('disp_res', False)
+    if disp_res:
+        print('Loading kwarg Data')
     saved_kwargs = read_kwargs_xlsx(transf_matrix_xlsx_file, 'kwargs Info', **kwargs)
     data_dir = saved_kwargs.get("data_dir", '')
     fnm_reg = saved_kwargs.get("fnm_reg", 'Registration_file.mrc')
@@ -3168,7 +3185,8 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     subtract_FOVtrend_from_fit = saved_kwargs.get("subtract_FOVtrend_from_fit", [True, True])
     pad_edges =  saved_kwargs.get("pad_edges", True)
     
-    print('Loading Original Transformation Data')
+    if disp_res:
+        print('Loading Original Transformation Data')
     orig_transf_matrix = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Orig. Transformation Matrix')
     transformation_matrix = np.vstack((orig_transf_matrix['T00 (Sxx)'],
                          orig_transf_matrix['T01 (Sxy)'],
@@ -3180,8 +3198,8 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
                          orig_transf_matrix['T21 (0.0)'],
                          orig_transf_matrix['T22 (1.0)'])).T.reshape((len(orig_transf_matrix['T00 (Sxx)']), 3, 3))
    
-    
-    print('Loading Cumulative Transformation Data')
+    if disp_res:
+        print('Loading Cumulative Transformation Data')
     cum_transf_matrix = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Cum. Transformation Matrix')
     tr_matr_cum = np.vstack((cum_transf_matrix['T00 (Sxx)'],
                          cum_transf_matrix['T01 (Sxy)'],
@@ -3193,7 +3211,8 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
                          cum_transf_matrix['T21 (0.0)'],
                          cum_transf_matrix['T22 (1.0)'])).T.reshape((len(cum_transf_matrix['T00 (Sxx)']), 3, 3))
     
-    print('Loading Intermediate Data')
+    if disp_res:
+        print('Loading Intermediate Data')
     int_results = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Intermediate Results')
     s00_cum_orig = int_results['s00_cum_orig']
     s11_cum_orig = int_results['s11_cum_orig']
@@ -3210,7 +3229,8 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     Xfit = int_results['Xfit']
     Yfit = int_results['Yfit']
     
-    print('Loading Statistics')
+    if disp_res:
+        print('Loading Statistics')
     stat_results = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Reg. Stat. Info')
     npts = stat_results['Npts']
     error_abs_mean = stat_results['Mean Abs Error']
