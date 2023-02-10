@@ -312,7 +312,7 @@ You will also need to have these packages installed:
     save_parameters(**kwargs)
         Save transformation attributes and parameters (including transformation matrices)
     check_for_nomatch_frames(thr_npt, **kwargs)
-        Check for frames with low number of Key-Point matches,m exclude them and re-calculate the cumulative transformation matrix
+        Check for frames with low number of Key-Point matches, exclude them and re-calculate the cumulative transformation matrix
     transform_and_save(**kwargs)
         Transform the frames using the cumulative transformation matrix and save the data set into .mrc file
     show_eval_box(**kwargs)
