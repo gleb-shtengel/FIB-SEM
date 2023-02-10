@@ -2994,7 +2994,7 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
         axs[0].text(-0.15, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
     except:
         axs[0].text(-0.15, 1.05, data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
-    fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','.png')), dpi=300)
+    fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','_Mill_Rate.png')), dpi=300)
 
 
 def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
@@ -3139,7 +3139,7 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     except:
         fig0.suptitle(data_dir_short, fontsize = fs-2)
     '''
-    fig0.savefig(os.path.join(data_dir, minmax_xlsx_file.replace('.xlsx','.png')), dpi=300)
+    fig0.savefig(os.path.join(data_dir, minmax_xlsx_file.replace('.xlsx','_Min_Max.png')), dpi=300)
 
 
 def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
@@ -3694,7 +3694,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 if pad_edges and perfrom_transformation:
                     #shape = [test_frame.YResolution, test_frame.XResolution]
                     shape = [YResolution, XResolution]
-                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual, False)
+                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual)
                     padx = int(xmx - xmn)
                     pady = int(ymx - ymn)
                     xi = int(np.max([xmx, 0]))
@@ -7085,14 +7085,14 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     return tr_matr_cum, transf_matrix_xlsx_file
 
 
-def determine_pad_offsets(shape, tr_matr, disp_res):
+def determine_pad_offsets_old(shape, tr_matr):
     ysz, xsz = shape
     xmins = np.zeros(len(tr_matr))
     xmaxs = xmins.copy()
     ymins = xmins.copy()
     ymaxs = xmins.copy()
     corners = np.array([[0,0], [0, ysz], [xsz, 0], [xsz, ysz]])
-    for j, trm in enumerate(tqdm(tr_matr, desc = 'Determining the pad offsets', disable=(not disp_res))):
+    for j, trm in enumerate(tqdm(tr_matr, desc = 'Determining the pad offsets')):
         a = (trm[0:2, 0:2] @ corners.T).T + trm[0:2, 2]
         xmins[j] = np.min(a[:, 0])
         xmaxs[j] = np.max(a[:, 0])
@@ -7102,6 +7102,19 @@ def determine_pad_offsets(shape, tr_matr, disp_res):
         xmax = np.max(xmaxs)-xsz
         ymin = np.min((np.min(ymins), 0.0))
         ymax = np.max(ymaxs)-ysz
+    return xmin, xmax, ymin, ymax
+
+
+def determine_pad_offsets(shape, tr_matr):
+    ysz, xsz = shape
+    corners = np.array([[0.0, 0.0, 1.0], [0.0, ysz, 1.0], [xsz, 0.0, 1.0], [xsz, ysz, 1.0]])
+    a = trm[:, 0:2, :] @ corners.T
+    xc = a[:, 0, :].ravel()
+    yc = a[:, 1, :].ravel()
+    xmin = np.min((np.min(xc), 0.0))
+    xmax = np.max(xc)-xsz
+    ymin = np.min((np.min(yc), 0.0))
+    ymax = np.max(yc)-ysz
     return xmin, xmax, ymin, ymax
 
 
@@ -8028,7 +8041,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     
     if pad_edges and perfrom_transformation:
         shape = [YResolution, XResolution]
-        xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual, disp_res)
+        xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual)
         padx = int(xmx - xmn)
         pady = int(ymx - ymn)
         xi = int(np.max([xmx, 0]))
@@ -9622,7 +9635,7 @@ class FIBSEM_dataset:
         if disp_res:
             print('Analyzing Registration Quality')
         if pad_edges and perfrom_transformation:
-            xmn, xmx, ymn, ymx = determine_pad_offsets([ny, nx], self.tr_matr_cum_residual, disp_res)
+            xmn, xmx, ymn, ymx = determine_pad_offsets([ny, nx], self.tr_matr_cum_residual)
             padx = int(xmx - xmn)
             pady = int(ymx - ymn)
             xi = int(np.max([xmx, 0]))
@@ -9769,7 +9782,7 @@ class FIBSEM_dataset:
             frame = FIBSEM_frame(fls[j], ftype=ftype)
             if pad_edges and perfrom_transformation:
                 shape = [frame.YResolution, frame.XResolution]
-                xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual, False)
+                xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
                 padx = np.int16(xmx - xmn)
                 pady = np.int16(ymx - ymn)
                 xi = np.int16(np.max([xmx, 0]))
@@ -9957,7 +9970,7 @@ class FIBSEM_dataset:
             frame = FIBSEM_frame(fls[j], ftype=ftype)
             if pad_edges and perfrom_transformation:
                 shape = [frame.YResolution, frame.XResolution]
-                xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual, False)
+                xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
                 padx = np.int16(xmx - xmn)
                 pady = np.int16(ymx - ymn)
                 xi = np.int16(np.max([xmx, 0]))
@@ -10104,7 +10117,7 @@ class FIBSEM_dataset:
                 frame = FIBSEM_frame(fls[j], ftype=ftype)
                 if pad_edges and perfrom_transformation:
                     shape = [frame.YResolution, frame.XResolution]
-                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual, False)
+                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
                     padx = np.int16(xmx - xmn)
                     pady = np.int16(ymx - ymn)
                     xi = np.int16(np.max([xmx, 0]))
