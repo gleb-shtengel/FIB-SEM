@@ -7108,7 +7108,7 @@ def determine_pad_offsets_old(shape, tr_matr):
 def determine_pad_offsets(shape, tr_matr):
     ysz, xsz = shape
     corners = np.array([[0.0, 0.0, 1.0], [0.0, ysz, 1.0], [xsz, 0.0, 1.0], [xsz, ysz, 1.0]])
-    a = trm[:, 0:2, :] @ corners.T
+    a = np.array(tr_matr)[:, 0:2, :] @ corners.T
     xc = a[:, 0, :].ravel()
     yc = a[:, 1, :].ravel()
     xmin = np.min((np.min(xc), 0.0))
