@@ -19,3 +19,4 @@ tqdm
 flake8
 flake8-pyproject
 mypy
+pdoc3
