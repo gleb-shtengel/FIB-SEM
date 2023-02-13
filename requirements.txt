@@ -13,3 +13,8 @@ scikit-learn
 scipy
 tifffile[all]
 tqdm
+
+# dev
+
+flake8
+mypy
