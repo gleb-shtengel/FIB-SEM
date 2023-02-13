@@ -1,0 +1,15 @@
+dask
+ipython
+matplotlib
+mrcfile
+npy2bdv
+numpy
+opencv-contrib-python>3.4.1
+openpyxl
+pandas
+pillow
+scikit-image
+scikit-learn
+scipy
+tifffile[all]
+tqdm
