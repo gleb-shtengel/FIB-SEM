@@ -1,4 +1,4 @@
-dask
+dask[distributed]
 ipython
 matplotlib
 mrcfile

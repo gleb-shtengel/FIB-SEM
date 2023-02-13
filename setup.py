@@ -15,7 +15,7 @@ setup(
     package_dir={"": "src"},
     packages=find_packages(where="src", include=["SIFT_gs"]),
     install_requires=[
-        "dask",
+        "dask[distributed]",
         "ipython",
         "matplotlib",
         "mrcfile",
