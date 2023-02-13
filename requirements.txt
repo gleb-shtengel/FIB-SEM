@@ -17,4 +17,5 @@ tqdm
 # dev
 
 flake8
+flake8-pyproject
 mypy

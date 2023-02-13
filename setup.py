@@ -31,7 +31,7 @@ setup(
         "tifffile[all]",
         "tqdm",
     ],
-    extras_require={"dev": ["flake8", "mypy"]},
+    extras_require={"dev": ["flake8", "flake8-pyproject", "mypy"]},
     python_requires=">=3.8, <4.0",
     use_scm_version=True,
     setup_requires=["setuptools_scm"],
