@@ -2051,6 +2051,8 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
             start frame
         fra : int
             stop frame
+        voxel_size_new : rec array
+            new voxel size in nm. Will be converted into Angstroms for MRC header.
     Returns:
         fnms_saved : list of str
             Names of the new (binned and cropped) data files.
@@ -2080,6 +2082,14 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     voxel_size_new.x = voxel_size_angstr_new.x / 10.0
     voxel_size_new.y = voxel_size_angstr_new.y / 10.0
     voxel_size_new.z = voxel_size_angstr_new.z / 10.0
+    try:
+        voxel_size_new = kwargs.get('voxel_size_new', voxel_size_new)
+        voxel_size_angstr_new.x = voxel_size_new.x * 10.0
+        voxel_size_angstr_new.y = voxel_size_new.y * 10.0
+        voxel_size_angstr_new.z = voxel_size_new.z * 10.0
+    except:
+        print('Incorrect voxel size entry')
+        print('will use : ', voxel_size_new)
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
     frmax = kwargs.get('frmax', nz)
     xi = kwargs.get('xi', 0)
@@ -3036,9 +3046,9 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     fr = int_results['Frame']
     center_x = int_results['FOV X Center (Pix)']
     center_y = int_results['FOV Y Center (Pix)']
-    apert = np.min((51, len(fr)-1))
-    trend_x = savgol_filter(center_x*1.0, apert, 1) - center_x[0]
-    trend_y = savgol_filter(center_y*1.0, apert, 1) - center_y[0]
+    sv_apert = np.min((51, len(fr)//8*2+1))
+    trend_x = savgol_filter(center_x*1.0, sv_apert, 1) - center_x[0]
+    trend_y = savgol_filter(center_y*1.0, sv_apert, 1) - center_y[0]
 
     if disp_res:
         print('Generating Plot')
@@ -3105,8 +3115,9 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     sliding_min = int_results['Sliding Min']
     sliding_max = int_results['Sliding Max']
     '''
-    sliding_min = savgol_filter(frame_min.astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
-    sliding_max = savgol_filter(frame_max.astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
+    sv_apert = min([fit_params[1], len(frames)//8*2+1])
+    sliding_min = savgol_filter(frame_min.astype(double), sv_apert, fit_params[2])
+    sliding_max = savgol_filter(frame_max.astype(double), sv_apert, fit_params[2])
 
     if disp_res:
         print('Generating Plot')
@@ -5395,6 +5406,7 @@ class FIBSEM_frame:
 
         img_correction_arrays = []
         img_correction_coeffs = []
+        img_correction_intercepts = []
         for image_name in image_names:
             if image_name == 'RawImageA':
                 img = self.RawImageA - self.Scaling[1,0]
@@ -5412,6 +5424,7 @@ class FIBSEM_frame:
             intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, image_name=image_name, **kwargs)
             img_correction_arrays.append(img_correction_array)
             img_correction_coeffs.append(coefs)
+            img_correction_intercepts.append(intercept)
 
         if calc_corr:
             self.image_correction_sources = image_names
@@ -6173,7 +6186,6 @@ def list_to_kp(inp_list):
 def evaluate_FIBSEM_frame(params):
     '''
     Evaluates single FIB-SEM frame and extract parameters: data min/max, milling rate, FOV center.
-
     1. Calculates the data range of the EM data ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
     Calculates histogram of pixel intensities of of the loaded image
     with number of bins determined by parameter nbins (default = 256)
@@ -6182,7 +6194,6 @@ def evaluate_FIBSEM_frame(params):
     Then given the threshold_min, threshold_max parameters,
     the minimum and maximum values for the image are found by finding
     the intensities at which CDF= threshold_min and (1- threshold_max), respectively.
-
     2. Extracts WD, MillingYVoltage, center_x, center_y data from the header
     
     Parameters:
@@ -6211,31 +6222,38 @@ def evaluate_FIBSEM_frame(params):
     thr_min = kwargs.get("threshold_min", 1e-3)
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
-    frame = FIBSEM_frame(fl, ftype=ftype)
-    if frame.EightBit ==1:
-        dmin = uint8(0)
-        dmax =  uint8(255)
-    else:
-        dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins)
-    if ftype == 0:
-        try:
-            WD = frame.WD
-            MillingYVoltage = frame.MillingYVoltage
-        except:
+    try:
+        frame = FIBSEM_frame(fl, ftype=ftype)
+        if frame.EightBit ==1:
+            dmin = uint8(0)
+            dmax =  uint8(255)
+        else:
+            dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins)
+        if ftype == 0:
+            try:
+                WD = frame.WD
+                MillingYVoltage = frame.MillingYVoltage
+            except:
+                WD = 0
+                MillingYVoltage = 0
+            try:
+                center_x = (frame.FirstPixelX + frame.XResolution/2.0)
+                center_y = (frame.FirstPixelY + frame.YResolution/2.0)
+            except:
+                center_x = 0
+                center_y = 0
+        else:
             WD = 0
             MillingYVoltage = 0
-        try:
-            center_x = (frame.FirstPixelX + frame.XResolution/2.0)
-            center_y = (frame.FirstPixelY + frame.YResolution/2.0)
-        except:
             center_x = 0
             center_y = 0
-    else:
+    except:
+        dmin = 0
+        dmax = 0
         WD = 0
         MillingYVoltage = 0
         center_x = 0
         center_y = 0
-
     return dmin, dmax, WD, MillingYVoltage, center_x, center_y
 
 
@@ -6244,12 +6262,13 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     Evaluates parameters of FIBSEM data set (Min/Max, Working Distance (WD), Milling Y Voltage (MV), FOV center positions).
 
     Parameters:
+    DASK_client  : DASK client
+
+    kwargs:
     use_DASK : boolean
         perform remote DASK computations
     DASK_client_retries : int (default to 0)
         Number of allowed automatic retries if a task fails
-
-    kwargs:
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     frame_inds : array
@@ -6335,7 +6354,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         center_y = np.zeros(nfrs, dtype=float)
 
     else:
-        params_s2 = [[fl, kwargs] for fl in fls]
+        params_s2 = [[fl, kwargs] for fl in np.array(fls)[frame_inds]]
 
         if use_DASK:
             if disp_res:
@@ -6345,15 +6364,16 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         else:
             if disp_res:
                 print('Using Local Computation')
-            results_s2 = np.zeros((nfrs, 6))
-            for j, param_s2 in enumerate(tqdm(params_s2, desc='Evaluating FIB-SEM frames (data min/max, mill rate, FOV shifts): '), display = disp_res):
+            results_s2 = np.zeros((len(frame_inds), 6))
+            for j, param_s2 in enumerate(tqdm(params_s2, desc='Evaluating FIB-SEM frames (data min/max, mill rate, FOV shifts): ', display = disp_res)):
                 results_s2[j, :] = evaluate_FIBSEM_frame(param_s2)
 
         data_minmax_glob = results_s2[:, 0:2]
+        sv_apert = min([fit_params[1], len(frame_inds)//8*2+1])
         data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
         trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
-        data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
-        data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), min([fit_params[1], fit_params[1]]), fit_params[2])
+        data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), sv_apert, fit_params[2])
+        data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), sv_apert, fit_params[2])
         mill_rate_WD = results_s2[:, 2]
         mill_rate_MV = results_s2[:, 3]
         center_x = results_s2[:, 4]
@@ -7116,6 +7136,7 @@ def determine_pad_offsets_old(shape, tr_matr):
 def determine_pad_offsets(shape, tr_matr):
     ysz, xsz = shape
     corners = np.array([[0.0, 0.0, 1.0], [0.0, ysz, 1.0], [xsz, 0.0, 1.0], [xsz, ysz, 1.0]])
+    #a = np.linalg.inv(np.array(tr_matr))[:, 0:2, :] @ corners.T
     a = np.array(tr_matr)[:, 0:2, :] @ corners.T
     xc = a[:, 0, :].ravel()
     yc = a[:, 1, :].ravel()
@@ -7132,7 +7153,7 @@ def set_eval_bounds(shape, evaluation_box, **kwargs):
 
     Parameters:
     shape : list of 2 ints
-        [Xsize, Ysize] frame size in pixels
+        [Ysize, Xsize] frame size in pixels
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -7150,13 +7171,15 @@ def set_eval_bounds(shape, evaluation_box, **kwargs):
         see above
     stop_evaluation_box : list of 4 int
         see above
+    frame_inds : int array
+        array of frame indices
 
     Returnes:
     evaluation_bounds : int array of 4 elements
         evaluation_bounds = (xi_evals, xa_evals, yi_evals, ya_evals)
 
     '''
-    nx, ny = shape
+    ny, nx = shape
 
     pad_edges = kwargs.get('pad_edges', False)
     perform_transformation = kwargs.get('perform_transformation', False)
@@ -7168,6 +7191,7 @@ def set_eval_bounds(shape, evaluation_box, **kwargs):
     else:
         frame_inds = np.array([])
         nz = 0
+    #print('will use frame_inds: ', frame_inds)
     sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
     start_evaluation_box = kwargs.get("start_evaluation_box", False)
     stop_evaluation_box = kwargs.get("stop_evaluation_box", False)
@@ -7191,7 +7215,8 @@ def set_eval_bounds(shape, evaluation_box, **kwargs):
                          [0.0, 0.0, 1.0]])
         inv_shift_matrix = np.linalg.inv(shift_matrix)
         top_left_corners_ext = np.vstack(((top_left_corners+ np.array((xi, yi))).T, np.ones(nz)))
-        arr1 = np.linalg.inv(shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
+        #arr1 = np.linalg.inv(shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
+        arr1 = (shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
         arr2 = top_left_corners_ext.T
         eval_starts = np.round(np.einsum('ijk,ik->ij',arr1, arr2))
     else:
@@ -7205,15 +7230,15 @@ def set_eval_bounds(shape, evaluation_box, **kwargs):
         xi_evals = xa_evals - start_evaluation_box[3]
         yi_evals = ya_evals - start_evaluation_box[1]
     else:
-        filter_aperture = np.min(((nz//10)*2+1, 2001))
-        if filter_aperture <2:
+        sv_apert = np.min(((nz//8)*2+1, 2001))
+        if sv_apert <2:
             # no smoothing if the set is too short
             xa_evals = np.clip(eval_starts[:, 0] + evaluation_box[3], 0, (nx+padx))
             ya_evals = np.clip(eval_starts[:, 1] + evaluation_box[1], 0, (ny+pady))
         else:
-            filter_order = np.min([5, filter_aperture-1])
-            xa_evals = savgol_filter(np.clip(eval_starts[:, 0] + evaluation_box[3], 0, (nx+padx)), filter_aperture, filter_order)
-            ya_evals = savgol_filter(np.clip(eval_starts[:, 1] + evaluation_box[1], 0, (ny+pady)), filter_aperture, filter_order)
+            filter_order = np.min([5, sv_apert-1])
+            xa_evals = savgol_filter(np.clip(eval_starts[:, 0] + evaluation_box[3], 0, (nx+padx)), sv_apert, filter_order)
+            ya_evals = savgol_filter(np.clip(eval_starts[:, 1] + evaluation_box[1], 0, (ny+pady)), sv_apert, filter_order)
         xi_evals = xa_evals - evaluation_box[3]
         yi_evals = ya_evals - evaluation_box[1]
 
@@ -9017,9 +9042,9 @@ class FIBSEM_dataset:
         WD = self.FIBSEM_Data[5]
         MillingYVoltage = self.FIBSEM_Data[6]
 
-        apert = np.min((51, len(self.FIBSEM_Data[7])-1))
-        self.FOVtrend_x = savgol_filter(self.FIBSEM_Data[7]*1.0, apert, 1) - self.FIBSEM_Data[7][0]
-        self.FOVtrend_y = savgol_filter(self.FIBSEM_Data[8]*1.0, apert, 1) - self.FIBSEM_Data[8][0]
+        sv_apert = np.min((51, len(self.FIBSEM_Data[7])//8*2+1))
+        self.FOVtrend_x = savgol_filter(self.FIBSEM_Data[7]*1.0, sv_apert, 1) - self.FIBSEM_Data[7][0]
+        self.FOVtrend_y = savgol_filter(self.FIBSEM_Data[8]*1.0, sv_apert, 1) - self.FIBSEM_Data[8][0]
 
         WD_fit_coef = np.polyfit(frame_inds, WD, 1)
         rate_WD = WD_fit_coef[0]*1.0e6
@@ -9739,7 +9764,7 @@ class FIBSEM_dataset:
         if disp_res:
             print('Analyzing Registration Quality')
         
-        shape = [self.XResolution, self.YResolution]        
+        shape = [self.YResolution, self.XResolution]        
         if pad_edges and perform_transformation:
             xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
             padx = np.int(xmx - xmn)
@@ -9773,6 +9798,13 @@ class FIBSEM_dataset:
                          'tr_matr' : self.tr_matr_cum_residual}
         eval_bounds_all = set_eval_bounds(shape, evaluation_box, **local_kwargs)
         eval_bounds = np.array(eval_bounds_all)[st_frames]
+        if flipY:
+            xa_evals = xsz - np.array(eval_bounds)[:, 0]
+            xi_evals = xsz - np.array(eval_bounds)[:, 1]
+            ya_evals = ysz - np.array(eval_bounds)[:, 2]
+            yi_evals = ysz - np.array(eval_bounds)[:, 3]
+            eval_bounds = np.vstack((xi_evals, xa_evals, yi_evals, ya_evals)).T
+        
         save_kwargs['eval_bounds'] = eval_bounds
 
         reg_summary, reg_summary_xlsx = analyze_registration_frames(DASK_client, registered_filenames, **save_kwargs)
@@ -9873,7 +9905,7 @@ class FIBSEM_dataset:
         default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
         frame_inds = kwargs.get("frame_inds", default_indecis)
 
-        shape = [self.XResolution, self.YResolution]        
+        shape = [self.YResolution, self.XResolution]        
         if pad_edges and perform_transformation:
             xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
             padx = np.int(xmx - xmn)
@@ -9899,6 +9931,7 @@ class FIBSEM_dataset:
         xsz = self.XResolution + padx
         ysz = self.YResolution + pady
 
+        
         local_kwargs = {'start_evaluation_box' : start_evaluation_box,
                          'stop_evaluation_box' : stop_evaluation_box,
                          'sliding_evaluation_box' : sliding_evaluation_box,
@@ -9907,6 +9940,22 @@ class FIBSEM_dataset:
                          'tr_matr' : self.tr_matr_cum_residual,
                          'frame_inds' : frame_inds}
         eval_bounds = set_eval_bounds(shape, evaluation_box, **local_kwargs)
+        '''
+        #print('PADS: ', padx, pady)
+        #print('Sizes: ', xsz, ysz)
+        #print('eval_bounds: ', eval_bounds)
+
+        local_kwargs = {'start_evaluation_box' : start_evaluation_box,
+                         'stop_evaluation_box' : stop_evaluation_box,
+                         'sliding_evaluation_box' : sliding_evaluation_box,
+                         'pad_edges' : pad_edges,
+                         'perform_transformation' : perform_transformation,
+                         'tr_matr' : self.tr_matr_cum_residual}
+        eval_bounds_all = set_eval_bounds(shape, evaluation_box, **local_kwargs)
+        #print('eval_bounds_check: ', np.array(eval_bounds_all)[frame_inds])
+        eval_bounds = np.array(eval_bounds_all)[frame_inds]
+        '''
+        
 
         for j,fr_ind in enumerate(frame_inds):
             frame = FIBSEM_frame(fls[fr_ind], ftype=ftype)
@@ -9916,14 +9965,21 @@ class FIBSEM_dataset:
 
             if perform_transformation:
                 transf = ProjectiveTransform(matrix = shift_matrix @ (self.tr_matr_cum_residual[fr_ind] @ inv_shift_matrix))
+                #print('Frame: ', fr_ind, ',  transformation matrix: ', self.tr_matr_cum_residual[fr_ind])
+                #print('shift matrices', shift_matrix, inv_shift_matrix)
+                #print('direct matrix: ', shift_matrix @ (self.tr_matr_cum_residual[fr_ind] @ inv_shift_matrix))
+                #print('inverse matrix: ', np.linalg.inv(shift_matrix @ (self.tr_matr_cum_residual[fr_ind] @ inv_shift_matrix)))
                 frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True)
             else:
                 frame_img_reg = frame_img.copy()
 
             if flipY:
                 frame_img_reg = np.flip(frame_img_reg, axis=0)
+                xa_eval, xi_eval = xsz - np.array(eval_bounds)[j, 0:2]
+                ya_eval, yi_eval = ysz - np.array(eval_bounds)[j, 2:4]
+            else:
+                xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[j, :]
 
-            xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[j, :]
             vmin, vmax = get_min_max_thresholds(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
             fig, ax = subplots(1,1, figsize=(10.0, 11.0*ysz/xsz))
             if invert_data:
@@ -10004,7 +10060,7 @@ class FIBSEM_dataset:
         default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
         frame_inds = kwargs.get("frame_inds", default_indecis)
 
-        shape = [self.XResolution, self.YResolution]
+        shape = [self.YResolution, self.XResolution]
         if pad_edges and perform_transformation:
             xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
             padx = np.int(xmx - xmn)
