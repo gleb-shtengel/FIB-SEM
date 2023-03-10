@@ -9808,8 +9808,8 @@ class FIBSEM_dataset:
         eval_bounds_all = set_eval_bounds(shape, evaluation_box, **local_kwargs)
         eval_bounds = np.array(eval_bounds_all)[st_frames]
         if flipY:
-            xa_evals = xsz - np.array(eval_bounds)[:, 0]
-            xi_evals = xsz - np.array(eval_bounds)[:, 1]
+            xi_evals = np.array(eval_bounds)[:, 0]
+            xa_evals = np.array(eval_bounds)[:, 1]
             ya_evals = ysz - np.array(eval_bounds)[:, 2]
             yi_evals = ysz - np.array(eval_bounds)[:, 3]
             eval_bounds = np.vstack((xi_evals, xa_evals, yi_evals, ya_evals)).T
