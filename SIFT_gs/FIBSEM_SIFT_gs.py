@@ -3713,11 +3713,12 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 if pad_edges and perform_transformation:
                     #shape = [test_frame.YResolution, test_frame.XResolution]
                     shape = [YResolution, XResolution]
-                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual)
-                    padx = np.int(xmx - xmn)
-                    pady = np.int(ymx - ymn)
-                    xi = np.int(np.max([xmx, 0]))
-                    yi = np.int(np.max([ymx, 0]))
+                    xi, yi, padx, pady = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual)
+                    #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual)
+                    #padx = np.int(xmx - xmn)
+                    #pady = np.int(ymx - ymn)
+                    #xi = np.int(np.max([xmx, 0]))
+                    #yi = np.int(np.max([ymx, 0]))
                     # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
                     # so that the transformed images are not clipped.
                     # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -7136,15 +7137,24 @@ def determine_pad_offsets_old(shape, tr_matr):
 def determine_pad_offsets(shape, tr_matr):
     ysz, xsz = shape
     corners = np.array([[0.0, 0.0, 1.0], [0.0, ysz, 1.0], [xsz, 0.0, 1.0], [xsz, ysz, 1.0]])
-    #a = np.linalg.inv(np.array(tr_matr))[:, 0:2, :] @ corners.T
     a = np.array(tr_matr)[:, 0:2, :] @ corners.T
+    #a = np.linalg.inv(np.array(tr_matr))[:, 0:2, :] @ corners.T
     xc = a[:, 0, :].ravel()
     yc = a[:, 1, :].ravel()
     xmin = np.round(np.min((np.min(xc), 0.0))).astype(int)
     xmax = np.round(np.max(xc)-xsz).astype(int)
     ymin = np.round(np.min((np.min(yc), 0.0))).astype(int)
     ymax = np.round(np.max(yc)-ysz).astype(int)
-    return xmin, xmax, ymin, ymax
+    #print(xmin, xmax, ymin, ymax)
+    #xi = np.int(-1 * xmin)
+    #yi = np.int(-1 * ymin)
+    xi = np.int(np.max((xmax, 0)))
+    yi = np.int(np.max((ymax, 0)))
+    padx = np.max((np.int(xmax - xmin), xi))
+    pady = np.max((np.int(ymax - ymin), yi))
+    #return xmin, xmax, ymin, ymax
+    #print(xi, yi, padx, pady)
+    return xi, yi, padx, pady
 
 
 def set_eval_bounds(shape, evaluation_box, **kwargs):
@@ -7205,18 +7215,15 @@ def set_eval_bounds(shape, evaluation_box, **kwargs):
         top_left_corners = np.array([[evaluation_box[2],evaluation_box[0]]]*nz)
     
     if pad_edges and perform_transformation and nz>0:
-        xmn, xmx, ymn, ymx = determine_pad_offsets([ny, nx], tr_matr)
-        padx = np.int(xmx - xmn)
-        pady = np.int(ymx - ymn)
-        xi = np.int(np.max([xmx, 0]))
-        yi = np.int(np.max([ymx, 0]))
+        xi, yi, padx, pady = determine_pad_offsets([ny, nx], tr_matr)
+
         shift_matrix = np.array([[1.0, 0.0, xi],
                          [0.0, 1.0, yi],
                          [0.0, 0.0, 1.0]])
         inv_shift_matrix = np.linalg.inv(shift_matrix)
         top_left_corners_ext = np.vstack(((top_left_corners+ np.array((xi, yi))).T, np.ones(nz)))
-        #arr1 = np.linalg.inv(shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
-        arr1 = (shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
+        #arr1 = (shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
+        arr1 = np.linalg.inv(shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
         arr2 = top_left_corners_ext.T
         eval_starts = np.round(np.einsum('ijk,ik->ij',arr1, arr2))
     else:
@@ -8166,11 +8173,12 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     
     if pad_edges and perform_transformation:
         shape = [YResolution, XResolution]
-        xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual)
-        padx = np.int(xmx - xmn)
-        pady = np.int(ymx - ymn)
-        xi = np.int(np.max([xmx, 0]))
-        yi = np.int(np.max([ymx, 0]))
+        xi, yi, padx, pady = determine_pad_offsets(shape, tr_matr_cum_residual)
+        #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual)
+        #padx = np.int(xmx - xmn)
+        #pady = np.int(ymx - ymn)
+        #xi = np.int(np.max([xmx, 0]))
+        #yi = np.int(np.max([ymx, 0]))
         # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
         # so that the transformed images are not clipped.
         # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -9766,11 +9774,12 @@ class FIBSEM_dataset:
         
         shape = [self.YResolution, self.XResolution]        
         if pad_edges and perform_transformation:
-            xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-            padx = np.int(xmx - xmn)
-            pady = np.int(ymx - ymn)
-            xi = np.int(np.max([xmx, 0]))
-            yi = np.int(np.max([ymx, 0]))
+            xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #padx = np.int(xmx - xmn)
+            #pady = np.int(ymx - ymn)
+            #xi = np.int(np.max([xmx, 0]))
+            #yi = np.int(np.max([ymx, 0]))
             # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
             # so that the transformed images are not clipped.
             # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -9896,6 +9905,7 @@ class FIBSEM_dataset:
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         int_order = kwargs.get("int_order", self.int_order) 
         perform_transformation =  kwargs.get("perform_transformation", True) and hasattr(self, 'tr_matr_cum_residual')
+        #print('perform_transformation: ', perform_transformation)
         invert_data =  kwargs.get("invert_data", False)
         flipY = kwargs.get("flipY", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
@@ -9907,11 +9917,12 @@ class FIBSEM_dataset:
 
         shape = [self.YResolution, self.XResolution]        
         if pad_edges and perform_transformation:
-            xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-            padx = np.int(xmx - xmn)
-            pady = np.int(ymx - ymn)
-            xi = np.int(np.max([xmx, 0]))
-            yi = np.int(np.max([ymx, 0]))
+            xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #padx = np.int(xmx - xmn)
+            #pady = np.int(ymx - ymn)
+            #xi = np.int(np.max([xmx, 0]))
+            #yi = np.int(np.max([ymx, 0]))
             # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
             # so that the transformed images are not clipped.
             # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -9931,7 +9942,6 @@ class FIBSEM_dataset:
         xsz = self.XResolution + padx
         ysz = self.YResolution + pady
 
-        
         local_kwargs = {'start_evaluation_box' : start_evaluation_box,
                          'stop_evaluation_box' : stop_evaluation_box,
                          'sliding_evaluation_box' : sliding_evaluation_box,
@@ -9955,12 +9965,10 @@ class FIBSEM_dataset:
         #print('eval_bounds_check: ', np.array(eval_bounds_all)[frame_inds])
         eval_bounds = np.array(eval_bounds_all)[frame_inds]
         '''
-        
 
         for j,fr_ind in enumerate(frame_inds):
             frame = FIBSEM_frame(fls[fr_ind], ftype=ftype)
             frame_img = np.zeros((ysz, xsz))
-
             frame_img[yi:yi+self.YResolution, xi:xi+self.XResolution]  = frame.RawImageA.astype(float)
 
             if perform_transformation:
@@ -9975,11 +9983,11 @@ class FIBSEM_dataset:
 
             if flipY:
                 frame_img_reg = np.flip(frame_img_reg, axis=0)
-                xa_eval, xi_eval = xsz - np.array(eval_bounds)[j, 0:2]
+                xi_eval, xa_eval = eval_bounds[j, 0:2]
                 ya_eval, yi_eval = ysz - np.array(eval_bounds)[j, 2:4]
             else:
                 xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[j, :]
-
+            #print(xi_eval, xa_eval, yi_eval, ya_eval)
             vmin, vmax = get_min_max_thresholds(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
             fig, ax = subplots(1,1, figsize=(10.0, 11.0*ysz/xsz))
             if invert_data:
@@ -10062,11 +10070,12 @@ class FIBSEM_dataset:
 
         shape = [self.YResolution, self.XResolution]
         if pad_edges and perform_transformation:
-            xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-            padx = np.int(xmx - xmn)
-            pady = np.int(ymx - ymn)
-            xi = np.int(np.max([xmx, 0]))
-            yi = np.int(np.max([ymx, 0]))
+            xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #padx = np.int(xmx - xmn)
+            #pady = np.int(ymx - ymn)
+            #xi = np.int(np.max([xmx, 0]))
+            #yi = np.int(np.max([ymx, 0]))
             # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
             # so that the transformed images are not clipped.
             # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
