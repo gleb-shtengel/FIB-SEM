@@ -10188,7 +10188,6 @@ class FIBSEM_dataset:
                 frame = FIBSEM_frame(fls[frame_ind], ftype=ftype)
                 xa = xi+frame.XResolution
                 ya = yi+frame.YResolution
-                xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[j, :]
 
                 frame_imgA = np.zeros((ysz, xsz))
                 if self.DetB != 'None':
@@ -10217,6 +10216,10 @@ class FIBSEM_dataset:
                     frame_imgA_reg = np.flip(frame_imgA_reg, axis=0)
                     if self.DetB != 'None':
                         frame_imgB_reg = np.flip(frame_imgB_reg, axis=0)
+                    xi_eval, xa_eval = eval_bounds[j, 0:2]
+                    ya_eval, yi_eval = ysz - np.array(eval_bounds)[j, 2:4]
+                else:
+                    xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[j, :]
 
                 frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval]
                 frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval]
@@ -10370,6 +10373,9 @@ class FIBSEM_dataset:
             if flipY:
                 frame_imgA = np.flip(frame_imgA, axis=0)
                 frame_imgB = np.flip(frame_imgB, axis=0)
+                yeval_delta = ya_eval - yi_eval
+                yi_eval = ysz - ya_eval
+                ya_eval = yi_eval + yeval_delta
 
             frame_imgA_eval = frame_imgA[yi_eval:ya_eval, xi_eval:xa_eval]
             frame_imgB_eval = frame_imgB[yi_eval:ya_eval, xi_eval:xa_eval]
