@@ -1928,6 +1928,10 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
         see above
     stop_evaluation_box : list of 4 int
         see above
+    box_linewidth : float
+        linewidth for the box outline. deafault is 1.0
+    box_color : color
+        color for the box outline. deafault is yellow
     invert_data : Boolean
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
@@ -1937,6 +1941,8 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+    box_linewidth = kwargs.get("box_linewidth", 1.0)
+    box_color = kwargs.get("box_color", yellow)
     invert_data =  kwargs.get("invert_data", False)
     ax = kwargs.get("ax", '')
     plot_internal = (ax == '')
@@ -2007,7 +2013,8 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
             ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
         ax.grid(True, color = "cyan")
         ax.set_title(Sample_ID + ' '+mrc_filename +',  frame={:d}'.format(fr_ind))
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2,
+            linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
         ax.add_patch(rect_patch)
         if save_res_png  and plot_internal:
             fname = os.path.splitext(save_filename)[0] + '_frame_{:d}_evaluation_box.png'.format(fr_ind)
@@ -2375,6 +2382,10 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
         see above
     stop_evaluation_box : list of 4 int
         see above
+    box_linewidth : float
+        linewidth for the box outline. deafault is 1.0
+    box_color : color
+        color for the box outline. deafault is yellow
     invert_data : Boolean
     '''
     Sample_ID = kwargs.get("Sample_ID", '')
@@ -2384,6 +2395,8 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
     sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+    box_linewidth = kwargs.get("box_linewidth", 1.0)
+    box_color = kwargs.get("box_color", yellow)
     invert_data =  kwargs.get("invert_data", False)
     ax = kwargs.get("ax", '')
     plot_internal = (ax == '')
@@ -2450,7 +2463,8 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
             ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
         ax.grid(True, color = "cyan")
         ax.set_title(Sample_ID + ' '+tif_filename +',  frame={:d}'.format(fr_ind))
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2,
+            linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
         ax.add_patch(rect_patch)
         if save_res_png  and plot_internal:
             fname = os.path.splitext(save_filename)[0] + '_frame_{:d}_evaluation_box.png'.format(fr_ind)
@@ -5298,6 +5312,10 @@ class FIBSEM_frame:
             data directory (path)
         Sample_ID : str
             Sample ID
+        box_linewidth : float
+            linewidth for the box outline. deafault is 1.0
+        box_color : color
+            color for the box outline. deafault is yellow
         invert_data : boolean
             If True - the data is inverted
         save_res_png  : boolean
@@ -5309,7 +5327,9 @@ class FIBSEM_frame:
         data_dir = kwargs.get("data_dir", os.path.dirname(self.fname))
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         nbins_disp = kwargs.get("nbins_disp", 256)
-        thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])    
+        thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])
+        box_linewidth = kwargs.get("box_linewidth", 1.0)
+        box_color = kwargs.get("box_color", yellow)
         invert_data =  kwargs.get("invert_data", False)
         save_res_png  = kwargs.get("save_res_png", False )
 
@@ -5344,7 +5364,8 @@ class FIBSEM_frame:
         ax.imshow(img, cmap='Greys', vmin = range_disp[0], vmax = range_disp[1])
         ax.grid(True, color = "cyan")
         ax.set_title(self.fname)
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=2.0, edgecolor='yellow',facecolor='none')
+        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2,
+            linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
         ax.add_patch(rect_patch)
         if save_res_png :
             fig.savefig(os.path.splitext(self.fname+'_evaluation_box.png', dpi=300))
@@ -9885,6 +9906,10 @@ class FIBSEM_dataset:
             If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed
         invert_data : boolean
             If True - the data is inverted
+        box_linewidth : float
+            linewidth for the box outline. deafault is 1.0
+        box_color : color
+            color for the box outline. deafault is yellow
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         pad_edges : boolean
@@ -9907,6 +9932,8 @@ class FIBSEM_dataset:
         perform_transformation =  kwargs.get("perform_transformation", True) and hasattr(self, 'tr_matr_cum_residual')
         #print('perform_transformation: ', perform_transformation)
         invert_data =  kwargs.get("invert_data", False)
+        box_linewidth = kwargs.get("box_linewidth", 1.0)
+        box_color = kwargs.get("box_color", yellow)
         flipY = kwargs.get("flipY", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
@@ -9997,7 +10024,8 @@ class FIBSEM_dataset:
             ax.imshow(frame_img_reg, cmap=cmap, vmin=vmin, vmax=vmax)
             ax.grid(True, color = "cyan")
             ax.set_title(fls[j])
-            rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval),abs(ya_eval-yi_eval), linewidth=2.0, edgecolor='yellow',facecolor='none')
+            rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval),abs(ya_eval-yi_eval),
+                linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
             ax.add_patch(rect_patch)
             if save_res_png :
                 fig.savefig(os.path.splitext(fls[fr_ind])[0]+'_evaluation_box.png', dpi=300)
