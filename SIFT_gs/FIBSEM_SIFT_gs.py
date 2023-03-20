@@ -432,7 +432,7 @@ def Single_Image_SNR(img, **kwargs):
     
     #first make image size even
     ysz, xsz = img.shape
-    img = img[0:ysz//2*2, 0:xsz//2*2]
+    img = img[0:((ysz+1)//2*2-1), 0:((xsz+1)//2*2-1)]
     ysz, xsz = img.shape
 
     xy_ratio = xsz/ysz
@@ -443,13 +443,12 @@ def Single_Image_SNR(img, **kwargs):
     data_ACR_log = np.log(data_ACR)
     data_ACR = data_ACR / data_ACR_peak
     radial_ACR = radial_profile(data_ACR, [xsz//2, ysz//2])
-    r_ACR = np.concatenate((radial_ACR[::-1], radial_ACR[1:-1]))
+    r_ACR = np.concatenate((radial_ACR[::-1], radial_ACR[1:]))
     
-    #rsz = xsz
     rsz = len(r_ACR)
-    rcr = np.linspace(-rsz//2, rsz//2-1, rsz)
-    xcr = np.linspace(-xsz//2, xsz//2-1, xsz)
-    ycr = np.linspace(-ysz//2, ysz//2-1, ysz)
+    rcr = np.linspace(-rsz//2+1, rsz//2, rsz)
+    xcr = np.linspace(-xsz//2+1, xsz//2, xsz)
+    ycr = np.linspace(-ysz//2+1, ysz//2, ysz)
 
     xl = xcr[xsz//2-2:xsz//2]
     xacr_left = data_ACR[ysz//2, (xsz//2-2):(xsz//2)]
@@ -542,9 +541,9 @@ def Single_Image_SNR(img, **kwargs):
         axs[1].grid(True)
         axs[1].set_title('Autocorrelation (log scale)')
     
-        axs[2].plot(xcr, data_ACR[ysz//2, :], 'r', linewidth =0.5, label='X')
-        axs[2].plot(ycr, data_ACR[:, xsz//2], 'b', linewidth =0.5, label='Y')
-        axs[2].plot(rcr, r_ACR, 'g', linewidth =0.5, label='R')
+        axs[2].plot(xcr, data_ACR[ysz//2, :], 'r', linewidth=0.5, label='X')
+        axs[2].plot(ycr, data_ACR[:, xsz//2], 'b', linewidth=0.5, label='Y')
+        axs[2].plot(rcr, r_ACR, 'g', linewidth=0.5, label='R')
         axs[2].plot(xx_mean_value, xx_mean_value*0 + x_mean_value, 'r--', linewidth =2.0, label='<X>={:.5f}'.format(x_mean_value))
         axs[2].plot(yy_mean_value, yy_mean_value*0 + y_mean_value, 'b--', linewidth =2.0, label='<Y>={:.5f}'.format(y_mean_value))
         axs[2].plot(rr_mean_value, rr_mean_value*0 + r_mean_value, 'g--', linewidth =2.0, label='<R>={:.5f}'.format(r_mean_value))
@@ -567,6 +566,7 @@ def Single_Image_SNR(img, **kwargs):
         axs[3].grid(True)
         axs[3].legend()
         axs[3].set_xlim(-5,5)
+        axs[3].set_ylim(0,1.2)
         axs[3].set_title('Normalized autocorr. cross-sections')
 
         if save_res_png:
@@ -1942,7 +1942,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
     box_linewidth = kwargs.get("box_linewidth", 1.0)
-    box_color = kwargs.get("box_color", yellow)
+    box_color = kwargs.get("box_color", 'yellow')
     invert_data =  kwargs.get("invert_data", False)
     ax = kwargs.get("ax", '')
     plot_internal = (ax == '')
@@ -2396,7 +2396,7 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
     stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
     box_linewidth = kwargs.get("box_linewidth", 1.0)
-    box_color = kwargs.get("box_color", yellow)
+    box_color = kwargs.get("box_color", 'yellow')
     invert_data =  kwargs.get("invert_data", False)
     ax = kwargs.get("ax", '')
     plot_internal = (ax == '')
@@ -5329,7 +5329,7 @@ class FIBSEM_frame:
         nbins_disp = kwargs.get("nbins_disp", 256)
         thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])
         box_linewidth = kwargs.get("box_linewidth", 1.0)
-        box_color = kwargs.get("box_color", yellow)
+        box_color = kwargs.get("box_color", 'yellow')
         invert_data =  kwargs.get("invert_data", False)
         save_res_png  = kwargs.get("save_res_png", False )
 
@@ -9047,7 +9047,9 @@ class FIBSEM_dataset:
             Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", self.Mill_Volt_Rate_um_per_V)
         else:
             Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
-        FIBSEM_Data_xlsx = kwargs.get('FIBSEM_Data_xlsx', 'FIBSEM_Data_xlsx.xlsx')
+
+        FIBSEM_Data_xlsx_default = os.path.join(data_dir, self.fnm_reg.replace('.mrc', '_FIBSEM_Data.xlsx'))
+        FIBSEM_Data_xlsx = kwargs.get('FIBSEM_Data_xlsx', FIBSEM_Data_xlsx_default)
         disp_res = kwargs.get('disp_res', True)
 
         local_kwargs = {'use_DASK' : use_DASK,
@@ -9933,7 +9935,7 @@ class FIBSEM_dataset:
         #print('perform_transformation: ', perform_transformation)
         invert_data =  kwargs.get("invert_data", False)
         box_linewidth = kwargs.get("box_linewidth", 1.0)
-        box_color = kwargs.get("box_color", yellow)
+        box_color = kwargs.get("box_color", 'yellow')
         flipY = kwargs.get("flipY", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
