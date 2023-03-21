@@ -661,7 +661,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
     Notes = kwargs.get("Notes", '')
     dpi = kwargs.get("dpi", 300)
 
-    fs=11
+    fs=10
     img_filtered = convolve2d(img, kernel, mode='same')
     range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res=False)
 
@@ -674,9 +674,13 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         print('The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
     
-    xy_ratio = img.shape[1]/img.shape[0]
-    xsz = 15
-    ysz = xsz*3.5/xy_ratio
+    yx_ratio = img.shape[0]/img.shape[1]
+    xsz = 15.0
+    ysz = xsz*2.0*yx_ratio + 5
+    xsz = xsz / max((xsz, ysz)) * 15.0
+    ysz = ysz / max((xsz, ysz)) * 15.0  
+    widths = [1.0, 1.0, 1.0]
+    heights = [xsz/5.0*yx_ratio, xsz/5.0*yx_ratio, 0.7]
 
     n_ROIs = len(Noise_ROIs)+1
     mean_vals = np.zeros(n_ROIs)
@@ -685,23 +689,24 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
 
     if disp_res: 
         fig = plt.figure(figsize=(xsz,ysz))
-        axs0 = fig.add_subplot(3,1,1)
-        axs1 = fig.add_subplot(3,1,2)
-        axs2 = fig.add_subplot(3,3,7)
-        axs3 = fig.add_subplot(3,3,8)
-        axs4 = fig.add_subplot(3,3,9)
+        gr_spec = fig.add_gridspec(ncols=3, nrows=3, width_ratios=widths, height_ratios=heights)
+        axs0 = fig.add_subplot(gr_spec[0, :])
+        axs1 = fig.add_subplot(gr_spec[1, :])
+        axs2 = fig.add_subplot(gr_spec[2, 0])
+        axs3 = fig.add_subplot(gr_spec[2, 1])
+        axs4 = fig.add_subplot(gr_spec[2, 2])
         fig.subplots_adjust(left=0.01, bottom=0.06, right=0.99, top=0.95, wspace=0.25, hspace=0.10)
-        
+       
         axs0.text(0.01, 1.13, res_fname + ',   ' +  Notes, transform=axs0.transAxes, fontsize=fs-3)
         axs0.imshow(img, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs0.axis(False)
-        axs0.set_title('Original Image: ' + img_label, color='r', fontsize=fs+1)
+        axs0.set_title('Original Image: ' + img_label, color='r', fontsize=fs)
         Hist_patch = patches.Rectangle((xi,yi),abs(xa-xi)-2,abs(ya-yi)-2, linewidth=1.0, edgecolor='white',facecolor='none')
         axs1.add_patch(Hist_patch)
         
         axs2.imshow(img_hist_filtered, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs2.axis(False)
-        axs2.set_title('Smoothed ROI', fontsize=fs+1)
+        axs2.set_title('Smoothed ROI', fontsize=fs)
         
     if disp_res:
         hist, bins, hist_patches = axs3.hist(img_hist_filtered.ravel(), range=range_disp, bins = nbins_disp)
@@ -719,9 +724,9 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         axs3.plot(bin_centers[hist_center_ind], hist_smooth[hist_center_ind], color='grey', linestyle='dashed', linewidth=2)
         Ipeak_lbl = '$I_{peak}$' +'={:.1f}'.format(I_peak)
         axs3.plot(I_peak, C_peak, 'rd', label = Ipeak_lbl)
-        axs3.set_title('Histogram of the Smoothed ROI', fontsize=fs+1)
+        axs3.set_title('Histogram of the Smoothed ROI', fontsize=fs)
         axs3.grid(True)
-        axs3.set_xlabel('Smoothed ROI Image Intensity', fontsize=fs+1)
+        axs3.set_xlabel('Smoothed ROI Image Intensity', fontsize=fs)
         for hist_patch in np.array(hist_patches)[bin_centers<range_analysis[0]]:
             hist_patch.set_facecolor('lime')
         for hist_patch in np.array(hist_patches)[bin_centers>range_analysis[1]]:
@@ -731,7 +736,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         axs3.plot([I_min, I_min],[ylim3[0]-1000, ylim3[1]], color='lime', linestyle='dashed', label='$I_{min}$' +'={:.1f}'.format(I_min))
         axs3.plot([I_max, I_max],[ylim3[0]-1000, ylim3[1]], color='red', linestyle='dashed', label='$I_{max}$' +'={:.1f}'.format(I_max))
         axs3.set_ylim(ylim3)
-        axs3.legend(loc='upper right', fontsize=fs+1)
+        axs3.legend(loc='upper right', fontsize=fs)
         axs1.imshow(img_filtered, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs1.axis(False)
         axs1.set_title('Smoothed Image')
@@ -765,11 +770,11 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
     
     if disp_res:
         axs4.grid(True)
-        axs4.set_title('Noise Distribution', fontsize=fs+1)
-        axs4.set_xlabel('ROI Image Intensity Mean', fontsize=fs+1)
-        axs4.set_ylabel('ROI Image Intensity Variance', fontsize=fs+1)
+        axs4.set_title('Noise Distribution', fontsize=fs)
+        axs4.set_xlabel('ROI Image Intensity Mean', fontsize=fs)
+        axs4.set_ylabel('ROI Image Intensity Variance', fontsize=fs)
         axs4.plot(mean_val_fit, var_val_fit, color='orange', label='Fit:  y = (x {:.1f}) * {:.2f}'.format(DarkCount, NF_slope))
-        axs4.legend(loc = 'upper left', fontsize=fs+2)
+        axs4.legend(loc = 'upper left', fontsize=fs)
         ylim4=array(axs4.get_ylim())
         V_min = (I_min-DarkCount)*NF_slope
         V_max = (I_max-DarkCount)*NF_slope
@@ -779,13 +784,13 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         axs4.plot([I_peak, I_peak],[ylim4[0], V_peak], color='black', linestyle='dashed', label='$I_{peak}$' +'={:.1f}'.format(I_peak))
         axs4.set_ylim(ylim4)
         txt1 = 'Peak Intensity:  {:.1f}'.format(I_peak)
-        axs4.text(0.05, 0.65, txt1, transform=axs4.transAxes, fontsize=fs+1)
+        axs4.text(0.05, 0.65, txt1, transform=axs4.transAxes, fontsize=fs)
         txt2 = 'Variance={:.1f}, STD={:.1f}'.format(VAR, np.sqrt(VAR))
-        axs4.text(0.05, 0.55, txt2, transform=axs4.transAxes, fontsize=fs+1)
+        axs4.text(0.05, 0.55, txt2, transform=axs4.transAxes, fontsize=fs)
         txt3 = 'PSNR = {:.2f}'.format(PSNR)
-        axs4.text(0.05, 0.45, txt3, transform=axs4.transAxes, fontsize=fs+1)
+        axs4.text(0.05, 0.45, txt3, transform=axs4.transAxes, fontsize=fs)
         txt3 = 'DSNR = {:.2f}'.format(DSNR)
-        axs4.text(0.05, 0.35, txt3, transform=axs4.transAxes, fontsize=fs+1)
+        axs4.text(0.05, 0.35, txt3, transform=axs4.transAxes, fontsize=fs)
         if save_res_png:
             fig.savefig(res_fname, dpi=dpi)
             print('results saved into the file: '+res_fname)
@@ -10202,9 +10207,12 @@ class FIBSEM_dataset:
             ax.plot(frame_inds, xSNRBs, 'rx', linestyle='dotted', label='Image B x-SNR')
             ax.plot(frame_inds, ySNRBs, 'bx', linestyle='dotted', label='Image B y-SNR')
             ax.plot(frame_inds, rSNRBs, 'gx', linestyle='dotted', label='Image B r-SNR')
-            ImgB_fraction_xSNR = np.mean(np.array(xSNRBs)/(np.array(xSNRAs) + np.array(xSNRBs)))
-            ImgB_fraction_ySNR = np.mean(np.array(ySNRBs)/(np.array(ySNRAs) + np.array(ySNRBs)))
-            ImgB_fraction_rSNR = np.mean(np.array(rSNRBs)/(np.array(rSNRAs) + np.array(rSNRBs)))
+            #ImgB_fraction_xSNR = np.mean(np.array(xSNRBs)/(np.array(xSNRAs) + np.array(xSNRBs)))
+            #ImgB_fraction_ySNR = np.mean(np.array(ySNRBs)/(np.array(ySNRAs) + np.array(ySNRBs)))
+            #ImgB_fraction_rSNR = np.mean(np.array(rSNRBs)/(np.array(rSNRAs) + np.array(rSNRBs)))
+            ImgB_fraction_xSNR = np.mean(np.array(xSNRBs)/(np.array(xSNRAs)))
+            ImgB_fraction_ySNR = np.mean(np.array(ySNRBs)/(np.array(ySNRAs)))
+            ImgB_fraction_rSNR = np.mean(np.array(rSNRBs)/(np.array(rSNRAs)))
             if ImgB_fraction < 1e-9:
                 ImgB_fraction = ImgB_fraction_rSNR
             ax.text(0.1, 0.5, 'ImgB fraction (x-SNR) = {:.4f}'.format(ImgB_fraction_xSNR), color='r', transform=ax.transAxes)
