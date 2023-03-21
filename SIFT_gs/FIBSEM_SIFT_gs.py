@@ -912,15 +912,18 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     imdiff = (img-img_filtered)
     range_imdiff = get_min_max_thresholds(imdiff, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = False)
 
-    xy_ratio = img.shape[1]/img.shape[0]
-    xsz = 15
-    ysz = xsz/1.5*xy_ratio
+    xsz=15.0
+    yx_ratio = img.shape[0]/img.shape[1]
+    ysz = xsz/3.0*yx_ratio + 5.0
+    xsz = xsz / max((xsz, ysz)) * 15.0
+    ysz = ysz / max((xsz, ysz)) * 15.0  
+
     if disp_res:
         fs=11
-        fig, axss = subplots(2,3, figsize=(xsz,ysz),  gridspec_kw={"height_ratios" : [1,1]})
+        fig, axss = subplots(2,3, figsize=(xsz,ysz),  gridspec_kw={"height_ratios" : [yx_ratio, 1.0]})
         fig.subplots_adjust(left=0.07, bottom=0.06, right=0.99, top=0.92, wspace=0.15, hspace=0.10)
         axs = axss.ravel()
-        axs[0].text(-0.1, 1.1, res_fname + ',       ' +  Notes, transform=axs[0].transAxes, fontsize=fs)
+        axs[0].text(-0.1, (1.0 + 0.1/yx_ratio), res_fname + ',       ' +  Notes, transform=axs[0].transAxes, fontsize=fs-2)
 
         axs[0].imshow(img, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs[0].axis(False)
