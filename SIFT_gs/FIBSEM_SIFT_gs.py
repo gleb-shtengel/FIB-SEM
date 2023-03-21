@@ -901,16 +901,16 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     img_filtered = convolve2d(img, kernel, mode='same')[1:-1, 1:-1]
     img = img[1:-1, 1:-1]
     
-    range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = disp_res)
+    range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = False)
     if disp_res:
         print('The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
-    range_analysis = get_min_max_thresholds(img_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res = disp_res)
+    range_analysis = get_min_max_thresholds(img_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res = False)
     if disp_res:
         print('The EM data range for noise analysis:     {:.1f} - {:.1f}'.format(range_analysis[0], range_analysis[1]))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
 
     imdiff = (img-img_filtered)
-    range_imdiff = get_min_max_thresholds(imdiff, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = disp_res)
+    range_imdiff = get_min_max_thresholds(imdiff, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = False)
 
     xy_ratio = img.shape[1]/img.shape[0]
     xsz = 15
@@ -1008,11 +1008,13 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     var_fit = np.polyval(popt, mean_vals)
     I0 = -popt[1]/popt[0]
     Slope_header = np.mean(var_vals/(mean_vals-DarkCount))
+    if disp_res:
+        print('Slope of linear fit with header offset: {:.2f}'.format(Slope_header))
     var_fit_header = (mean_vals-DarkCount) * Slope_header
     if disp_res:
         axs[3].plot(mean_vals, var_vals, 'r.', label='data')
         axs[3].plot(mean_vals, var_fit, 'b', label='linear fit: {:.1f}*x + {:.1f}'.format(popt[0], popt[1]))
-        axs[3].plot(mean_vals, var_fit_header, 'magenta', label='linear fit with header offset')
+        axs[3].plot(mean_vals, var_fit_header, 'magenta', label='lin. fit (w. header offs.), slope={:.1f}'.format(Slope_header))
         axs[3].grid(True)
         axs[3].set_title('Noise Distribution', fontsize=fs+1)
         axs[3].set_xlabel('Image Intensity Mean', fontsize=fs+1)
