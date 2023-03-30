@@ -445,7 +445,6 @@ def Single_Image_SNR(img, **kwargs):
     radial_ACR = radial_profile(data_ACR, [xsz//2, ysz//2])
     r_ACR = np.concatenate((radial_ACR[::-1], radial_ACR[1:]))
 
-    #rsz = xsz
     rsz = len(r_ACR)
     rcr = np.linspace(-rsz//2+1, rsz//2, rsz)
     xcr = np.linspace(-xsz//2+1, xsz//2, xsz)
@@ -542,9 +541,9 @@ def Single_Image_SNR(img, **kwargs):
         axs[1].grid(True)
         axs[1].set_title('Autocorrelation (log scale)')
 
-        axs[2].plot(xcr, data_ACR[ysz//2, :], 'r', linewidth =0.5, label='X')
-        axs[2].plot(ycr, data_ACR[:, xsz//2], 'b', linewidth =0.5, label='Y')
-        axs[2].plot(rcr, r_ACR, 'g', linewidth =0.5, label='R')
+        axs[2].plot(xcr, data_ACR[ysz//2, :], 'r', linewidth=0.5, label='X')
+        axs[2].plot(ycr, data_ACR[:, xsz//2], 'b', linewidth=0.5, label='Y')
+        axs[2].plot(rcr, r_ACR, 'g', linewidth=0.5, label='R')
         axs[2].plot(xx_mean_value, xx_mean_value*0 + x_mean_value, 'r--', linewidth =2.0, label='<X>={:.5f}'.format(x_mean_value))
         axs[2].plot(yy_mean_value, yy_mean_value*0 + y_mean_value, 'b--', linewidth =2.0, label='<Y>={:.5f}'.format(y_mean_value))
         axs[2].plot(rr_mean_value, rr_mean_value*0 + r_mean_value, 'g--', linewidth =2.0, label='<R>={:.5f}'.format(r_mean_value))
@@ -675,9 +674,13 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         print('The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
 
-    xy_ratio = img.shape[1]/img.shape[0]
-    xsz = 15
-    ysz = xsz*3.5/xy_ratio
+    yx_ratio = img.shape[0]/img.shape[1]
+    xsz = 15.0
+    ysz = xsz*2.0*yx_ratio + 5
+    xsz = xsz / max((xsz, ysz)) * 15.0
+    ysz = ysz / max((xsz, ysz)) * 15.0
+    widths = [1.0, 1.0, 1.0]
+    heights = [xsz/5.0*yx_ratio, xsz/5.0*yx_ratio, 0.7]
 
     n_ROIs = len(Noise_ROIs)+1
     mean_vals = np.zeros(n_ROIs)
@@ -703,7 +706,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
 
         axs2.imshow(img_hist_filtered, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs2.axis(False)
-        axs2.set_title('Smoothed ROI', fontsize=fs+1)
+        axs2.set_title('Smoothed ROI', fontsize=fs)
 
     if disp_res:
         hist, bins, hist_patches = axs3.hist(img_hist_filtered.ravel(), range=range_disp, bins = nbins_disp)
@@ -898,7 +901,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     img_filtered = convolve2d(img, kernel, mode='same')[1:-1, 1:-1]
     img = img[1:-1, 1:-1]
 
-    range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = disp_res)
+    range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = False)
     if disp_res:
         print('The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
     range_analysis = get_min_max_thresholds(img_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res = False)
@@ -5339,7 +5342,6 @@ class FIBSEM_frame:
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         nbins_disp = kwargs.get("nbins_disp", 256)
         thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])
-        thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])
         box_linewidth = kwargs.get("box_linewidth", 1.0)
         box_color = kwargs.get("box_color", 'yellow')
         invert_data =  kwargs.get("invert_data", False)
@@ -7106,9 +7108,6 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
         Yfit = np.zeros(len(Yshift_cum))
 
     # define new cumulative transformation matrix where the offests may have linear slopes subtracted
-    tr_matr_cum[:, 0, 2] = Xshift_residual
-    tr_matr_cum[:, 1, 2] = Yshift_residual
-
     tr_matr_cum[:, 0, 2] = Xshift_residual-Xshift_residual[0]
     tr_matr_cum[:, 1, 2] = Yshift_residual-Yshift_residual[0]
 
@@ -7816,7 +7815,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         Transformation matrix for every frame in frame_inds.
 
     tr_args : list of lowwowing parameters:
-        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perfrom_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
+        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
 
     ImgB_fraction : float
         Fractional weight of Image B for fused images, default is 0
@@ -7842,7 +7841,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         perform image flattening
     image_correction_file : str
         full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
-    perfrom_transformation  : boolean
+    perform_transformation  : boolean
         perform transformation
     shift_matrix : 2d array
         shift matrix
@@ -8207,7 +8206,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
 
     frames_new = np.arange(nfrs_zbinned-1)
 
-    if pad_edges and perfrom_transformation:
+    if pad_edges and perform_transformation:
         shape = [YResolution, XResolution]
         xi, yi, padx, pady = determine_pad_offsets(shape, tr_matr_cum_residual)
         #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual)
@@ -9805,7 +9804,6 @@ class FIBSEM_dataset:
         end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
         st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)
         registered_filenames = transform_and_save_frames(DASK_client, frame_inds, self.fls, self.tr_matr_cum_residual, **save_kwargs)
-
         frame0 = tiff.imread(registered_filenames[0])
         ny, nx = np.shape(frame0)
         if disp_res:
@@ -9947,7 +9945,8 @@ class FIBSEM_dataset:
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         int_order = kwargs.get("int_order", self.int_order)
-        perfrom_transformation =  kwargs.get("perfrom_transformation", True) and hasattr(self, 'tr_matr_cum_residual')
+        perform_transformation =  kwargs.get("perform_transformation", True) and hasattr(self, 'tr_matr_cum_residual')
+        #print('perform_transformation: ', perform_transformation)
         invert_data =  kwargs.get("invert_data", False)
         box_linewidth = kwargs.get("box_linewidth", 1.0)
         box_color = kwargs.get("box_color", 'yellow')
@@ -9959,36 +9958,45 @@ class FIBSEM_dataset:
         default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
         frame_inds = kwargs.get("frame_inds", default_indecis)
 
-        for j in frame_inds:
-            frame = FIBSEM_frame(fls[j], ftype=ftype)
-            if pad_edges and perfrom_transformation:
-                shape = [frame.YResolution, frame.XResolution]
-                xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-                padx = np.int16(xmx - xmn)
-                pady = np.int16(ymx - ymn)
-                xi = np.int16(np.max([xmx, 0]))
-                yi = np.int16(np.max([ymx, 0]))
-                # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
-                # so that the transformed images are not clipped.
-                # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
-                # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
-                # those are calculated below base on the amount of padding calculated above
-                shift_matrix = np.array([[1.0, 0.0, xi],
-                                         [0.0, 1.0, yi],
-                                         [0.0, 0.0, 1.0]])
-                inv_shift_matrix = np.linalg.inv(shift_matrix)
-            else:
-                padx = 0
-                pady = 0
-                xi = 0
-                yi = 0
-                shift_matrix = np.eye(3,3)
-                inv_shift_matrix = np.eye(3,3)
+        shape = [self.YResolution, self.XResolution]
+        if pad_edges and perform_transformation:
+            xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #padx = np.int(xmx - xmn)
+            #pady = np.int(ymx - ymn)
+            #xi = np.int(np.max([xmx, 0]))
+            #yi = np.int(np.max([ymx, 0]))
+            # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
+            # so that the transformed images are not clipped.
+            # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
+            # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
+            # those are calculated below base on the amount of padding calculated above
+            shift_matrix = np.array([[1.0, 0.0, xi],
+                                     [0.0, 1.0, yi],
+                                     [0.0, 0.0, 1.0]])
+            inv_shift_matrix = np.linalg.inv(shift_matrix)
+        else:
+            padx = 0
+            pady = 0
+            xi = 0
+            yi = 0
+            shift_matrix = np.eye(3,3)
+            inv_shift_matrix = np.eye(3,3)
+        xsz = self.XResolution + padx
+        ysz = self.YResolution + pady
 
-            xsz = frame.XResolution + padx
-            xa = xi + frame.XResolution
-            ysz = frame.YResolution + pady
-            ya = yi + frame.YResolution
+        local_kwargs = {'start_evaluation_box' : start_evaluation_box,
+                         'stop_evaluation_box' : stop_evaluation_box,
+                         'sliding_evaluation_box' : sliding_evaluation_box,
+                         'pad_edges' : pad_edges,
+                         'perform_transformation' : perform_transformation,
+                         'tr_matr' : self.tr_matr_cum_residual,
+                         'frame_inds' : frame_inds}
+        eval_bounds = set_eval_bounds(shape, evaluation_box, **local_kwargs)
+        '''
+        #print('PADS: ', padx, pady)
+        #print('Sizes: ', xsz, ysz)
+        #print('eval_bounds: ', eval_bounds)
 
         local_kwargs = {'start_evaluation_box' : start_evaluation_box,
                          'stop_evaluation_box' : stop_evaluation_box,
@@ -10104,25 +10112,32 @@ class FIBSEM_dataset:
         default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
         frame_inds = kwargs.get("frame_inds", default_indecis)
 
-        test_frame = FIBSEM_frame(fls[0], ftype=ftype)
-
-        xi = 0
-        yi = 0
-        xsz = test_frame.XResolution
-        xa = xi + xsz
-        ysz = test_frame.YResolution
-        ya = yi + ysz
-
-        xi_eval = xi + evaluation_box[2]
-        if evaluation_box[3] > 0:
-            xa_eval = xi_eval + evaluation_box[3]
+        shape = [self.YResolution, self.XResolution]
+        if pad_edges and perform_transformation:
+            xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            #padx = np.int(xmx - xmn)
+            #pady = np.int(ymx - ymn)
+            #xi = np.int(np.max([xmx, 0]))
+            #yi = np.int(np.max([ymx, 0]))
+            # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
+            # so that the transformed images are not clipped.
+            # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
+            # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
+            # those are calculated below base on the amount of padding calculated above
+            shift_matrix = np.array([[1.0, 0.0, xi],
+                                     [0.0, 1.0, yi],
+                                     [0.0, 0.0, 1.0]])
+            inv_shift_matrix = np.linalg.inv(shift_matrix)
         else:
-            xa_eval = xa
-        yi_eval = yi + evaluation_box[0]
-        if evaluation_box[1] > 0:
-            ya_eval = yi_eval + evaluation_box[1]
-        else:
-            ya_eval = ya
+            padx = 0
+            pady = 0
+            xi = 0
+            yi = 0
+            shift_matrix = np.eye(3,3)
+            inv_shift_matrix = np.eye(3,3)
+        xsz = self.XResolution + padx
+        ysz = self.YResolution + pady
 
         frame_img = np.zeros((ysz, xsz))
         xSNRAs=[]
@@ -10131,38 +10146,6 @@ class FIBSEM_dataset:
         xSNRBs=[]
         ySNRBs=[]
         rSNRBs=[]
-
-        for j in tqdm(frame_inds, desc='Analyzing Auto-Correlation SNRs '):
-
-            frame = FIBSEM_frame(fls[j], ftype=ftype)
-            if pad_edges and perfrom_transformation:
-                shape = [frame.YResolution, frame.XResolution]
-                xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-                padx = np.int16(xmx - xmn)
-                pady = np.int16(ymx - ymn)
-                xi = np.int16(np.max([xmx, 0]))
-                yi = np.int16(np.max([ymx, 0]))
-                # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
-                # so that the transformed images are not clipped.
-                # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
-                # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
-                # those are calculated below base on the amount of padding calculated above
-                shift_matrix = np.array([[1.0, 0.0, xi],
-                                         [0.0, 1.0, yi],
-                                         [0.0, 0.0, 1.0]])
-                inv_shift_matrix = np.linalg.inv(shift_matrix)
-            else:
-                padx = 0
-                pady = 0
-                xi = 0
-                yi = 0
-                shift_matrix = np.eye(3,3)
-                inv_shift_matrix = np.eye(3,3)
-
-            xsz = frame.XResolution + padx
-            xa = xi + frame.XResolution
-            ysz = frame.YResolution + pady
-            ya = yi + frame.YResolution
 
         local_kwargs = {'start_evaluation_box' : start_evaluation_box,
                  'stop_evaluation_box' : stop_evaluation_box,
@@ -10207,38 +10190,6 @@ class FIBSEM_dataset:
                 if self.DetB != 'None':
                     frame_imgB_reg = np.flip(frame_imgB_reg, axis=0)
 
-            if sliding_evaluation_box:
-                xi_eval = start_evaluation_box[2] + dx_eval*j//nfrs
-                yi_eval = start_evaluation_box[0] + dy_eval*j//nfrs
-                if start_evaluation_box[3] > 0:
-                    xa_eval = xi_eval + start_evaluation_box[3]
-                else:
-                    xa_eval = xsz
-                if start_evaluation_box[1] > 0:
-                    ya_eval = yi_eval + start_evaluation_box[1]
-                else:
-                    ya_eval = ysz
-
-            '''
-            if invert_data:
-                if test_frame.EightBit==0:
-                    frame_imgA = np.negative(FIBSEM_frame(fls[j], ftype=ftype).RawImageA)
-                    if self.DetB != 'None':
-                        frame_imgB = np.negative(FIBSEM_frame(fls[j], ftype=ftype).RawImageB)
-                else:
-                    frame_imgA  =  uint8(255) - FIBSEM_frame(fls[j], ftype=ftype).RawImageA
-                    if self.DetB != 'None':
-                        frame_imgB  =  uint8(255) - FIBSEM_frame(fls[j], ftype=ftype).RawImageB
-
-            else:
-                frame_imgA  = FIBSEM_frame(fls[j], ftype=ftype).RawImageA
-                if self.DetB != 'None':
-                    frame_imgB  = FIBSEM_frame(fls[j], ftype=ftype).RawImageB
-
-            if flipY:
-                frame_imgA = np.flip(frame_imgA, axis=0)
-                frame_imgB = np.flip(frame_imgB, axis=0)
-            '''
             frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval]
             SNR_png = os.path.splitext(os.path.split(fls[frame_ind])[1])[0] + '.png'
             SNR_png_fname = os.path.join(data_dir, SNR_png)
@@ -10280,54 +10231,10 @@ class FIBSEM_dataset:
             xSNRFs=[]
             ySNRFs=[]
             rSNRFs=[]
-            for j in tqdm(frame_inds, desc='Re-analyzing Auto-Correlation SNRs for fused image'):
-                frame = FIBSEM_frame(fls[j], ftype=ftype)
-                if pad_edges and perfrom_transformation:
-                    shape = [frame.YResolution, frame.XResolution]
-                    xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-                    padx = np.int16(xmx - xmn)
-                    pady = np.int16(ymx - ymn)
-                    xi = np.int16(np.max([xmx, 0]))
-                    yi = np.int16(np.max([ymx, 0]))
-                    # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
-                    # so that the transformed images are not clipped.
-                    # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
-                    # for padded frames will be (Shift Matrix)x(Transformation Matrix)x(Inverse Shift Matrix)
-                    # those are calculated below base on the amount of padding calculated above
-                    shift_matrix = np.array([[1.0, 0.0, xi],
-                                             [0.0, 1.0, yi],
-                                             [0.0, 0.0, 1.0]])
-                    inv_shift_matrix = np.linalg.inv(shift_matrix)
-                else:
-                    padx = 0
-                    pady = 0
-                    xi = 0
-                    yi = 0
-                    shift_matrix = np.eye(3,3)
-                    inv_shift_matrix = np.eye(3,3)
-
-                xsz = frame.XResolution + padx
-                xa = xi + frame.XResolution
-                ysz = frame.YResolution + pady
-                ya = yi + frame.YResolution
-
-                xi_eval = xi + evaluation_box[2]
-                if evaluation_box[3] > 0:
-                    xa_eval = xi_eval + evaluation_box[3]
-                else:
-                    xa_eval = xa
-                yi_eval = yi + evaluation_box[0]
-                if evaluation_box[1] > 0:
-                    ya_eval = yi_eval + evaluation_box[1]
-                else:
-                    ya_eval = ya
-
-                if sliding_evaluation_box:
-                    dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
-                    dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
-                else:
-                    dx_eval = 0
-                    dy_eval = 0
+            for j, frame_ind in enumerate(tqdm(frame_inds, desc='Re-analyzing Auto-Correlation SNRs for fused image')):
+                frame = FIBSEM_frame(fls[frame_ind], ftype=ftype)
+                xa = xi+frame.XResolution
+                ya = yi+frame.YResolution
 
                 frame_imgA = np.zeros((ysz, xsz))
                 if self.DetB != 'None':
@@ -10480,13 +10387,13 @@ class FIBSEM_dataset:
         rSNRFs=[]
 
         for ImgB_fraction in tqdm(ImgB_fractions, desc='Evaluating Img B fractions'):
-            kwargs['ImgB_fraction'] = ImgB_fraction
-            kwargs['disp_res'] = False
-            kwargs['evaluation_box'] = evaluation_box
-            kwargs['flipY'] = flipY
-            kwargs['invert_data'] = invert_data
-            DASK_client = ''
-            kwargs['disp_res'] = False
+            kwargs_local['ImgB_fraction'] = ImgB_fraction
+            kwargs_local['disp_res'] = False
+            kwargs_local['evaluation_box'] = evaluation_box
+            kwargs_local['flipY'] = flipY
+            kwargs_local['invert_data'] = invert_data
+            kwargs_local['disp_res'] = False
+            kwargs_local['flatten_image'] = flatten_image
             br_res, br_res_xlsx = self.transform_and_save(DASK_client,
                                                             save_transformed_dataset=False,
                                                             save_registration_summary=False,
@@ -10625,4 +10532,3 @@ class FIBSEM_dataset:
             fig.savefig(fname_image, dpi=300)
 
         return SNRimpr_cc_max_position, SNRimpr_cc_max, ImgB_fractions, SNRs, rSNRFs
-
