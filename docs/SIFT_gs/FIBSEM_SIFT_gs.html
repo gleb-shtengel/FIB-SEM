@@ -5072,7 +5072,7 @@ class FIBSEM_frame:
             the value of the Intensity Data at 0.
         kernel : 2D float array
             a kernel to perfrom 2D smoothing convolution.
-        filename : str
+        res_fname : str
             filename - used for plotting the data. If not explicitly defined will use the instance attribute self.fname
         nbins_disp : int
             (default 256) number of histogram bins for building the PDF and CDF to determine the data range for data display.
@@ -5094,6 +5094,8 @@ class FIBSEM_frame:
             PSNR and DSNR are Peak and Dynamic SNR&#39;s (Step 6)
         &#39;&#39;&#39;
         image_name = kwargs.get(&#34;image_name&#34;, &#39;RawImageA&#39;)
+        res_fname_default = os.path.splitext(self.fname)[0] + &#39;_&#39; + image_name + &#39;_Noise_Analysis_ROIs.png&#39;
+        res_fname = kwargs.get(&#34;res_fname&#34;, res_fname_default)
 
         if image_name == &#39;RawImageA&#39;:
             ImgEM = self.RawImageA.astype(float)
@@ -5101,6 +5103,8 @@ class FIBSEM_frame:
         if image_name == &#39;RawImageB&#39; and self.DetB != &#39;None&#39;:
             ImgEM = self.RawImageB.astype(float)
             DarkCount = self.Scaling[1,1]
+
+
 
         if (image_name == &#39;RawImageA&#39;) or (image_name == &#39;RawImageB&#39; and self.DetB != &#39;None&#39;):
             st = 1.0/np.sqrt(2.0)
@@ -5116,7 +5120,7 @@ class FIBSEM_frame:
             kwargs[&#39;kernel&#39;] = kernel
             kwargs[&#39;DarkCount&#39;] = DarkCount
             kwargs[&#39;img_label&#39;] = image_name
-            kwargs[&#39;res_fname&#39;] = os.path.splitext(self.fname)[0] + &#39;_&#39; + image_name + &#39;_Noise_Analysis_ROIs.png&#39;
+            kwargs[&#39;res_fname&#39;] = res_fname
             kwargs[&#39;Notes&#39;] = Notes
             mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR = Single_Image_Noise_ROIs(ImgEM, Noise_ROIs, Hist_ROI, **kwargs)
 
@@ -5199,6 +5203,8 @@ class FIBSEM_frame:
             PSNR and DSNR are Peak and Dynamic SNR&#39;s (Step 8)
         &#39;&#39;&#39;
         image_name = kwargs.get(&#34;image_name&#34;, &#39;RawImageA&#39;)
+        res_fname_default = os.path.splitext(self.fname)[0] + &#39;_Noise_Analysis_&#39; + image_name + &#39;.png&#39;
+        res_fname = kwargs.get(&#34;res_fname&#34;, res_fname_default)
 
         if image_name == &#39;RawImageA&#39;:
             ImgEM = self.RawImageA.astype(float)
@@ -5220,8 +5226,6 @@ class FIBSEM_frame:
             thresholds_analysis = kwargs.get(&#34;thresholds_analysis&#34;, [2e-2, 1e-2])
             disp_res = kwargs.get(&#34;disp_res&#34;, True)
             save_res_png = kwargs.get(&#34;save_res_png&#34;, True)
-            default_res_name = os.path.splitext(self.fname)[0] + &#39;_Noise_Analysis_&#39; + image_name + &#39;.png&#39;
-            res_fname = kwargs.get(&#34;res_fname&#34;, default_res_name)
             img_label = kwargs.get(&#34;img_label&#34;, self.Sample_ID)
             Notes = kwargs.get(&#34;Notes&#34;, self.Notes.strip(&#39;\x00&#39;))
             dpi = kwargs.get(&#34;dpi&#34;, 300)
@@ -27891,7 +27895,7 @@ Flatten the image</p></div>
             the value of the Intensity Data at 0.
         kernel : 2D float array
             a kernel to perfrom 2D smoothing convolution.
-        filename : str
+        res_fname : str
             filename - used for plotting the data. If not explicitly defined will use the instance attribute self.fname
         nbins_disp : int
             (default 256) number of histogram bins for building the PDF and CDF to determine the data range for data display.
@@ -27913,6 +27917,8 @@ Flatten the image</p></div>
             PSNR and DSNR are Peak and Dynamic SNR&#39;s (Step 6)
         &#39;&#39;&#39;
         image_name = kwargs.get(&#34;image_name&#34;, &#39;RawImageA&#39;)
+        res_fname_default = os.path.splitext(self.fname)[0] + &#39;_&#39; + image_name + &#39;_Noise_Analysis_ROIs.png&#39;
+        res_fname = kwargs.get(&#34;res_fname&#34;, res_fname_default)
 
         if image_name == &#39;RawImageA&#39;:
             ImgEM = self.RawImageA.astype(float)
@@ -27920,6 +27926,8 @@ Flatten the image</p></div>
         if image_name == &#39;RawImageB&#39; and self.DetB != &#39;None&#39;:
             ImgEM = self.RawImageB.astype(float)
             DarkCount = self.Scaling[1,1]
+
+
 
         if (image_name == &#39;RawImageA&#39;) or (image_name == &#39;RawImageB&#39; and self.DetB != &#39;None&#39;):
             st = 1.0/np.sqrt(2.0)
@@ -27935,7 +27943,7 @@ Flatten the image</p></div>
             kwargs[&#39;kernel&#39;] = kernel
             kwargs[&#39;DarkCount&#39;] = DarkCount
             kwargs[&#39;img_label&#39;] = image_name
-            kwargs[&#39;res_fname&#39;] = os.path.splitext(self.fname)[0] + &#39;_&#39; + image_name + &#39;_Noise_Analysis_ROIs.png&#39;
+            kwargs[&#39;res_fname&#39;] = res_fname
             kwargs[&#39;Notes&#39;] = Notes
             mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR = Single_Image_Noise_ROIs(ImgEM, Noise_ROIs, Hist_ROI, **kwargs)
 
@@ -28018,6 +28026,8 @@ Flatten the image</p></div>
             PSNR and DSNR are Peak and Dynamic SNR&#39;s (Step 8)
         &#39;&#39;&#39;
         image_name = kwargs.get(&#34;image_name&#34;, &#39;RawImageA&#39;)
+        res_fname_default = os.path.splitext(self.fname)[0] + &#39;_Noise_Analysis_&#39; + image_name + &#39;.png&#39;
+        res_fname = kwargs.get(&#34;res_fname&#34;, res_fname_default)
 
         if image_name == &#39;RawImageA&#39;:
             ImgEM = self.RawImageA.astype(float)
@@ -28039,8 +28049,6 @@ Flatten the image</p></div>
             thresholds_analysis = kwargs.get(&#34;thresholds_analysis&#34;, [2e-2, 1e-2])
             disp_res = kwargs.get(&#34;disp_res&#34;, True)
             save_res_png = kwargs.get(&#34;save_res_png&#34;, True)
-            default_res_name = os.path.splitext(self.fname)[0] + &#39;_Noise_Analysis_&#39; + image_name + &#39;.png&#39;
-            res_fname = kwargs.get(&#34;res_fname&#34;, default_res_name)
             img_label = kwargs.get(&#34;img_label&#34;, self.Sample_ID)
             Notes = kwargs.get(&#34;Notes&#34;, self.Notes.strip(&#39;\x00&#39;))
             dpi = kwargs.get(&#34;dpi&#34;, 300)
@@ -28694,7 +28702,7 @@ in the middle of the range (Min Intensity + Max Intensity)/2.0</p>
 <dd>the value of the Intensity Data at 0.</dd>
 <dt><strong><code>kernel</code></strong> :&ensp;<code>2D float array</code></dt>
 <dd>a kernel to perfrom 2D smoothing convolution.</dd>
-<dt><strong><code>filename</code></strong> :&ensp;<code>str</code></dt>
+<dt><strong><code>res_fname</code></strong> :&ensp;<code>str</code></dt>
 <dd>filename - used for plotting the data. If not explicitly defined will use the instance attribute self.fname</dd>
 <dt><strong><code>nbins_disp</code></strong> :&ensp;<code>int</code></dt>
 <dd>(default 256) number of histogram bins for building the PDF and CDF to determine the data range for data display.</dd>
@@ -28762,7 +28770,7 @@ PSNR and DSNR are Peak and Dynamic SNR's (Step 6)</dd>
         the value of the Intensity Data at 0.
     kernel : 2D float array
         a kernel to perfrom 2D smoothing convolution.
-    filename : str
+    res_fname : str
         filename - used for plotting the data. If not explicitly defined will use the instance attribute self.fname
     nbins_disp : int
         (default 256) number of histogram bins for building the PDF and CDF to determine the data range for data display.
@@ -28784,6 +28792,8 @@ PSNR and DSNR are Peak and Dynamic SNR's (Step 6)</dd>
         PSNR and DSNR are Peak and Dynamic SNR&#39;s (Step 6)
     &#39;&#39;&#39;
     image_name = kwargs.get(&#34;image_name&#34;, &#39;RawImageA&#39;)
+    res_fname_default = os.path.splitext(self.fname)[0] + &#39;_&#39; + image_name + &#39;_Noise_Analysis_ROIs.png&#39;
+    res_fname = kwargs.get(&#34;res_fname&#34;, res_fname_default)
 
     if image_name == &#39;RawImageA&#39;:
         ImgEM = self.RawImageA.astype(float)
@@ -28791,6 +28801,8 @@ PSNR and DSNR are Peak and Dynamic SNR's (Step 6)</dd>
     if image_name == &#39;RawImageB&#39; and self.DetB != &#39;None&#39;:
         ImgEM = self.RawImageB.astype(float)
         DarkCount = self.Scaling[1,1]
+
+
 
     if (image_name == &#39;RawImageA&#39;) or (image_name == &#39;RawImageB&#39; and self.DetB != &#39;None&#39;):
         st = 1.0/np.sqrt(2.0)
@@ -28806,7 +28818,7 @@ PSNR and DSNR are Peak and Dynamic SNR's (Step 6)</dd>
         kwargs[&#39;kernel&#39;] = kernel
         kwargs[&#39;DarkCount&#39;] = DarkCount
         kwargs[&#39;img_label&#39;] = image_name
-        kwargs[&#39;res_fname&#39;] = os.path.splitext(self.fname)[0] + &#39;_&#39; + image_name + &#39;_Noise_Analysis_ROIs.png&#39;
+        kwargs[&#39;res_fname&#39;] = res_fname
         kwargs[&#39;Notes&#39;] = Notes
         mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR = Single_Image_Noise_ROIs(ImgEM, Noise_ROIs, Hist_ROI, **kwargs)
 
@@ -28961,6 +28973,8 @@ PSNR and DSNR are Peak and Dynamic SNR's (Step 8)</dd>
         PSNR and DSNR are Peak and Dynamic SNR&#39;s (Step 8)
     &#39;&#39;&#39;
     image_name = kwargs.get(&#34;image_name&#34;, &#39;RawImageA&#39;)
+    res_fname_default = os.path.splitext(self.fname)[0] + &#39;_Noise_Analysis_&#39; + image_name + &#39;.png&#39;
+    res_fname = kwargs.get(&#34;res_fname&#34;, res_fname_default)
 
     if image_name == &#39;RawImageA&#39;:
         ImgEM = self.RawImageA.astype(float)
@@ -28982,8 +28996,6 @@ PSNR and DSNR are Peak and Dynamic SNR's (Step 8)</dd>
         thresholds_analysis = kwargs.get(&#34;thresholds_analysis&#34;, [2e-2, 1e-2])
         disp_res = kwargs.get(&#34;disp_res&#34;, True)
         save_res_png = kwargs.get(&#34;save_res_png&#34;, True)
-        default_res_name = os.path.splitext(self.fname)[0] + &#39;_Noise_Analysis_&#39; + image_name + &#39;.png&#39;
-        res_fname = kwargs.get(&#34;res_fname&#34;, default_res_name)
         img_label = kwargs.get(&#34;img_label&#34;, self.Sample_ID)
         Notes = kwargs.get(&#34;Notes&#34;, self.Notes.strip(&#39;\x00&#39;))
         dpi = kwargs.get(&#34;dpi&#34;, 300)
