@@ -14,6 +14,27 @@ The main features of this workflow:
 
 ## "Evaluate_FIB-SEM_MRC_stack_registrations.ipynb" - Python Notebook for evaluating FIB-SEM stack registration (works with stacks saved into MRC files, uses DASK)
 
+## Installation
+
+Clone the repository locally, then install the project in a virtual environment.
+
+```sh
+git clone https://github.com/gleb-shtengel/FIB-SEM.git
+cd FIB-SEM
+
+# This uses python's built-in virtual environments;
+# you could also use (ana)conda
+python3 -m venv --prompt sift_gs venv
+source venv/bin/activate
+
+# -e(ditable) install means local changes are immediately
+# reflected in the installed version.
+# This installs all runtime dependencies as well.
+pip install -e .
+```
+
+### Manual/ conda installation
+
 In order to run the Python Notebook code, first, install basic Anaconda:
 https://www.anaconda.com/products/individual
 This notebook uses OpenCV implementation of SIFT. SIFT is part of standard OpenCV releases for version 3.4.1 or earlier. If you have newer version of OpenCV-python installed, SIFT will most likely be not part of it (because of patent issues), and the Python command sift = cv2.xfeatures2d.SIFT_create() will generate error. In this case replace it with a version supporting SIFT using these commands (in anaconda command window):
@@ -29,8 +50,8 @@ You will also need to have these packages installed:
 -	mrcfile
 -	skimage
 -	DASK
--	pickle
--	webbrowser
+-	pickle (packaged with modern python)
+-	webbrowser (packaged with modern python)
 -	IPython
 -   npy2bdv (used to save the data into Big Data Viewer – compatible HDF5 format)
 
@@ -51,7 +72,7 @@ You will also need to have these packages installed:
 ## Single Frame Image Processing Functions
     Single_Image_SNR(img, **kwargs)
         Estimates SNR based on a single image.
-        Calculates SNR of a single image base on auto-correlation analysis after [1].   
+        Calculates SNR of a single image base on auto-correlation analysis after [1].
         [1] J. T. L. Thong et al, Single-image signal-to-noise ratio estimation. Scanning, 328–336 (2001).
     Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs)
         Analyses the noise statistics in the selected ROI's of the EM data
@@ -131,7 +152,7 @@ You will also need to have these packages installed:
     EightBit : int
         8-bit data switch: 0 for 16-bit data, 1 for 8-bit data
     ScalingS : 2D array of floats
-        scaling parameters allowing to convert I16 data into actual electron counts 
+        scaling parameters allowing to convert I16 data into actual electron counts
     Sample_ID : str
         Sample_ID
     Notes : str
@@ -177,7 +198,7 @@ You will also need to have these packages installed:
         Flattens the image
 
 
-## class FIBSEM_dataset: 
+## class FIBSEM_dataset:
     A class representing a FIB-SEM data set. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com.
     Contains the info/settings on the FIB-SEM dataset and the procedures that can be performed on it.
 
