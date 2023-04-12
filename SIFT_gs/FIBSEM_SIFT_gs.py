@@ -10104,7 +10104,7 @@ class FIBSEM_dataset:
         ImgB_fraction = kwargs.get("ImgB_fraction", 0.00 )
         flipY = kwargs.get("flipY", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
-        perform_transformation =  kwargs.get("perform_transformation", True) and hasattr(self, 'tr_matr_cum_residual')
+        perform_transformation =  kwargs.get("perform_transformation", False) and hasattr(self, 'tr_matr_cum_residual')
         extrapolate_signal = kwargs.get('extrapolate_signal', True)
 
         fls = self.fls
