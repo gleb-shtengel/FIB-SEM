@@ -56,7 +56,10 @@ Register_FIB-SEM_stack_DASK_v2_LID391_exp4.ipynb
 Register_FIB-SEM_stack_DASK_v2_LID391_4nm.ipynb
 Register_FIB-SEM_stack_DASK_v3_LID609_ROI2.ipynb
 Register_FIB-SEM_stack_DASK_v3_LID572_ROI1.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID596_ROI2a.ipynb
 Register_FIB-SEM_stack_DASK_v3_LID596_ROI2b.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID596_ROI2c.ipynb
+Mapmaker_debug.ipynb
 iPALM_Calibration_Zextraction.ipynb
 Untitled.ipynb
 Sapphire_interface_reflectivity_calculations.ipynb
@@ -75,3 +78,24 @@ Read_ZRDs.ipynb
 __pycache__
 dask-worker-space
 ~*.*
+Untitled1.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID666_ROI1_J8.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID647_ROI11_J6.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID596_ROI2i_J1.ipynb
+SIFT_gs/.DS_Store
+FIB-SEM_resolution_Au_on_C_transitions_development.ipynb
+FIB-SEM_resolution_Au_on_C_transitions_example.ipynb
+FIB-SEM_resolution_HeLa_Cell2_transition_estimates_clean.ipynb
+FIB-SEM_resolution_ribosomes_development.ipynb
+FIB-SEM_resolution_ribosomes_example.ipynb
+FIB-SEM_resolution_ribosomes_J1_J6_comparison.ipynb
+FIBSEM_frame_test.ipynb
+FIBSEM_Resolution_Evaluation_Summary.ipynb
+LID391_Au_estimates.ipynb
+LID391_evaluate_Z-milling_rate_using_Au_blobs.ipynb
+Register_FIB-SEM_stack_DASK_v3_ Cryo_20161004_S3_J1.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID596_ROI2d.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID596_ROI2e_J1.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID596_ROI2f_J6.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID596_ROI2g_J6.ipynb
+Register_FIB-SEM_stack_DASK_v3_LID596_ROI2h_J8.ipynb

@@ -65,324 +65,26 @@ EPS = np.finfo(float).eps
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+sys.path.append('/SIFT_gs/')
+try:
+    from SIFT_gs.FIBSEM_help_functions_gs import *
+except:
+    from FIBSEM_help_functions_gs import *
 
+try:
+    from SIFT_gs.FIBSEM_custom_transforms_gs import *
+except:
+    from FIBSEM_custom_transforms_gs import *
 
-######################################################
-#    General Help Functions
-######################################################
-def get_spread(data, window=501, porder=3):
-    '''
-    Calculates spread - standard deviation of the (signal - Sav-Gol smoothed signal).
-    ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
-
-    Parameters:
-    data : 1D array
-    window : int
-        aperture (number of points) for Sav-Gol filter)
-    porder : int
-        polynomial order for Sav-Gol filter
-
-    Returns:
-        data_spread : float
-
-    '''
-
-    try:
-        #sm_data = savgol_filter(data.astype(double), window, porder)
-        sm_data = savgol_filter(data.astype(double), window, porder, mode='mirror')
-        data_spread = np.std(data-sm_data)
-    except :
-        print('spread error')
-        data_spread = 0.0
-    return data_spread
-
-
-def get_min_max_thresholds(image, **kwargs):
-    '''
-    Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
-    ©G.Shtengel 11/2022 gleb.shtengel@gmail.com
-
-    Calculates the histogram of pixel intensities of the image with number of bins determined by parameter nbins (default = 256)
-    and normalizes it to get the probability distribution function (PDF), from which a cumulative distribution function (CDF) is calculated.
-    Then given the thr_min, thr_max parameters, the minimum and maximum values of the data range are found
-    by determining the intensities at which CDF= thr_min and (1- thr_max), respectively
-
-    Parameters:
-    ----------
-    image : 2D array
-        Image to be analyzed
-
-    kwargs:
-     ----------
-    thr_min : float
-        lower CDF threshold for determining the minimum data value. Default is 1.0e-3
-    thr_max : float
-        upper CDF threshold for determining the maximum data value. Default is 1.0e-3
-    nbins : int
-        number of histogram bins for building the PDF and CDF
-    log  : bolean
-        If True, the histogram will have log scale. Default is false
-    disp_res : bolean
-        If True display the results. Default is True.
-    save_res : boolean
-        If True the image will be saved. Default is False.
-    dpi : int
-        Default is 300
-    save_filename : string
-        the name of the image to perform this operations (defaulut is 'min_max_thresholds.png').
-
-    Returns
-    (dmin, dmax) : float array
-    '''
-    thr_min = kwargs.get('thr_min', 1.0e-3)
-    thr_max = kwargs.get('thr_max', 1.0e-3)
-    nbins = kwargs.get('nbins', 256)
-    disp_res = kwargs.get('disp_res', True)
-    log = kwargs.get('log', False)
-    save_res = kwargs.get('save_res', False)
-    dpi = kwargs.get('dpi', 300)
-    save_filename = kwargs.get('save_filename', 'min_max_thresholds.png')
-
-    if disp_res:
-        fsz=11
-        fig, axs = subplots(2,1, figsize = (6,8))
-        hist, bins, patches = axs[0].hist(image.ravel(), bins=nbins, log=log)
-    else:
-        hist, bins = np.histogram(image.ravel(), bins=nbins)
-    pdf = hist / np.prod(image.shape)
-    cdf = np.cumsum(pdf)
-    data_max = bins[argmin(abs(cdf-(1.0-thr_max)))]
-    data_min = bins[argmin(abs(cdf-thr_min))]
-    
-    if disp_res:
-        xCDF = bins[0:-1]+(bins[1]-bins[0])/2.0
-        xthr = [xCDF[0], xCDF[-1]]
-        ythr_min = [thr_min, thr_min]
-        ythr_max = [1-thr_max, 1-thr_max]
-        axs[1].plot(xCDF, cdf, label='CDF')
-        axs[1].plot(xthr, ythr_min, 'r', label='thr_min={:.5f}'.format(thr_min))
-        axs[1].plot(xthr, ythr_max, 'g', label='1.0 - thr_max = {:.5f}'.format(1-thr_max))
-        axs[1].set_xlabel('Intensity Level', fontsize = fsz)
-        axs[0].set_ylabel('PDF', fontsize = fsz)
-        axs[1].set_ylabel('CDF', fontsize = fsz)
-        xi = data_min - (np.abs(data_max-data_min)/2)
-        xa = data_max + (np.abs(data_max-data_min)/2)
-        rys = [[0, np.max(hist)], [0, 1]]
-        for ax, ry in zip(axs, rys):
-            ax.plot([data_min, data_min], ry, 'r', linestyle = '--', label = 'data_min={:.1f}'.format(data_min))
-            ax.plot([data_max, data_max], ry, 'g', linestyle = '--', label = 'data_max={:.1f}'.format(data_max))
-            ax.set_xlim(xi, xa)
-            ax.grid(True)
-        axs[1].legend(loc='center', fontsize=fsz)
-        axs[1].set_title('Data Min and max with thr_min={:.0e},  thr_max={:.0e}'.format(thr_min, thr_max), fontsize = fsz)
-        if save_res:
-            fig.savefig(save_filename, dpi=dpi)
-    return np.array((data_min, data_max))
-
-def argmax2d(X):
-    return np.unravel_index(X.argmax(), X.shape)
-
-
-def find_BW(fr, FSC, SNRt):
-    npts = np.shape(FSC)[0]*0.75
-    j = 15
-    while (j<npts-1) and FSC[j]>SNRt:
-        j = j+1
-    BW = fr[j-1] + (fr[j]-fr[j-1])*(SNRt-FSC[j-1])/(FSC[j]-FSC[j-1])
-    return BW
-
-
-def radial_profile(data, center):
-    '''
-    Calculates radially average profile of the 2D array (used for FRC and auto-correlation)
-    ©G.Shtengel 08/2020 gleb.shtengel@gmail.com
-
-    Parameters:
-    data : 2D array
-
-    center : list of two ints
-        [xcenter, ycenter]
-
-    Returns
-        radialprofile : float array
-            limited to x-size//2 of the input data
-    '''
-    ysz, xsz = data.shape
-    y, x = np.indices((data.shape))
-    r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
-    r = r.astype(int)
-    tbin = np.bincount(r.ravel(), data.ravel())
-    nr = np.bincount(r.ravel())
-    radialprofile = (np.array(tbin) / nr)[0:(xsz//2+1)]
-    return radialprofile
-
-
-def radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4):
-    '''
-    Calculates radially average profile of the 2D array (used for FRC) within a select range of angles.
-    ©G.Shtengel 08/2020 gleb.shtengel@gmail.com
-
-    Parameters:
-    data : 2D array
-    center : list of two ints
-        [xcenter, ycenter]
-
-    astart : float
-        Start angle for radial averaging. Default is 0
-    astop : float
-        Stop angle for radial averaging. Default is 90
-    symm : int
-        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
-
-
-    Returns
-        radialprofile : float array
-            limited to x-size//2 of the input data
-    '''
-    y, x = np.indices((data.shape))
-    r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
-    r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True)).ravel()
-    r = r.astype(np.int)
-    
-    if symm>0:
-        ind = np.squeeze(np.array(np.where((r_ang > astart) & (r_ang < astart))))
-        for i in np.arange(symm):
-            ai = astart +360.0/symm*i -180.0
-            aa = astop +360.0/symm*i -180.0
-            ind = np.concatenate((ind, np.squeeze((np.array(np.where((r_ang > ai) & (r_ang < aa)))))), axis=0)
-    else:
-        ind = np.squeeze(np.where((r_ang > astart) & (r_ang < astop)))
-        
-    rr = np.ravel(r)[ind]
-    dd = np.ravel(data)[ind]
-
-    tbin = np.bincount(rr, dd)
-    nr = np.bincount(rr)
-    radialprofile = tbin / nr
-    return radialprofile
-
-
-def smooth(x, window_len=11, window='hanning'):
-    """smooth the data using a window with requested size.
-    
-    This method is based on the convolution of a scaled window with the signal.
-    The signal is prepared by introducing reflected copies of the signal 
-    (with the window size) in both ends so that transient parts are minimized
-    in the begining and end part of the output signal.
-    
-    input:
-        x: the input signal 
-        window_len: the dimension of the smoothing window; should be an odd integer
-        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
-            flat window will produce a moving average smoothing.
-
-    output:
-        the smoothed signal
-        
-    example:
-
-    t=linspace(-2,2,0.1)
-    x=sin(t)+randn(len(t))*0.1
-    y=smooth(x)
-    
-    see also: 
-    
-    numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
-    scipy.signal.lfilter
- 
-    TODO: the window parameter could be the window itself if an array instead of a string
-    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
-    """
-
-    if x.ndim != 1:
-        raise ValueError("smooth only accepts 1 dimension arrays.")
-
-    if x.size < window_len:
-        raise ValueError("Input vector needs to be bigger than window size.")
-
-
-    if window_len<3:
-        return x
-
-
-    if not window in ['flat', 'hanning', 'hamming', 'bartlett', 'blackman']:
-        raise ValueError("Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'")
-
-    s=np.r_[x[window_len-1:0:-1],x,x[-2:-window_len-1:-1]]
-
-    if window == 'flat': #moving average
-        w=np.ones(window_len,'d')
-    else:
-        w=eval('np.'+window+'(window_len)')
-
-    y=np.convolve(w/w.sum(),s,mode='valid')
-    return y[(window_len//2-1):-(window_len//2)]
+try:
+    from SIFT_gs.FIBSEM_resolution_gs import *
+except:
+    from FIBSEM_resolution_gs import *
 
 
 ################################################
 #      Single Frame Image Processing Functions
 ################################################
-def _center_and_normalize_points_gs(points):
-    """Center and normalize image points.
-
-    The points are transformed in a two-step procedure that is expressed
-    as a transformation matrix. The matrix of the resulting points is usually
-    better conditioned than the matrix of the original points.
-    Center the image points, such that the new coordinate system has its
-    origin at the centroid of the image points.
-    Normalize the image points, such that the mean distance from the points
-    to the origin of the coordinate system is sqrt(D).
-    If the points are all identical, the returned values will contain nan.
-
-    Parameters:
-    ----------
-    points : (N, D) array
-        The coordinates of the image points.
-    Returns:
-    -------
-    matrix : (D+1, D+1) array
-        The transformation matrix to obtain the new points.
-    new_points : (N, D) array
-        The transformed image points.
-    References
-    ----------
-    .. [1] Hartley, Richard I. "In defense of the eight-point algorithm."
-           Pattern Analysis and Machine Intelligence, IEEE Transactions on 19.6
-           (1997): 580-593.
-    """
-    n, d = points.shape
-    centroid = np.mean(points, axis=0)
-
-    centered = points - centroid
-    rms = np.sqrt(np.sum(centered ** 2) / n)
-
-    # if all the points are the same, the transformation matrix cannot be
-    # created. We return an equivalent matrix with np.nans as sentinel values.
-    # This obviates the need for try/except blocks in functions calling this
-    # one, and those are only needed when actual 0 is reached, rather than some
-    # small value; ie, we don't need to worry about numerical stability here,
-    # only actual 0.
-    if rms == 0:
-        return np.full((d + 1, d + 1), np.nan), np.full_like(points, np.nan)
-
-    norm_factor = np.sqrt(d) / rms
-
-    part_matrix = norm_factor * np.concatenate(
-            (np.eye(d), -centroid[:, np.newaxis]), axis=1
-            )
-    matrix = np.concatenate(
-            (part_matrix, [[0,] * d + [1]]), axis=0
-            )
-
-    points_h = np.row_stack([points.T, np.ones(n)])
-
-    new_points_h = (matrix @ points_h).T
-
-    new_points = new_points_h[:, :d]
-    new_points /= new_points_h[:, d:]
-
-    return matrix, new_points
-
 
 def Single_Image_SNR(img, **kwargs):
     '''
@@ -1560,9 +1262,9 @@ def Two_Image_Analysis(params):
     xi_eval,  xa_eval, yi_eval, ya_eval = eval_bounds
 
 
-    I1 = tiff.imread(frame1_filename)
+    I1 = tiff.imread(os.path.normpath(frame1_filename))
     I1c = I1[yi_eval:ya_eval, xi_eval:xa_eval]
-    I2 = tiff.imread(frame2_filename)
+    I2 = tiff.imread(os.path.normpath(frame2_filename))
     I2c = I2[yi_eval:ya_eval, xi_eval:xa_eval]
     fr_mean = abs(I1c/2.0 + I2c/2.0)
     dy, dx = shape(I2c)
@@ -1611,6 +1313,8 @@ def evaluate_registration_two_frames(params_mrc):
 
     '''
     mrc_filename, fr, invert_data, evals, save_frame_png, filename_frame_png = params_mrc
+    mrc_filename  = os.path.normpath(mrc_filename)
+    filename_frame_png = os.path.normpath(filename_frame_png)
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     '''
@@ -1704,6 +1408,8 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
 
     Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX workbook
     '''
+    mrc_filename  = os.path.normpath(mrc_filename)
+
     Sample_ID = kwargs.get("Sample_ID", '')
     use_DASK = kwargs.get("use_DASK", False)
     DASK_client_retries = kwargs.get("DASK_client_retries", 0)
@@ -1944,6 +1650,8 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
         color for the box outline. deafault is yellow
     invert_data : Boolean
     '''
+    mrc_filename  = os.path.normpath(mrc_filename)
+
     Sample_ID = kwargs.get("Sample_ID", '')
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", mrc_filename )
@@ -2074,6 +1782,8 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
         fnms_saved : list of str
             Names of the new (binned and cropped) data files.
     '''
+    mrc_filename  = os.path.normpath(mrc_filename)
+
     fnm_types = kwargs.get("fnm_types", ['mrc'])
     xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
     ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
@@ -2122,6 +1832,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     binned_copped_filename_default = os.path.splitext(mrc_filename)[0] + '_binned_croped.mrc'
     binned_copped_filename = kwargs.get('binned_copped_filename', binned_copped_filename_default)
     binned_mrc_filename = os.path.splitext(binned_copped_filename)[0] + '.mrc'
+    binned_mrc_filename = os.path.normpath(binned_mrc_filename)
     dt = type(mrc_obj.data[0,0,0])
     print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
@@ -2193,6 +1904,8 @@ def bin_crop_frames(bin_crop_parameters):
     logger = logging.getLogger("distributed.utils_perf")
     logger.setLevel(logging.ERROR)
     mrc_filename, save_filename, dtp, start_frame, stop_frame, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya = bin_crop_parameters
+    mrc_filename  = os.path.normpath(mrc_filename)
+    save_filename  = os.path.normpath(save_filename)
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     if mode == 'mean':
         zbinnd_fr = np.mean(mrc_obj.data[start_frame:stop_frame, yi:ya, xi:xa], axis=0)
@@ -2254,6 +1967,8 @@ def bin_crop_mrc_stack_DASK(DASK_client, mrc_filename, **kwargs):
         fnms_saved : list of str
             Names of the new (binned and cropped) data files.
     '''
+    mrc_filename  = os.path.normpath(mrc_filename)
+
     use_DASK = kwargs.get("use_DASK", False)
     DASK_client_retries = kwargs.get("DASK_client_retries", 3)
     fnm_types = kwargs.get("fnm_types", ['mrc'])
@@ -2298,6 +2013,7 @@ def bin_crop_mrc_stack_DASK(DASK_client, mrc_filename, **kwargs):
     binned_copped_filename_default = os.path.splitext(mrc_filename)[0] + '_binned_croped.mrc'
     binned_copped_filename = kwargs.get('binned_copped_filename', binned_copped_filename_default)
     binned_mrc_filename = os.path.splitext(binned_copped_filename)[0] + '.mrc'
+    binned_mrc_filename = os.path.normpath(binned_mrc_filename)
     dtp = type(mrc_obj.data[0,0,0])
     print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dtp)
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
@@ -2398,6 +2114,8 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
         color for the box outline. deafault is yellow
     invert_data : Boolean
     '''
+    tif_filename = os.path.normpath(tif_filename)
+
     Sample_ID = kwargs.get("Sample_ID", '')
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", tif_filename )
@@ -2500,6 +2218,8 @@ def evaluate_registration_two_frames_tif(params_tif):
 
     '''
     tif_filename, fr, invert_data, evals, save_frame_png, filename_frame_png = params_tif
+    tif_filename = os.path.normpath(tif_filename)
+    filename_frame_png = os.path.normpath(filename_frame_png)
     xi_eval, xa_eval, yi_eval, ya_eval = evals
     
     frame0 = tiff.imread(tif_filename, key=int(fr-1)).astype(float)
@@ -2573,6 +2293,8 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
 
     Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX workbook
     '''
+    tif_filename = os.path.normpath(tif_filename)
+    
     Sample_ID = kwargs.get("Sample_ID", '')
     use_DASK = kwargs.get("use_DASK", False)
     DASK_client_retries = kwargs.get("DASK_client_retries", 0)
@@ -2877,100 +2599,6 @@ def analyze_transformation_matrix(transformation_matrix, xf_filename):
 ##########################################
 #         helper functions for results presentation
 ##########################################
-
-
-def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
-    '''
-    Reads (SIFT processing) kwargs from XLSX file and returns them as dictionary. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
-    
-    Parameters:
-    file_xlsx : str
-        Full path to XLSX file containing a worksheet with SIFt parameters saves as two columns: (name, value)
-    kwargs_sheet_name : str
-        Name of the worksheet containing SIFT parameters
-    '''
-    disp_res_local = kwargs.get('disp_res', False)
-
-    kwargs_dict_initial = {}
-    try:
-        stack_info = pd.read_excel(file_xlsx, header=None, sheet_name=kwargs_sheet_name).T                #read from transposed
-        if len(stack_info.keys())>0:
-            if len(stack_info.keys())>0:
-                for key in stack_info.keys():
-                    kwargs_dict_initial[stack_info[key][0]] = stack_info[key][1]
-            else:
-                kwargs_dict_initial['Stack Filename'] = stack_info.index[1]
-    except:
-        if disp_res_local:
-            print('No stack info record present, using defaults')
-    kwargs_dict = {}
-    for key in kwargs_dict_initial:
-        if 'TransformType' in key:
-            exec('kwargs_dict["TransformType"] = ' + kwargs_dict_initial[key].split('.')[-1].split("'")[0])
-        elif 'targ_vector' in key:
-            try:
-                exec('kwargs_dict["targ_vector"] = np.array(' + kwargs_dict_initial[key].replace(' ', ',')+ ')')
-            except:
-                kwargs_dict["targ_vector"] = np.array([1, 0, 0, 0, 1, 0]) 
-        elif 'l2_matrix' in key:
-            try:
-                exec('kwargs_dict["l2_matrix"] = np.array(' + kwargs_dict_initial[key].replace(' ', ',') + ')')
-            except:
-                kwargs_dict["l2_matrix"] = np.eye(6)
-        elif 'fit_params' in key:
-            exec('kwargs_dict["fit_params"] = ' + kwargs_dict_initial[key])
-        elif 'subtract_linear_fit' in key:
-            exec('kwargs_dict["subtract_linear_fit"] = np.array(' + kwargs_dict_initial[key]+')')
-        elif 'Stack Filename' in key:
-            exec('kwargs_dict["Stack Filename"] = str(kwargs_dict_initial[key])')
-        else:
-            try:
-                exec('kwargs_dict["'+str(key)+'"] = '+ str(kwargs_dict_initial[key]))
-            except:
-                exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\\', '/').replace('\n', ',') + '"')
-    if 'dump_filename' in kwargs.keys():
-        kwargs_dict['dump_filename'] = kwargs['dump_filename']
-    #correct for pandas mixed read failures
-    try:
-        if kwargs_dict['mrc_mode']:
-            kwargs_dict['mrc_mode']=1
-    except:
-        pass
-    try:
-        if kwargs_dict['int_order']:
-            kwargs_dict['int_order']=1
-    except:
-        pass
-    try:
-        if kwargs_dict['flipY'] == 1:
-            kwargs_dict['flipY'] = True
-        else:
-            kwargs_dict['flipY'] = False
-    except:
-        pass
-    try:
-        if kwargs_dict['BFMatcher'] == 1:
-            kwargs_dict['BFMatcher'] = True
-        else:
-            kwargs_dict['BFMatcher'] = False
-    except:
-        pass
-    try:
-        if kwargs_dict['invert_data'] == 1:
-            kwargs_dict['invert_data'] = True
-        else:
-            kwargs_dict['invert_data'] = False
-    except:
-        pass
-    try:
-        if kwargs_dict['sliding_evaluation_box'] == 1:
-            kwargs_dict['sliding_evaluation_box'] = True
-        else:
-            kwargs_dict['sliding_evaluation_box'] = False
-    except:
-        pass
-    
-    return kwargs_dict
 
 
 def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
@@ -3739,10 +3367,10 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                     shape = [YResolution, XResolution]
                     xi, yi, padx, pady = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual)
                     #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, raw_dataset.tr_matr_cum_residual)
-                    #padx = np.int(xmx - xmn)
-                    #pady = np.int(ymx - ymn)
-                    #xi = np.int(np.max([xmx, 0]))
-                    #yi = np.int(np.max([ymx, 0]))
+                    #padx = int(xmx - xmn)
+                    #pady = int(ymx - ymn)
+                    #xi = int(np.max([xmx, 0]))
+                    #yi = int(np.max([ymx, 0]))
                     # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
                     # so that the transformed images are not clipped.
                     # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -4464,7 +4092,7 @@ class FIBSEM_frame:
 #                else:
 #                    #raw_data = fid.read(2*n_elements) # Read in data
 #                    #Raw = unpack('>'+str(n_elements)+'h',raw_data)
-#                fid.close
+#                fid.close()
 #                finish reading raw data
 
             n_elements = self.ChanNum * self.XResolution * self.YResolution
@@ -4477,13 +4105,13 @@ class FIBSEM_frame:
                 else:
                     Raw = np.frombuffer(fid.read(n_elements), dtype=dt)
             else:
-                dt = np.dtype(np.int16)
+                dt = np.dtype(int16)
                 dt = dt.newbyteorder('>')
                 if self.use_dask_arrays:
                     Raw = da.from_array(np.frombuffer(fid.read(2*n_elements),dtype=dt))
                 else:
                     Raw = np.frombuffer(fid.read(2*n_elements),dtype=dt)
-            fid.close
+            fid.close()
             # finish reading raw data
      
             Raw = np.array(Raw).reshape(self.YResolution, self.XResolution, self.ChanNum)
@@ -5382,7 +5010,7 @@ class FIBSEM_frame:
             linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
         ax.add_patch(rect_patch)
         if save_res_png :
-            fig.savefig(os.path.splitext(self.fname+'_evaluation_box.png', dpi=300))
+            fig.savefig(os.path.splitext(self.fname)[0]+'_evaluation_box.png', dpi=300)
 
 
     def determine_field_fattening_parameters(self, **kwargs):
@@ -5519,13 +5147,13 @@ class FIBSEM_frame:
         for image_correction_source, img_correction_array in zip(image_correction_sources, img_correction_arrays):
             if (image_correction_source is not False) and (img_correction_array is not False):
                 if image_correction_source == 'RawImageA':
-                    flattened_image = (self.RawImageA - self.Scaling[1,0])*img_correction_array + self.Scaling[1,0]
+                    flattened_image = (self.RawImageA - self.Scaling[1,0])*img_correction_array[0:self.YResolution, 0:self.XResolution] + self.Scaling[1,0]
                 if image_correction_source == 'RawImageB':
-                    flattened_image = (self.RawImageB - self.Scaling[1,1])*img_correction_array + self.Scaling[1,1]
+                    flattened_image = (self.RawImageB - self.Scaling[1,1])*img_correction_array[0:self.YResolution, 0:self.XResolution] + self.Scaling[1,1]
                 if image_correction_source == 'ImageA':
-                    flattened_image = self.ImageA*img_correction_array
+                    flattened_image = self.ImageA*img_correction_array[0:self.YResolution, 0:self.XResolution]
                 if image_correction_source == 'ImageB':
-                    flattened_image = self.ImageB*img_correction_array
+                    flattened_image = self.ImageB*img_correction_array[0:self.YResolution, 0:self.XResolution]
             else:
                 if image_correction_source == 'RawImageA':
                     flattened_image = self.RawImageA
@@ -5543,642 +5171,6 @@ class FIBSEM_frame:
 ###################################################
 #   Helper functions for FIBSEM_dataset class
 ###################################################
-def determine_regularized_affine_transform(src_pts, dst_pts, l2_matrix = None, targ_vector = None):
-    """
-    Estimate N-D affine transformation with regularization from a set of corresponding points.
-    ©G.Shtengel 11/2021 gleb.shtengel@gmail.com
-
-        We can determine the over-, well- and under-determined parameters
-        with the total least-squares method.
-        Number of source and destination coordinates must match.
-        The transformation is defined as:
-            X = (a0*x + a1*y + a2) 
-            Y = (b0*x + b1*y + b2)
-        This is regularized Affine estimation - it is regularized so that the penalty is for deviation from a target (default target is rigid shift) transformation
-        a0 =1, a1=0, b0=1, b1=1 are parameters for target (shift) transform. Deviation from these is penalized.
-
-        The coefficients appear linearly so we can write
-        A x = B, where:
-            A   = [[x y 1 0 0 0]
-                   [0 0 0 x y 1]]
-            Htarget.T = [a0 a1 a2 b0 b1 b2]
-            B.T = [X Y]
-
-        In case of ordinary least-squares (OLS) the solution of this system
-        of equations is:
-        H = np.linalg.inv(A.T @ A) @ A @ B
-        
-        In case of least-squares with Tikhonov-like regularization:
-        H = np.linalg.inv(A.T @ A + Γ.T @ Γ) @ (A @ B + Γ.T @ Γ @ Htarget)
-        where Γ.T @ Γ (for simplicity will call it L2 vector) is regularization term and Htarget 
-        is a target solution, deviation from which is minimized in L2 sense
-     """ 
-
-    src_matrix, src = _center_and_normalize_points_gs(src_pts)
-    dst_matrix, dst = _center_and_normalize_points_gs(dst_pts)
-
-    n, d = src.shape
-    n2 = n*n   # normalization factor, so that shrinkage parameter does not depend on the number of points
-
-    A = np.zeros((n * d, d * (d + 1)))
-    # fill the A matrix with the appropriate block matrices; see docstring
-    # for 2D example — this can be generalised to more blocks in the 3D and
-    # higher-dimensional cases.
-    for ddim in range(d):
-        A[ddim*n : (ddim + 1) * n, ddim * (d + 1) : ddim * (d + 1) + d] = src
-        A[ddim*n : (ddim + 1) * n, ddim * (d + 1) + d] = 1
-
-    AtA = A.T @ A / n2
-    
-    if l2_matrix is None:
-        l2 = 1.0e-5   # default shrinkage parameter
-        l2_matrix = np.eye(2 * (d + 1)) * l2
-        for ddim in range(d):
-            ii = (d + 1) * (ddim + 1) - 1
-            l2_matrix[ii,ii] = 0
-
-    if targ_vector is None:
-        targ_vector = np.zeros(2 * (d + 1))
-        targ_vector[0] = 1
-        targ_vector[4] = 1
-
-
-    Hp = np.linalg.inv(AtA + l2_matrix) @ (A.T @ dst.T.ravel() / n2 + l2_matrix @ targ_vector)
-    Hm = np.eye(d + 1)
-    Hm[0:d, 0:d+1] = Hp.reshape(d, d + 1)
-    H = np.linalg.inv(dst_matrix) @ Hm @ src_matrix
-    return H
-
-def _umeyama(src, dst, estimate_scale):
-    """
-    Estimate N-D similarity transformation with or without scaling.
-
-    Parameters
-    ----------
-    src : (M, N) array
-        Source coordinates.
-    dst : (M, N) array
-        Destination coordinates.
-    estimate_scale : bool
-        Whether to estimate scaling factor.
-    Returns
-    -------
-    T : (N + 1, N + 1)
-        The homogeneous similarity transformation matrix. The matrix contains
-        NaN values only if the problem is not well-conditioned.
-    References
-    ----------
-    .. [1] "Least-squares estimation of transformation parameters between two
-            point patterns", Shinji Umeyama, PAMI 1991, :DOI:`10.1109/34.88573`
-    """
-
-    num = src.shape[0]
-    dim = src.shape[1]
-
-    # Compute mean of src and dst.
-    src_mean = src.mean(axis=0)
-    dst_mean = dst.mean(axis=0)
-
-    # Subtract mean from src and dst.
-    src_demean = src - src_mean
-    dst_demean = dst - dst_mean
-
-    # Eq. (38).
-    A = dst_demean.T @ src_demean / num
-
-    # Eq. (39).
-    d = np.ones((dim,), dtype=np.double)
-    if np.linalg.det(A) < 0:
-        d[dim - 1] = -1
-
-    T = np.eye(dim + 1, dtype=np.double)
-
-    U, S, V = np.linalg.svd(A)
-
-    # Eq. (40) and (43).
-    rank = np.linalg.matrix_rank(A)
-    if rank == 0:
-        return np.nan * T
-    elif rank == dim - 1:
-        if np.linalg.det(U) * np.linalg.det(V) > 0:
-            T[:dim, :dim] = U @ V
-        else:
-            s = d[dim - 1]
-            d[dim - 1] = -1
-            T[:dim, :dim] = U @ np.diag(d) @ V
-            d[dim - 1] = s
-    else:
-        T[:dim, :dim] = U @ np.diag(d) @ V
-
-    if estimate_scale:
-        # Eq. (41) and (42).
-        scale = 1.0 / src_demean.var(axis=0).sum() * (S @ d)
-    else:
-        scale = 1.0
-
-    T[:dim, dim] = dst_mean - scale * (T[:dim, :dim] @ src_mean.T)
-    T[:dim, :dim] *= scale
-
-    return T
-
-
-class ShiftTransform(ProjectiveTransform):
-    """
-    ScaleShift transformation. ©G.Shtengel 11/2021 gleb.shtengel@gmail.com
-
-    Has the following form:
-        X = x +  a2
-        Y = y + b2
-    and the homogeneous transformation matrix is::
-        [[1  0   a2]
-         [0   1  b2]
-         [0   0    1]]
-    In 2D, the transformation parameters can be given as the homogeneous
-    transformation matrix, above, or as the implicit parameters, scale,
-    rotation, shear, and translation in x (a2) and y (b2). For 3D and higher,
-    only the matrix form is allowed.
-    In narrower transforms, such as the Euclidean (only rotation and
-    translation) or Similarity (rotation, translation, and a global scale
-    factor) transforms, it is possible to specify 3D transforms using implicit
-    parameters also.
-
-    Parameters
-    ----------
-    matrix : (D+1, D+1) array, optional
-        Homogeneous transformation matrix. If this matrix is provided, it is an
-        error to provide any of scale, rotation, shear, or translation.
-    scale : {s as float or (sx, sy) as array, list or tuple}, optional
-        Scale factor(s). If a single value, it will be assigned to both
-        sx and sy. Only available for 2D.
-        .. versionadded:: 0.17
-           Added support for supplying a single scalar value.
-    translation : (tx, ty) as array, list or tuple, optional
-        Translation parameters. Only available for 2D.
-    dimensionality : int, optional
-        The dimensionality of the transform. This is not used if any other
-        parameters are provided.
-    Attributes
-    ----------
-    params : (D+1, D+1) array
-        Homogeneous transformation matrix.
-    Raises
-    ------
-    ValueError
-        If both ``matrix`` and any of the other parameters are provided.
-    """
-
-    def __init__(self, matrix=None, translation=None, *, dimensionality=2):
-        
-        # these parameters get overwritten if a higher-D matrix is given
-        self._coeffs = range(dimensionality * (dimensionality + 1))
-
-        if translation is not None and matrix is not None:
-            raise ValueError("You cannot specify the transformation matrix and"
-                             " the implicit parameters at the same time.")
-        if translation is not None and dimensionality > 2:
-            raise ValueError('Parameter input is only supported in 2D.')
-        elif matrix is not None:
-            if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
-                raise ValueError("Invalid shape of transformation matrix.")
-            else:
-                dimensionality = matrix.shape[0] - 1
-                nparam = dimensionality * (dimensionality + 1)
-            self._coeffs = range(nparam)
-            self.params = matrix
-            self.params[0,1] = 0
-            self.params[1,0] = 0
-        elif translation is not None:  # note: 2D only
-            self.params = np.array([[1.0, 0.0,  0.0],
-                                    [0.0,  1.0, 0.0],
-                                    [0.0,  0.0, 1.0]])
-            self.params[0:2, 2] = translation
-        else:
-            # default to an identity transform
-            self.params = np.eye(dimensionality + 1)
-    def estimate(self, src, dst):
-        '''
-                Parameters
-        ----------
-        src : (N, 2) array
-            Source coordinates.
-        dst : (N, 2) array
-            Destination coordinates.
-        Returns
-        -------
-        success : bool
-            True, if model estimation succeeds.
-        '''
-        translation = np.mean(np.array(dst.astype(float)-src.astype(float)), axis=0)
-        self.params = np.array([[1.0, 0.0,  0.0],
-                                [0.0,  1.0, 0.0],
-                                [0.0,  0.0, 1.0]])
-        self.params[0:2, 2] = translation
-        return True
-        
-    @property
-    def translation(self):
-        return self.params[0:self.dimensionality, self.dimensionality]
-
-
-class XScaleShiftTransform(ProjectiveTransform):
-    '''
-    XScaleShift transformation. ©G.Shtengel 11/2021 gleb.shtengel@gmail.com
-
-    Has the following form::
-        X = a0*x +  a2 = sx*x + a2
-        Y = y + b2 = y + b2
-    where ``sx`` and ``sy`` are scale factors in the x and y directions,
-    and the homogeneous transformation matrix is::
-        [[a0  0   a2]
-         [0   1   b2]
-         [0   0    1]]
-    In 2D, the transformation parameters can be given as the homogeneous
-    transformation matrix, above, or as the implicit parameters, scale,
-    rotation, shear, and translation in x (a2) and y (b2). For 3D and higher,
-    only the matrix form is allowed.
-    In narrower transforms, such as the Euclidean (only rotation and
-    translation) or Similarity (rotation, translation, and a global scale
-    factor) transforms, it is possible to specify 3D transforms using implicit
-    parameters also.
-
-    Parameters
-    ----------
-    matrix : (D+1, D+1) array, optional
-        Homogeneous transformation matrix. If this matrix is provided, it is an
-        error to provide any of scale, rotation, shear, or translation.
-    scale : {s as float or (sx, sy) as array, list or tuple}, optional
-        Scale factor(s). If a single value, it will be assigned to both
-        sx and sy. Only available for 2D.
-        .. versionadded:: 0.17
-           Added support for supplying a single scalar value.
-    translation : (tx, ty) as array, list or tuple, optional
-        Translation parameters. Only available for 2D.
-    dimensionality : int, optional
-        The dimensionality of the transform. This is not used if any other
-        parameters are provided.
-    Attributes
-    ----------
-    params : (D+1, D+1) array
-        Homogeneous transformation matrix.
-    Raises
-    ------
-    ValueError
-        If both ``matrix`` and any of the other parameters are provided.
-    '''
-
-    def __init__(self, matrix=None, scale=None, translation=None, *, dimensionality=2):
-        params = (scale is not None) or (translation is not None)
-        # these parameters get overwritten if a higher-D matrix is given
-        self._coeffs = range(dimensionality * (dimensionality + 1))
-
-        if params and matrix is not None:
-            raise ValueError("You cannot specify the transformation matrix and"
-                             " the implicit parameters at the same time.")
-        if params and dimensionality > 2:
-            raise ValueError('Parameter input is only supported in 2D.')
-        elif matrix is not None:
-            if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
-                raise ValueError("Invalid shape of transformation matrix.")
-            else:
-                dimensionality = matrix.shape[0] - 1
-                nparam = dimensionality * (dimensionality + 1)
-            self._coeffs = range(nparam)
-            self.params = matrix
-            self.params[0,1] = 0
-            self.params[1,0] = 0
-        elif params:  # note: 2D only
-            if scale is None:
-                scale = (1, 1)
-
-            if translation is None:
-                translation = (0, 0)
-
-            if np.isscalar(scale):
-                sx = scale
-            else:
-                sx = scale
-
-            self.params = np.array([[sx, 0,  0],
-                                    [0,  1, 0],
-                                    [0,  0,  1]])
-            self.params[0:2, 2] = translation
-        else:
-            # default to an identity transform
-            self.params = np.eye(dimensionality + 1)
-    def estimate(self, src, dst):
-        """
-                Parameters
-        ----------
-        src : (N, 2) array
-            Source coordinates.
-        dst : (N, 2) array
-            Destination coordinates.
-        Returns
-        -------
-        success : bool
-            True, if model estimation succeeds.
-        """
- 
-        n, d = src.shape
-        xsrc = np.array(src)[:,0].astype(float)
-        ysrc = np.array(src)[:,1].astype(float)
-        xdst = np.array(dst)[:,0].astype(float)
-        ydst = np.array(dst)[:,1].astype(float)
-        s00 = np.sum(xsrc)
-        s01 = np.sum(xdst)
-        sx = (n*np.dot(xsrc, xdst) - s00*s01)/(n*np.sum(xsrc*xsrc) - s00*s00)
-        #s10 = np.sum(ysrc)
-        #s11 = np.sum(ydst)
-        #sy = (n*np.dot(ysrc, ydst) - s10*s11)/(n*np.sum(ysrc*ysrc) - s10*s10)
-        sy = 1.0
-
-        tx = np.mean(xdst) - sx * np.mean(xsrc)
-        ty = np.mean(ydst) - sy * np.mean(ysrc)
-
-        self.params = np.array([[sx, 0,  tx],
-                                [0,  sy, ty],
-                                [0,  0,  1]])
-        return True
-    
-    def print_res(self):
-        print('Printing from iside the class XScaleShiftTransform')
-
-    @property
-    def scale(self):
-        return np.sqrt(np.sum(self.params ** 2, axis=0))[:self.dimensionality]
-
-    @property
-    def translation(self):
-        return self.params[0:self.dimensionality, self.dimensionality]
-
-
-class ScaleShiftTransform(ProjectiveTransform):
-    '''
-    ScaleShift transformation. ©G.Shtengel 11/2021 gleb.shtengel@gmail.com
-
-    Has the following form::
-        X = a0*x +  a2 = sx*x + a2
-        Y = b1*y + b2 = sy*y + b2
-    where ``sx`` and ``sy`` are scale factors in the x and y directions,
-    and the homogeneous transformation matrix is::
-        [[a0  0   a2]
-         [0   b1  b2]
-         [0   0    1]]
-    In 2D, the transformation parameters can be given as the homogeneous
-    transformation matrix, above, or as the implicit parameters, scale,
-    rotation, shear, and translation in x (a2) and y (b2). For 3D and higher,
-    only the matrix form is allowed.
-    In narrower transforms, such as the Euclidean (only rotation and
-    translation) or Similarity (rotation, translation, and a global scale
-    factor) transforms, it is possible to specify 3D transforms using implicit
-    parameters also.
-
-    Parameters
-    ----------
-    matrix : (D+1, D+1) array, optional
-        Homogeneous transformation matrix. If this matrix is provided, it is an
-        error to provide any of scale, rotation, shear, or translation.
-    scale : {s as float or (sx, sy) as array, list or tuple}, optional
-        Scale factor(s). If a single value, it will be assigned to both
-        sx and sy. Only available for 2D.
-        .. versionadded:: 0.17
-           Added support for supplying a single scalar value.
-    translation : (tx, ty) as array, list or tuple, optional
-        Translation parameters. Only available for 2D.
-    dimensionality : int, optional
-        The dimensionality of the transform. This is not used if any other
-        parameters are provided.
-    Attributes
-    ----------
-    params : (D+1, D+1) array
-        Homogeneous transformation matrix.
-    Raises
-    ------
-    ValueError
-        If both ``matrix`` and any of the other parameters are provided.
-    '''
-
-    def __init__(self, matrix=None, scale=None, translation=None, *, dimensionality=2):
-        params = (scale is not None) or (translation is not None)
-        # these parameters get overwritten if a higher-D matrix is given
-        self._coeffs = range(dimensionality * (dimensionality + 1))
-
-        if params and matrix is not None:
-            raise ValueError("You cannot specify the transformation matrix and"
-                             " the implicit parameters at the same time.")
-        if params and dimensionality > 2:
-            raise ValueError('Parameter input is only supported in 2D.')
-        elif matrix is not None:
-            if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
-                raise ValueError("Invalid shape of transformation matrix.")
-            else:
-                dimensionality = matrix.shape[0] - 1
-                nparam = dimensionality * (dimensionality + 1)
-            self._coeffs = range(nparam)
-            self.params = matrix
-            self.params[0,1] = 0
-            self.params[1,0] = 0
-        elif params:  # note: 2D only
-            if scale is None:
-                scale = (1, 1)
-
-            if translation is None:
-                translation = (0, 0)
-
-            if np.isscalar(scale):
-                sx = sy = scale
-            else:
-                sx, sy = scale
-
-            self.params = np.array([[sx, 0,  0],
-                                    [0,  sy, 0],
-                                    [0,  0,  1]])
-            self.params[0:2, 2] = translation
-        else:
-            # default to an identity transform
-            self.params = np.eye(dimensionality + 1)
-    def estimate(self, src, dst):
-        """
-                Parameters
-        ----------
-        src : (N, 2) array
-            Source coordinates.
-        dst : (N, 2) array
-            Destination coordinates.
-        Returns
-        -------
-        success : bool
-            True, if model estimation succeeds.
-        """
- 
-        n, d = src.shape
-        xsrc = np.array(src)[:,0].astype(float)
-        ysrc = np.array(src)[:,1].astype(float)
-        xdst = np.array(dst)[:,0].astype(float)
-        ydst = np.array(dst)[:,1].astype(float)
-        s00 = np.sum(xsrc)
-        s01 = np.sum(xdst)
-        sx = (n*np.dot(xsrc, xdst) - s00*s01)/(n*np.sum(xsrc*xsrc) - s00*s00)
-        s10 = np.sum(ysrc)
-        s11 = np.sum(ydst)
-        sy = (n*np.dot(ysrc, ydst) - s10*s11)/(n*np.sum(ysrc*ysrc) - s10*s10)
-
-        tx = np.mean(xdst) - sx * np.mean(xsrc)
-        ty = np.mean(ydst) - sy * np.mean(ysrc)
-
-        self.params = np.array([[sx, 0,  tx],
-                                [0,  sy, ty],
-                                [0,  0,  1]])
-        return True
-        
-    @property
-    def scale(self):
-        return np.sqrt(np.sum(self.params ** 2, axis=0))[:self.dimensionality]
-
-    @property
-    def translation(self):
-        return self.params[0:self.dimensionality, self.dimensionality]
-
-
-class RegularizedAffineTransform(ProjectiveTransform):
-    """
-    Regularized Affine transformation. ©G.Shtengel 11/2021 gleb.shtengel@gmail.com
-
-    Has the following form::
-        X = a0*x + a1*y + a2 =
-          = sx*x*cos(rotation) - sy*y*sin(rotation + shear) + a2
-        Y = b0*x + b1*y + b2 =
-          = sx*x*sin(rotation) + sy*y*cos(rotation + shear) + b2
-    where ``sx`` and ``sy`` are scale factors in the x and y directions,
-    and the homogeneous transformation matrix is::
-        [[a0  a1  a2]
-         [b0  b1  b2]
-         [0   0    1]]
-    In 2D, the transformation parameters can be given as the homogeneous
-    transformation matrix, above, or as the implicit parameters, scale,
-    rotation, shear, and translation in x (a2) and y (b2). For 3D and higher,
-    only the matrix form is allowed.
-    In narrower transforms, such as the Euclidean (only rotation and
-    translation) or Similarity (rotation, translation, and a global scale
-    factor) transforms, it is possible to specify 3D transforms using implicit
-    parameters also.
-
-    Parameters
-    ----------
-    matrix : (D+1, D+1) array, optional
-        Homogeneous transformation matrix. If this matrix is provided, it is an
-        error to provide any of scale, rotation, shear, or translation.
-    scale : {s as float or (sx, sy) as array, list or tuple}, optional
-        Scale factor(s). If a single value, it will be assigned to both
-        sx and sy. Only available for 2D.
-        .. versionadded:: 0.17
-           Added support for supplying a single scalar value.
-    rotation : float, optional
-        Rotation angle in counter-clockwise direction as radians. Only
-        available for 2D.
-    shear : float, optional
-        Shear angle in counter-clockwise direction as radians. Only available
-        for 2D.
-    translation : (tx, ty) as array, list or tuple, optional
-        Translation parameters. Only available for 2D.
-    dimensionality : int, optional
-        The dimensionality of the transform. This is not used if any other
-        parameters are provided.
-    Attributes
-    ----------
-    params : (D+1, D+1) array
-        Homogeneous transformation matrix.
-    Raises
-    ------
-    ValueError
-        If both ``matrix`` and any of the other parameters are provided.
-    """
-
-    def __init__(self, matrix=None, scale=None, rotation=None, shear=None,
-                 translation=None, l2_matrix =None, targ_vector=None, *, dimensionality=2):
-
-        self.l2_matrix = l2_matrix      # regularization vector
-        self.targ_vector = targ_vector  # target 
-        params = any(param is not None
-                     for param in (scale, rotation, shear, translation))
-
-        # these parameters get overwritten if a higher-D matrix is given
-        self._coeffs = range(dimensionality * (dimensionality + 1))
-
-        if params and matrix is not None:
-            raise ValueError("You cannot specify the transformation matrix and"
-                             " the implicit parameters at the same time.")
-        if params and dimensionality > 2:
-            raise ValueError('Parameter input is only supported in 2D.')
-        elif matrix is not None:
-            if matrix.ndim != 2 or matrix.shape[0] != matrix.shape[1]:
-                raise ValueError("Invalid shape of transformation matrix.")
-            else:
-                dimensionality = matrix.shape[0] - 1
-                nparam = dimensionality * (dimensionality + 1)
-            self._coeffs = range(nparam)
-            self.params = matrix
-        elif params:  # note: 2D only
-            if scale is None:
-                scale = (1, 1)
-            if rotation is None:
-                rotation = 0
-            if shear is None:
-                shear = 0
-            if translation is None:
-                translation = (0, 0)
-
-            if np.isscalar(scale):
-                sx = sy = scale
-            else:
-                sx, sy = scale
-
-            self.params = np.array([
-                [sx * math.cos(rotation), -sy * math.sin(rotation + shear), 0],
-                [sx * math.sin(rotation),  sy * math.cos(rotation + shear), 0],
-                [                      0,                                0, 1]
-            ])
-            self.params[0:2, 2] = translation
-        else:
-            # default to an identity transform
-            self.params = np.eye(dimensionality + 1)
-
-
-    @property
-    def scale(self):
-        return np.sqrt(np.sum(self.params ** 2, axis=0))[:self.dimensionality]
-
-    @property
-    def rotation(self):
-        if self.dimensionality != 2:
-            raise NotImplementedError(
-                'The rotation property is only implemented for 2D transforms.'
-            )
-        return math.atan2(self.params[1, 0], self.params[0, 0])
-
-    @property
-    def shear(self):
-        if self.dimensionality != 2:
-            raise NotImplementedError(
-                'The shear property is only implemented for 2D transforms.'
-            )
-        beta = math.atan2(- self.params[0, 1], self.params[1, 1])
-        return beta - self.rotation
-
-    @property
-    def translation(self):
-        return self.params[0:self.dimensionality, self.dimensionality]
-
-
-
-        # Thise are functions used for different steps of image analysis and registration
-
-def ShiftTransform0(matrix=None, translation=None):
-    return EuclideanTransform(matrix=matrix, rotation = 0, translation = translation)
-
-def ScaleShiftTransform0(matrix=None, scale=None, translation=None):
-    return AffineTransform(matrix=matrix, scale=scale, rotation = 0, shear=0, translation = translation)
-
 
 def kp_to_list(kp):
     '''
@@ -7181,12 +6173,12 @@ def determine_pad_offsets(shape, tr_matr):
     ymin = np.round(np.min((np.min(yc), 0.0))).astype(int)
     ymax = np.round(np.max(yc)-ysz).astype(int)
     #print(xmin, xmax, ymin, ymax)
-    #xi = np.int(-1 * xmin)
-    #yi = np.int(-1 * ymin)
-    xi = np.int(np.max((xmax, 0)))
-    yi = np.int(np.max((ymax, 0)))
-    padx = np.max((np.int(xmax - xmin), xi))
-    pady = np.max((np.int(ymax - ymin), yi))
+    #xi = int(-1 * xmin)
+    #yi = int(-1 * ymin)
+    xi = int(np.max((xmax, 0)))
+    yi = int(np.max((ymax, 0)))
+    padx = np.max((int(xmax - xmin), xi))
+    pady = np.max((int(ymax - ymin), yi))
     #return xmin, xmax, ymin, ymax
     #print(xi, yi, padx, pady)
     return xi, yi, padx, pady
@@ -7422,8 +6414,8 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     comp_time = (t1-t0)
     #print('Time to compute: {:.1f}sec'.format(comp_time))
        
-    xfsz = 3 * (np.int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1)
-    yfsz = 3 * (np.int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2)
+    xfsz = 3 * (int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1)
+    yfsz = 3 * (int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2)
     fig2, ax = subplots(1,1, figsize=(xfsz,yfsz))
     fig2.subplots_adjust(left=0.0, bottom=0.25*(1-frame.YResolution/frame.XResolution), right=1.0, top=1.0)
     symsize = 2
@@ -7658,8 +6650,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         png_name = os.path.splitext(fs[0])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.5f}_thr_max{:.5f}.png'.format(threshold_min, threshold_max) 
         fig.savefig(png_name, dpi=300)
             
-    xfsz = np.int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1
-    yfsz = np.int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2
+    xfsz = int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1
+    yfsz = int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2
     fig2, ax = subplots(1,1, figsize=(xfsz,yfsz))
     fig2.subplots_adjust(left=0.0, bottom=0.25*(1-frame.YResolution/frame.XResolution), right=1.0, top=1.0)
     symsize = 2
@@ -8210,10 +7202,10 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
         shape = [YResolution, XResolution]
         xi, yi, padx, pady = determine_pad_offsets(shape, tr_matr_cum_residual)
         #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual)
-        #padx = np.int(xmx - xmn)
-        #pady = np.int(ymx - ymn)
-        #xi = np.int(np.max([xmx, 0]))
-        #yi = np.int(np.max([ymx, 0]))
+        #padx = int(xmx - xmn)
+        #pady = int(ymx - ymn)
+        #xi = int(np.max([xmx, 0]))
+        #yi = int(np.max([ymx, 0]))
         # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
         # so that the transformed images are not clipped.
         # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -8365,6 +7357,7 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
                                      error_abs_mean, npts,
                                      thr_npt, **kwargs):
     data_dir = kwargs.get("data_dir", '')
+    ftype = kwargs.get("ftype", 0)
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
 
     inds_zeros = np.squeeze(np.argwhere(npts < thr_npt ))
@@ -8408,6 +7401,174 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
         print('Mean Number of Keypoints :', np.mean(npts).astype(int))
     return frames_to_remove, fls, fnms, fnms_matches, error_abs_mean, npts, transformation_matrix
 
+def select_blobs_LoG_analyze_transitions_2D_dataset(params):
+    '''
+    DASK wrapper for select_blobs_LoG_analyze_transitions
+    Finds blobs in the given grayscale image using Laplasian of Gaussians (LoG). gleb.shtengel@gmail.com 06/2023
+    
+    Parameters:
+    params = list of: [fls, frame_ind, ftype, image_name, eval_bounds, offsets, invert_data, flipY, zbin_factor, perform_transformation, tr_matr_cum_residual, int_order, pad_edges,
+        min_sigma, max_sigma, threshold,  overlap, pixel_size, subset_size, bounds, bands, min_thr, transition_low_limit, transition_high_limit, nbins, verbose, disp_res, save_data]
+    fls
+    frame_ind : index of frame
+    ftype
+    image_name : str
+        Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
+    eval_bounds_single_frame
+    offsets = [xi, yi, padx, pady]
+    invert_data : boolean
+        If True - the data is inverted
+    flipY
+    zbin_factor
+    perform_transformation : boolean
+        If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed
+    tr_matr_cum_residual
+    int_order
+    pad_edges : boolean
+        If True, the data will be padded before transformation to avoid clipping.
+    min_sigma : float
+        min sigma (in pixel units) for Gaussian kernel in LoG search.
+    max_sigma : float
+        min sigma (in pixel units) for Gaussian kernel in LoG search.
+    threshold : float
+        threshold for LoG search. The absolute lower bound for scale space maxima. Local maxima smaller
+        than threshold are ignored. Reduce this to detect blobs with less intensities. 
+    overlap : float
+        A value between 0 and 1. If the area of two blobs overlaps by a
+        fraction greater than 'overlap', the smaller blob is eliminated.    
+    pixel_size : float
+        pixel size in nm.
+    subset_size : int
+        subset size (pixels) for blob / transition analysis
+    bounds : lists
+        List of of transition limits.
+    bands : list of 3 ints
+        list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
+    min_thr : float
+        threshold for identifying a 'good' transition (bottom < min_thr* top)
+    transition_low_limit : float
+        error flag is incremented by 4 if the determined transition distance is below this value.
+    transition_high_limit : float
+        error flag is incremented by 8 if the determined transition distance is above this value.
+    title : str
+        title.
+    nbins : int
+        bins for histogram
+    verbose
+    disp_res
+    save_data
+    
+    Returns: XY_transitions
+        XY_transitions with error_flag=0
+    '''
+    [fls, frame_ind, ftype, image_name, eval_bounds_single_frame, offsets, invert_data, flipY, zbin_factor, perform_transformation, tr_matr_cum_residual, int_order, pad_edges, min_sigma, max_sigma, threshold,  overlap, pixel_size, subset_size, bounds, bands, min_thr, transition_low_limit, transition_high_limit, nbins, verbose, disp_res, save_data] = params
+
+    frame = FIBSEM_frame(fls[frame_ind], ftype=ftype)
+    shape = [frame.YResolution, frame.XResolution]
+    if pad_edges and perform_transformation:
+        xi, yi, padx, pady = offsets
+        shift_matrix = np.array([[1.0, 0.0, xi],
+                                 [0.0, 1.0, yi],
+                                 [0.0, 0.0, 1.0]])
+        inv_shift_matrix = np.linalg.inv(shift_matrix)
+    else:
+        padx = 0
+        pady = 0
+        xi = 0
+        yi = 0
+        shift_matrix = np.eye(3,3)
+        inv_shift_matrix = np.eye(3,3)
+    xsz = frame.XResolution + padx
+    ysz = frame.YResolution + pady
+
+    xa = xi+frame.XResolution
+    ya = yi+frame.YResolution
+    xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds_single_frame
+    
+    frame_img = np.zeros((ysz, xsz))
+    frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)))
+
+    if verbose:
+        print('Will analyze a subset of ', image_name)
+
+
+    for j in np.arange(zbin_factor):
+        if j>0:
+            frame = FIBSEM_frame(fls[frame_ind+j], ftype=ftype)
+        if invert_data:
+            if frame.DetB != 'None':
+                if image_name == 'RawImageB':
+                    frame_img[yi:ya, xi:xa] = np.negative(frame.RawImageB.astype(float))
+                if image_name == 'ImageB':
+                    frame_img[yi:ya, xi:xa] = np.negative(frame.ImageB.astype(float))
+            if image_name == 'RawImageA':
+                frame_img[yi:ya, xi:xa] = np.negative(frame.RawImageA.astype(float))
+            else:
+                frame_img[yi:ya, xi:xa] = np.negative(frame.ImageA.astype(float))
+        else:
+            if frame.DetB != 'None':
+                if image_name == 'RawImageB':
+                    frame_img[yi:ya, xi:xa]  = frame.RawImageB.astype(float)
+                if image_name == 'ImageB':
+                    frame_img[yi:ya, xi:xa]  = frame.ImageB.astype(float)
+            if image_name == 'RawImageA':
+                frame_img[yi:ya, xi:xa]  = frame.RawImageA.astype(float)
+            else:
+                frame_img[yi:ya, xi:xa]  = frame.ImageA.astype(float)
+
+        if perform_transformation:
+            transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matr_cum_residual @ inv_shift_matrix))
+            frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True)
+        else:
+            frame_img_reg = frame_img.copy()
+
+        if flipY:
+            frame_img_reg = np.flip(frame_img_reg, axis=0)
+
+        frame_eval += frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval]
+    if zbin_factor > 1:
+        frame_eval /= zbin_factor
+    if verbose:
+        print('Subset shape: ', np.shape(frame_eval))
+
+    fname_root = os.path.splitext(os.path.split(fls[frame_ind])[1])[0]+'_'+ image_name +'_'
+    fname_base = os.path.split(fls[frame_ind])[0]
+    res_png_fname = os.path.join(fname_base, fname_root + 'resolution_results.png')
+    examples_png_fname = os.path.join(fname_base, fname_root + 'blob_examples.png')
+    results_file_xlsx = os.path.join(fname_base, fname_root + 'resolution_results.xlsx')
+
+    kwargs = {'min_sigma' : min_sigma,
+    'max_sigma' : max_sigma,
+    'threshold' : threshold,
+    'overlap' : overlap,
+    'subset_size' : subset_size,
+    'pixel_size' : pixel_size,
+    'bounds' : bounds,
+    'bands' : bands,
+    'min_thr' : min_thr,
+    'transition_low_limit' : transition_low_limit,
+    'transition_high_limit' : transition_high_limit,
+    'verbose' : verbose,
+    'disp_res' : disp_res,
+    'title' : ' ',
+    'nbins' : nbins,
+    'save_data_xlsx' : save_data,
+    'results_file_xlsx' : results_file_xlsx}
+
+    results_file_xlsx, blobs_LoG, error_flags, tr_results, hst_datas =  select_blobs_LoG_analyze_transitions(frame_eval, **kwargs)
+    if save_data and disp_res:
+        res = plot_blob_map_and_results(frame_eval, results_file_xlsx, save_png=True)
+        res = plot_blob_examples(frame_eval, results_file_xlsx, save_png=True)
+
+
+    tr_results_arr = np.array(tr_results)
+    frame_ind_arr = np.zeros(len(error_flags), dtype=int)+frame_ind
+    Xpt1 = tr_results_arr[error_flags==0, 1]
+    Xpt2 = tr_results_arr[error_flags==0, 2]
+    Ypt1 = tr_results_arr[error_flags==0, 3]
+    Ypt2 = tr_results_arr[error_flags==0, 4]
+    XY_transitions = np.array([Xpt1, Xpt2, Ypt1, Ypt2]).T
+    return  frame_ind_arr, error_flags, blobs_LoG, tr_results_arr
 
 
 class FIBSEM_dataset: 
@@ -8689,8 +7850,6 @@ class FIBSEM_dataset:
         self.fls = fls
         self.fnms = [os.path.splitext(fl)[0] + '_kpdes.bin' for fl in fls]
         self.nfrs = len(fls)
-        if disp_res:
-            print('Total Number of frames: ', self.nfrs)
         self.data_dir = kwargs.get('data_dir', os.getcwd())
         self.ftype = kwargs.get("ftype", 0) # ftype=0 - Shan Xu's binary format  ftype=1 - tif files
         mid_frame = FIBSEM_frame(fls[self.nfrs//2], ftype = self.ftype)
@@ -8749,7 +7908,6 @@ class FIBSEM_dataset:
         self.preserve_scales =  kwargs.get("preserve_scales", True) # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
         self.fit_params =  kwargs.get("fit_params", False)          # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                                     # window size 701, polynomial order 3
-
         self.int_order = kwargs.get("int_order", False)             #     The order of interpolation. The order has to be in the range 0-5:
                                                                     #    - 0: Nearest-neighbor
                                                                     #    - 1: Bi-linear (default)
@@ -8765,23 +7923,19 @@ class FIBSEM_dataset:
         build_fnm_reg, build_dtp = build_filename(fls[0], **kwargs)
         self.fnm_reg = kwargs.get("fnm_reg", build_fnm_reg)
         self.dtp = kwargs.get("dtp", build_dtp)
-        if disp_res:
-            print('Registered data will be saved into: ', self.fnm_reg)
-
-
         kwargs.update({'data_dir' : self.data_dir, 'fnm_reg' : self.fnm_reg, 'dtp' : self.dtp})
 
         if kwargs.get("recall_parameters", False):
             dump_filename = kwargs.get("dump_filename", '')
             try:
                 dump_data = pickle.load(open(dump_filename, 'rb'))
+                print('Loaded the data from the dump filename: ', dump_filename)
                 dump_loaded = True
             except Exception as ex1:
                 dump_loaded = False
                 if disp_res:
                     print('Failed to open Parameter dump filename: ', dump_filename)
                     print(ex1.message)
-
             if dump_loaded:
                 try:
                     for key in tqdm(dump_data, desc='Recalling the data set parameters'):
@@ -8791,7 +7945,11 @@ class FIBSEM_dataset:
                         print('Parameter dump filename: ', dump_filename)
                         print('Failed to restore the object parameters')
                         print(ex2.message)
-            
+        else:
+            if disp_res:
+                print('Registered data will be saved into: ', self.fnm_reg)
+        if disp_res:
+            print('Total Number of frames: ', len(self.fls))
  
 
     def SIFT_evaluation(self, eval_fls = [], **kwargs):
@@ -9337,7 +8495,7 @@ class FIBSEM_dataset:
             self.fnms_matches = [result[1] for result in results_s4]
             self.error_abs_mean = np.nan_to_num(np.array([result[3] for result in results_s4]))
             self.npts = np.nan_to_num(np.array([len(result[2][0])  for result in results_s4]))
-            print('Mean Number of Keypoints :', np.mean(self.npts).astype(np.int16))
+            print('Mean Number of Keypoints :', np.mean(self.npts).astype(int16))
         return results_s4
 
 
@@ -9575,7 +8733,7 @@ class FIBSEM_dataset:
         res_nomatch_check = check_for_nomatch_frames_dataset(self.fls, self.fnms, self.fnms_matches,
                                      self.transformation_matrix, self.error_abs_mean, self.npts,
                                      thr_npt,
-                                     data_dir = self.data_dir, fnm_reg = self.fnm_reg)
+                                     data_dir = self.data_dir, fnm_reg = self.fnm_reg, ftype=self.ftype)
         frames_to_remove, self.fls, self.fnms, self.fnms_matches, self.error_abs_mean, self.npts, self.transformation_matrix = res_nomatch_check
 
         if len(frames_to_remove) > 0:
@@ -9813,10 +8971,10 @@ class FIBSEM_dataset:
         if pad_edges and perform_transformation:
             xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
             #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-            #padx = np.int(xmx - xmn)
-            #pady = np.int(ymx - ymn)
-            #xi = np.int(np.max([xmx, 0]))
-            #yi = np.int(np.max([ymx, 0]))
+            #padx = int(xmx - xmn)
+            #pady = int(ymx - ymn)
+            #xi = int(np.max([xmx, 0]))
+            #yi = int(np.max([ymx, 0]))
             # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
             # so that the transformed images are not clipped.
             # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -9892,6 +9050,9 @@ class FIBSEM_dataset:
 
         kwargs
         ---------
+        frame_inds : array or list of int
+            Array or list oif frame indecis to use to display the evaluation box.
+            Default are [nfrs//10, nfrs//2, nfrs//10*9]
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -9932,9 +9093,9 @@ class FIBSEM_dataset:
             If True, the data will be padded before transformation to avoid clipping.
         flipY : boolean
             If True, the data will be flipped along Y-axis. Default is False.
-        frame_inds : array or list of int
-            Array or list oif frame indecis to use to display the evaluation box.
-            Default are [nfrs//10, nfrs//2, nfrs//10*9]
+        verbose : boolean
+            Desplay intermediate comments / results. Default is False
+        
         '''
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
@@ -9957,15 +9118,16 @@ class FIBSEM_dataset:
         nfrs = len(fls)
         default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
         frame_inds = kwargs.get("frame_inds", default_indecis)
+        verbose = kwargs.get("verbose", False)
 
         shape = [self.YResolution, self.XResolution]        
         if pad_edges and perform_transformation:
             xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
             #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-            #padx = np.int(xmx - xmn)
-            #pady = np.int(ymx - ymn)
-            #xi = np.int(np.max([xmx, 0]))
-            #yi = np.int(np.max([ymx, 0]))
+            #padx = int(xmx - xmn)
+            #pady = int(ymx - ymn)
+            #xi = int(np.max([xmx, 0]))
+            #yi = int(np.max([ymx, 0]))
             # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
             # so that the transformed images are not clipped.
             # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -10008,7 +9170,9 @@ class FIBSEM_dataset:
         #print('eval_bounds_check: ', np.array(eval_bounds_all)[frame_inds])
         eval_bounds = np.array(eval_bounds_all)[frame_inds]
         '''
-
+        if verbose:
+            print('Will analyze frames with inds:', frame_inds)
+            print('Frame files:', np.array(fls)[frame_inds])
         for j,fr_ind in enumerate(frame_inds):
             frame = FIBSEM_frame(fls[fr_ind], ftype=ftype)
             frame_img = np.zeros((ysz, xsz))
@@ -10039,7 +9203,7 @@ class FIBSEM_dataset:
                 cmap = 'Greys'
             ax.imshow(frame_img_reg, cmap=cmap, vmin=vmin, vmax=vmax)
             ax.grid(True, color = "cyan")
-            ax.set_title(fls[j])
+            ax.set_title(fls[fr_ind])
             rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval),abs(ya_eval-yi_eval),
                 linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
             ax.add_patch(rect_patch)
@@ -10116,10 +9280,10 @@ class FIBSEM_dataset:
         if pad_edges and perform_transformation:
             xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
             #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
-            #padx = np.int(xmx - xmn)
-            #pady = np.int(ymx - ymn)
-            #xi = np.int(np.max([xmx, 0]))
-            #yi = np.int(np.max([ymx, 0]))
+            #padx = int(xmx - xmn)
+            #pady = int(ymx - ymn)
+            #xi = int(np.max([xmx, 0]))
+            #yi = int(np.max([ymx, 0]))
             # The initial transformation matrices are calculated with no padding.Padding is done prior to transformation
             # so that the transformed images are not clipped.
             # Such padding means shift (by xi and yi values). Therefore the new transformation matrix
@@ -10310,7 +9474,7 @@ class FIBSEM_dataset:
         
         kwargs
         ---------
-        DASK_cliend : DASK client
+        DASK_client : DASK client
             Default is '' and not using DASK
         use_DASK : bolean
             If True, DASK is used. Deafault is False
@@ -10532,3 +9696,586 @@ class FIBSEM_dataset:
             fig.savefig(fname_image, dpi=300)
 
         return SNRimpr_cc_max_position, SNRimpr_cc_max, ImgB_fractions, SNRs, rSNRFs
+
+
+    def estimate_resolution_blobs_2D(self, **kwargs):
+        '''
+        Estimate transitions in the image, uses analyze_edge_transitions_image(image, **kwargs). gleb.shtengel@gmail.com  06/2023 
+
+        kwargs
+        ---------
+        DASK_client : DASK client
+            Default is '' and not using DASK
+        use_DASK : bolean
+            If True, DASK is used. Deafault is False
+        image_name : str
+            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
+        frame_inds : list of int
+            List oif frame indecis to use to display the evaluation box.
+            Default are [nfrs//10, nfrs//2, nfrs//10*9]
+        evaluation_box : list of 4 int
+            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
+            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+        sliding_evaluation_box : boolean
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+        start_evaluation_box : list of 4 int
+            see above
+        stop_evaluation_box : list of 4 int
+            see above
+        ftype : int
+            file type (0 - Shan Xu's .dat, 1 - tif)
+        data_dir : str
+            data directory (path)
+        Sample_ID : str
+            Sample ID
+        invert_data : boolean
+            If True - the data is inverted
+        perform_transformation : boolean
+            If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed
+        pad_edges : boolean
+            If True, the data will be padded before transformation to avoid clipping.
+        flipY : boolean
+            If True, the data will be flipped along Y-axis. Default is False.
+        zbin_factor : int
+        
+        min_sigma : float
+            min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.0
+        max_sigma : float
+            min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.5
+        threshold : float
+            threshold for LoG search. Default is 0.005. The absolute lower bound for scale space maxima. Local maxima smaller
+            than threshold are ignored. Reduce this to detect blobs with less intensities. 
+        overlap : float
+            A value between 0 and 1. Defaults is 0.1. If the area of two blobs overlaps by a
+            fraction greater than 'overlap', the smaller blob is eliminated.    
+        pixel_size : float
+            pixel size in nm. Default is 4.0
+        subset_size : int
+            subset size (pixels) for blob / transition analysis
+            Default is 16.
+        bounds : lists
+            List of of transition limits Deafault is [0.37, 0.63].
+            Example of multiple lists: [[0.33, 0.67], [0.20, 0.80]].
+        bands : list of 3 ints
+            list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
+            Deafault is [5 ,3, 5].
+        min_thr : float
+            threshold for identifying a 'good' transition (bottom < min_thr* top)
+        transition_low_limit : float
+            error flag is incremented by 4 if the determined transition distance is below this value. Default is 0.0
+        transition_high_limit : float
+            error flag is incremented by 8 if the determined transition distance is above this value. Default is 10.0
+        verbose : boolean
+            print the outputs. Default is False
+        disp_res : boolean
+            display results. Default is False
+        title : str
+            title.
+        nbins : int
+            bins for histogram
+        save_data_xlsx : boolean
+            save the data into Excel workbook. Default is True.
+        results_file_xlsx : file name for Excel workbook to save the results
+            
+        Returns: XY_transitions ; array[len(frame_inds), 4]
+            array consists of lines - one line for each frame in frame_inds
+            each line has 4 elements: [Xpt1, Xpt2, Ypt1, Ypt2]
+        '''
+        DASK_client = kwargs.get("DASK_client", '')
+        if DASK_client == '':
+            use_DASK = False
+        else:
+            use_DASK = kwargs.get("use_DASK", False)
+        DASK_client_retries = kwargs.get("DASK_client_retries", 3)
+        image_name = kwargs.get("image_name", 'ImageA')
+        evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+        start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+        stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+        ftype = kwargs.get("ftype", self.ftype)
+        data_dir = kwargs.get("data_dir", self.data_dir)
+        Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
+        if hasattr(self, 'invert_data'):
+            invert_data = kwargs.get("invert_data", self.invert_data)
+        else:
+            invert_data = kwargs.get("invert_data", False)
+        kwargs['invert_data'] = invert_data
+        if hasattr(self, 'flipY'):
+            flipY = kwargs.get("flipY", self.flipY)
+        else:
+            flipY = kwargs.get("flipY", False)
+        kwargs['flipY'] = flipY
+        if hasattr(self, 'zbin_factor'):
+            zbin_factor = kwargs.get("zbin_factor", self.zbin_factor)
+        else:
+            zbin_factor = kwargs.get("zbin_factor", 1)
+        kwargs['zbin_factor'] = zbin_factor
+        if hasattr(self, 'pad_edges'):
+            pad_edges = kwargs.get("pad_edges", self.pad_edges)
+        else:
+            pad_edges = kwargs.get("pad_edges", False)
+        kwargs['pad_edges'] = pad_edges
+        if hasattr(self, 'perform_transformation'):
+            perform_transformation = kwargs.get("perform_transformation", self.perform_transformation)
+        else:
+            perform_transformation = kwargs.get("perform_transformation", False)
+        kwargs['perform_transformation'] = perform_transformation
+        if hasattr(self, 'int_order'):
+            int_order = kwargs.get("int_order", self.int_order)
+        else:
+            int_order = kwargs.get("int_order", 1)
+        kwargs['int_order'] = int_order
+        
+        min_sigma = kwargs.get('min_sigma', 1.0)
+        max_sigma = kwargs.get('max_sigma', 1.0)
+        
+        overlap = kwargs.get('overlap', 0.1)
+        subset_size = kwargs.get('subset_size', 16)     # blob analysis window size in pixels
+        dx2=subset_size//2
+        pixel_size = kwargs.get('pixel_size', 4.0)
+        bounds = kwargs.get('bounds', [0.37, 0.63])
+        bands = kwargs.get('bands', [5, 5, 5])        # bands for finding left minimum, mid (peak), and right minimum
+        min_thr = kwargs.get('min_thr', 0.4)        #threshold for identifying 'good' transition (bottom < min_thr* top)
+        transition_low_limit = kwargs.get('transition_low_limit', 0.0)
+        transition_high_limit = kwargs.get('transition_high_limit', 10.0)
+        save_data_xlsx = kwargs.get('save_data_xlsx', True)
+
+        if hasattr(self, 'fnm_reg'):
+            default_results_file_xlsx = os.path.join(data_dir, os.path.splitext(self.fnm_reg)[0]+'_2D_blob_analysis_results.xlsx')
+        else:
+            default_results_file_xlsx = os.path.join(data_dir, 'Dataset_2D_blob_analysis_results.xlsx')
+        results_file_xlsx = kwargs.get('results_file_xlsx', default_results_file_xlsx)
+        
+        if use_DASK:
+            verbose = False
+            disp_res = False
+        else:
+            verbose = kwargs.get('verbose', False)
+            disp_res = kwargs.get('disp_res', False)
+
+        title = kwargs.get('title', '')
+        nbins = kwargs.get('nbins', 64)
+
+        fls = np.array(self.fls)
+        nfrs = len(fls)
+        default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
+        frame_inds = kwargs.get("frame_inds", default_indecis)
+        if verbose:
+            print('Will analyze frames with inds:', frame_inds)
+            print('Frame files:', np.array(fls)[frame_inds])
+        fls_df = pd.DataFrame(fls[frame_inds], columns = ['Frame Filename'], index = None)
+        fls_df.insert(0, 'Frame', frame_inds)
+
+        shape = [self.YResolution, self.XResolution]
+
+        vmin = 0.05
+        if image_name == 'ImageA':
+            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]]).ImageA, thr_min=0.2, disp_res=False, save_res=False)
+        if image_name == 'ImageB':
+            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]]).ImageB, thr_min=0.2, disp_res=False, save_res=False)
+        if image_name == 'RawImageA':
+            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]]).RawImageA, thr_min=0.2, disp_res=False, save_res=False)
+        if image_name == 'RawImageB':
+            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]]).RawImageB, thr_min=0.2, disp_res=False, save_res=False)
+        threshold = kwargs.get('threshold', vmin/10.0)
+        if verbose:
+            print('Will use threshold : {:.4f}'.format(threshold))
+
+        eval_bounds = set_eval_bounds(shape, evaluation_box,
+            start_evaluation_box = start_evaluation_box,
+            stop_evaluation_box = stop_evaluation_box,
+            sliding_evaluation_box = sliding_evaluation_box,
+            pad_edges = pad_edges,
+            perform_transformation = perform_transformation,
+            tr_matr =  self.tr_matr_cum_residual,
+            frame_inds = frame_inds)
+
+        if pad_edges and perform_transformation:
+            xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
+            shift_matrix = np.array([[1.0, 0.0, xi],
+                                 [0.0, 1.0, yi],
+                                 [0.0, 0.0, 1.0]])
+            inv_shift_matrix = np.linalg.inv(shift_matrix)
+        else:
+            padx = 0
+            pady = 0
+            xi = 0
+            yi = 0
+            shift_matrix = np.eye(3,3)
+            inv_shift_matrix = np.eye(3,3)
+        offsets = [xi, yi, padx, pady]
+        kwargs['offsets'] = offsets
+
+        papams_blob_analysis = []
+        results_2D = []
+
+        transformation_matrix = np.array(self.tr_matr_cum_residual)[frame_inds]
+        columns=['T00 (Sxx)', 'T01 (Sxy)', 'T02 (Tx)',  
+                 'T10 (Syx)', 'T11 (Syy)', 'T12 (Ty)', 
+                 'T20 (0.0)', 'T21 (0.0)', 'T22 (1.0)']
+        tr_mx_df = pd.DataFrame(transformation_matrix.reshape((len(transformation_matrix), 9)), columns = columns, index = None)
+        eval_bounds_df = pd.DataFrame(np.array(eval_bounds), columns = ['xi_eval', 'xa_eval', 'yi_eval', 'ya_eval'], index = None)
+        fls_info = pd.concat([fls_df, eval_bounds_df, tr_mx_df], axis=1)
+
+        for j, frame_ind in enumerate(tqdm(frame_inds, desc='Building the Parameter Sets Analyzing Resolution using Blobs ', display=verbose)):
+            params_single = [fls, frame_ind, ftype, image_name, eval_bounds[j], offsets, invert_data, flipY, zbin_factor, perform_transformation, self.tr_matr_cum_residual[frame_ind], int_order, pad_edges, min_sigma, max_sigma, threshold,  overlap, pixel_size, subset_size, bounds, bands, min_thr, transition_low_limit, transition_high_limit, nbins, verbose, disp_res, False]
+            papams_blob_analysis.append(params_single)
+
+        if use_DASK:
+            print('Using DASK distributed')
+            futures = DASK_client.map(select_blobs_LoG_analyze_transitions_2D_dataset, papams_blob_analysis, retries = DASK_client_retries)
+            results_2D = DASK_client.gather(futures)
+
+        else:
+            print('Using Local Computation')
+
+            for j, params_single in enumerate(tqdm(papams_blob_analysis, desc='Analyzing Resolution using Blobs', display = verbose)):
+                if verbose:
+                    print('Analyzing file: ', fls[params_single[1]])
+                results_2D.append(select_blobs_LoG_analyze_transitions_2D_dataset(params_single))
+
+        frame_inds = np.concatenate(np.array(results_2D, dtype=object)[:, 0])
+        error_flags = np.concatenate(np.array(results_2D, dtype=object)[:, 1])
+        blobs_LoG = np.concatenate(np.array(results_2D, dtype=object)[:, 2])
+        tr_results = np.concatenate(np.array(results_2D, dtype=object)[:, 3])
+
+        if save_data_xlsx:
+            xlsx_writer = pd.ExcelWriter(results_file_xlsx, engine='xlsxwriter')
+            trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
+            columns=['Frame', 'Y', 'X', 'R', 'Amp',
+                trans_str + ' X-pt1',
+                trans_str + ' X-pt2',
+                trans_str + ' Y-pt1',
+                trans_str + ' Y-pt2',
+                trans_str + ' X-slp1',
+                trans_str + ' X-slp2',
+                trans_str + ' Y-slp1',
+                trans_str + ' Y-slp2',
+                'error_flag']
+            blobs_LoG_arr = np.array(blobs_LoG)
+
+            if verbose:
+                print('Saving the results into file:  ' + results_file_xlsx)
+
+            transition_results = pd.DataFrame(np.column_stack((frame_inds, blobs_LoG, tr_results, error_flags)), columns = columns, index = None)
+            transition_results.to_excel(xlsx_writer, index=None, sheet_name='Transition analysis results')
+            kwargs_info = pd.DataFrame([kwargs]).T # prepare to be save in transposed format
+            kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
+            fls_info.to_excel(xlsx_writer, index=None, sheet_name='Frame Filenames')
+            fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
+            sheet_names = ['{:.0f}%-{:.0f}% summary (pts)'.format(bounds[0]*100, bounds[1]*100),
+                '{:.0f}%-{:.0f}% summary (slopes)'.format(bounds[0]*100, bounds[1]*100)]
+            xlsx_writer.save()
+        
+        # return results_2D
+        return results_file_xlsx, frame_inds, error_flags, blobs_LoG, tr_results
+        
+    
+
+def plot_2D_blob_results(results_xlsx, **kwargs):
+    save_png = kwargs.get('save_png', False)
+    save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_analysis_results_raw.png'))
+    nbins = kwargs.get('nbins', 64)
+
+    saved_kwargs = read_kwargs_xlsx(results_xlsx, 'kwargs Info')
+    pixel_size = saved_kwargs.get("pixel_size", 0.0)
+    top_text = saved_kwargs.get("top_text", '')
+    bounds = saved_kwargs.get("bounds", [0.0, 0.0])
+    perform_transformation =  saved_kwargs.get("perform_transformation", False)
+        
+    xs=7.0
+    ys = xs*1.6
+    text_col = 'brown'
+    text_fs = 12
+    axis_label_fs = 10
+    table_fs = 12
+    caption_fs = 8
+    
+    trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
+    int_results = pd.read_excel(results_xlsx, sheet_name='Transition analysis results')
+    
+    error_flags = int_results['error_flag']
+    Xpt1 = np.array(int_results[trans_str + ' X-pt1'])[error_flags==0]
+    Xpt2 = np.array(int_results[trans_str + ' X-pt2'])[error_flags==0]
+    Ypt1 = np.array(int_results[trans_str + ' Y-pt1'])[error_flags==0]
+    Ypt2 = np.array(int_results[trans_str + ' Y-pt2'])[error_flags==0]
+    Xslp1 = np.array(int_results[trans_str + ' X-slp1'])[error_flags==0]
+    Xslp2 = np.array(int_results[trans_str + ' X-slp2'])[error_flags==0]
+    Yslp1 = np.array(int_results[trans_str + ' Y-slp1'])[error_flags==0]
+    Yslp2 = np.array(int_results[trans_str + ' Y-slp2'])[error_flags==0]
+    XYpt_selected = [Xpt1, Xpt2, Ypt1, Ypt2]
+    Xpt_selected = [Xpt1, Xpt2]
+    Ypt_selected = [Ypt1, Ypt2]
+    Xslp_selected = [Xslp1, Xslp2]
+    Yslp_selected = [Yslp1, Yslp2]
+    tr_median = np.median(XYpt_selected)
+    tr_mean = np.mean(XYpt_selected)
+    tr_std = np.std(XYpt_selected)
+    
+    fig, axs = subplots(2, 1, figsize=(xs,ys))
+    ax1, ax2 = axs
+    ax1.set_title('Blobs determined by Laplasian of Gaussians', fontsize=text_fs)
+    ax1.text(0.6, 0.55, '# of blobs: {:d}'.format(len(Xpt1)), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
+    ax1.text(0.6, 0.50, '{:.0f}% - {:.0f}% Transitions'.format(bounds[0]*100, bounds[1]*100), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
+    ax1.text(0.6, 0.45, 'Pixel Size (nm): {:.3f}'.format(pixel_size), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
+    ax1.text(0.6, 0.40, 'Median value (nm): {:.3f}'.format(tr_median), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
+    ax1.text(0.6, 0.35, 'Mean value (nm): {:.3f}'.format(tr_mean), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
+    ax1.text(0.6, 0.30, 'STD (nm):       {:.3f}'.format(tr_std), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
+    
+    tr_sets = [[Xpt_selected, Ypt_selected],
+          [Xslp_selected, Yslp_selected]]
+    fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
+    xaxis_labels = ['{:.0f}%-{:.0f}% Transition (pts) (nm)'.format(bounds[0]*100, bounds[1]*100),
+        '{:.0f}%-{:.0f}% Transition (slope) (nm)'.format(bounds[0]*100, bounds[1]*100)]
+    hranges = [(0, 10.0), 
+           (0, 10.0)]  # histogram range for the transition distance (in nm))
+       
+    for [tr_xs, tr_ys], fext, xaxis_label, hrange, axloc in zip(tr_sets, fexts, xaxis_labels, hranges,  [ax1, ax2]):
+        trs = np.squeeze(np.array((tr_xs, tr_ys)).flatten())
+        tr_x = np.array(tr_xs).flatten()
+        tr_y = np.array(tr_ys).flatten()
+        dsets = [trs, tr_x, tr_y]
+        cols = ['blue', 'green', 'red']
+        hst_data =  np.zeros((len(dsets), 4))
+        cc_data =  np.zeros((nbins, len(dsets)+1))
+        for (j, dset), col in zip(enumerate(dsets), cols):
+            hst_res = np.array(add_hist(dset, nbins=nbins, hrange=hrange, ax=axloc, col=col, label=''), dtype=object)
+            hst_data[j, :] = hst_res[2:7]
+            #full_hst_data[j+1, :] = hst_data[j, :]
+            cc_data[:, j+1] = hst_res[1]
+        axloc.grid(True)
+        axloc.set_xlim(hrange)
+        axloc.set_xlabel(xaxis_label, fontsize=axis_label_fs)
+        axloc.set_ylabel('Count', fontsize=axis_label_fs)
+        plt.tick_params(labelsize = axis_label_fs)
+        cond_bl =  'Point Analysis, {:d} blobs'.format(len(tr_x)//2)
+
+        columns = ['Hist. Peak', 'Median', 'Mean', 'STD']
+        rows = ['X, Y', 'X', 'Y']
+        n_cols = len(columns)
+        n_rows = len(rows)
+        cell_text = [['{:.2f}'.format(d) for d in dd] for dd in hst_data]
+
+        tbl = axloc.table(cellText=cell_text,
+                         rowLabels=rows,
+                         colLabels=columns,
+                         colWidths=[0.14]*n_cols,
+                         cellLoc='center',
+                         colLoc='center',
+                         loc=1,
+                         zorder=10)
+
+        tbl.scale(1.0, 1.5)
+        table_props = tbl.properties()
+        try:
+            table_cells = table_props['child_artists']
+        except:
+            table_cells = table_props['children']
+
+        for j, cell in enumerate(table_cells[0:n_cols*n_rows]):
+            cell.get_text().set_color(cols[j//n_cols])
+            cell.get_text().set_fontsize(table_fs)
+        for j, cell in enumerate(table_cells[n_cols*(n_rows+1):]):
+            cell.get_text().set_color(cols[j])
+        for cell in table_cells[n_cols*n_rows:]:
+        #    cell.get_text().set_fontweight('bold')
+            cell.get_text().set_fontsize(table_fs)
+    
+    fig.subplots_adjust(left=0.01, bottom=0.10, right=0.99, top=0.98, wspace=0.02, hspace=0.12)
+    if save_png:
+        ax2.text(0.0, -0.15, save_fname, transform=ax2.transAxes, fontsize=caption_fs)
+        fig.savefig(save_fname, dpi=300)
+
+
+
+def plot_2D_blob_examples(results_xlsx, **kwargs):
+    save_png = kwargs.get('save_png', False)
+    save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_examples.png'))
+    verbose = kwargs.get('verbose', False)
+
+    saved_kwargs = read_kwargs_xlsx(results_xlsx, 'kwargs Info')
+    pixel_size = saved_kwargs.get("pixel_size", 1.0)
+    subset_size = saved_kwargs.get("subset_size", 2.0)
+    dx2 = subset_size//2
+    top_text = saved_kwargs.get("top_text", '')
+    bounds = saved_kwargs.get("bounds", [0.0, 0.0])
+    bands = saved_kwargs.get("bands", [3, 2, 3])
+    image_name = saved_kwargs.get("image_name", 'ImageA')
+    perform_transformation =  saved_kwargs.get("perform_transformation", False)
+    pad_edges =  saved_kwargs.get("pad_edges", True)
+    ftype =  saved_kwargs.get("ftype", 0)
+    zbin_factor =  saved_kwargs.get("zbin_factor", 1)
+    flipY = saved_kwargs.get("flipY", False)
+    invert_data = saved_kwargs.get("invert_data", False)
+    int_order =  saved_kwargs.get("int_order", 1)
+    offsets =  saved_kwargs.get("offsets", [0, 0, 0, 0])
+    
+    fls_info = pd.read_excel(results_xlsx, sheet_name='Frame Filenames')
+    fls = fls_info['Frame Filename']
+    frame_inds = fls_info['Frame']
+    transformation_matrix = np.vstack((fls_info['T00 (Sxx)'],
+                         fls_info['T01 (Sxy)'],
+                         fls_info['T02 (Tx)'],
+                         fls_info['T10 (Syx)'],
+                         fls_info['T11 (Syy)'],
+                         fls_info['T12 (Ty)'],
+                         fls_info['T20 (0.0)'],
+                         fls_info['T21 (0.0)'],
+                         fls_info['T22 (1.0)'])).T.reshape((len(fls_info['T00 (Sxx)']), 3, 3))
+
+    xs=16.0
+    ys = xs*5.0/4.0
+    text_col = 'brown'
+    fst = 40
+    fs = 12
+    fs_legend = 10
+    fs_labels = 12
+    caption_fs = 8
+    
+    trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
+    int_results = pd.read_excel(results_xlsx, sheet_name='Transition analysis results')
+    error_flags = int_results['error_flag']
+    X = int_results['X']
+    Y = int_results['Y']
+    X_selected = np.array(X)[error_flags==0]
+    Y_selected = np.array(Y)[error_flags==0]
+    frames = int_results['Frame']
+    frames_selected = np.array(frames)[error_flags==0]
+    Xs = np.concatenate((X_selected[0:3], X_selected[-3:]))
+    Ys = np.concatenate((Y_selected[0:3], Y_selected[-3:]))
+    Fs = np.concatenate((frames_selected[0:3], frames_selected[-3:]))
+
+    xt = 0.0
+    yt = 1.5 
+    clr_x = 'green'
+    clr_y = 'blue'
+    fig, axs = subplots(4,3, figsize=(xs, ys))
+    fig.subplots_adjust(left=0.02, bottom=0.04, right=0.99, top=0.99, wspace=0.15, hspace=0.12)
+
+    ax_maps = [axs[0,0], axs[0,1], axs[0,2], axs[2,0], axs[2,1], axs[2,2]]
+    ax_profiles = [axs[1,0], axs[1,1], axs[1,2], axs[3,0], axs[3,1], axs[3,2]]
+
+    for j, x in enumerate(tqdm(Xs, desc='Generating images/plots for the sample 2D blobs')):
+        local_ind = int(np.argwhere(np.array(fls_info['Frame']) == Fs[j]))
+        fl_info = fls_info[fls_info['Frame'] == Fs[j]]
+        fl = fl_info['Frame Filename'].values[0]
+        #print(Fs[j], fl, local_ind)
+        yi_eval = fl_info['yi_eval'].values[0]
+        ya_eval = fl_info['ya_eval'].values[0]
+        xi_eval = fl_info['xi_eval'].values[0]
+        xa_eval = fl_info['xa_eval'].values[0]
+
+        frame = FIBSEM_frame(fl, ftype=ftype)
+        shape = [frame.YResolution, frame.XResolution]
+        if pad_edges and perform_transformation:
+            xi, yi, padx, pady = offsets
+            shift_matrix = np.array([[1.0, 0.0, xi],
+                                     [0.0, 1.0, yi],
+                                     [0.0, 0.0, 1.0]])
+            inv_shift_matrix = np.linalg.inv(shift_matrix)
+        else:
+            padx = 0
+            pady = 0
+            xi = 0
+            yi = 0
+            shift_matrix = np.eye(3,3)
+            inv_shift_matrix = np.eye(3,3)
+        xsz = frame.XResolution + padx
+        ysz = frame.YResolution + pady
+        xa = xi+frame.XResolution
+        ya = yi+frame.YResolution
+  
+        frame_img = np.zeros((ysz, xsz))
+        frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)))
+
+        for jk in np.arange(zbin_factor):
+            if jk>0:
+                local_ind = int(np.squeeze(np.argwhere(np.array(fls_info['Frame']) == Fs[j+jk])))
+                fl_info = fls_info[fls_info['Frame'] == Fs[j+jk]]
+                fl = fl_info['Frame Filename'].values[0]
+                frame = FIBSEM_frame(fl, ftype=ftype)
+                yi_eval = fl_info['yi_eval'].values[0]
+                ya_eval = fl_info['ya_eval'].values[0]
+                xi_eval = fl_info['xi_eval'].values[0]
+                xa_eval = fl_info['xa_eval'].values[0]
+            if invert_data:
+                if frame.DetB != 'None':
+                    if image_name == 'RawImageB':
+                        frame_img[yi:ya, xi:xa] = np.negative(frame.RawImageB.astype(float))
+                    if image_name == 'ImageB':
+                        frame_img[yi:ya, xi:xa] = np.negative(frame.ImageB.astype(float))
+                if image_name == 'RawImageA':
+                    frame_img[yi:ya, xi:xa] = np.negative(frame.RawImageA.astype(float))
+                else:
+                    frame_img[yi:ya, xi:xa] = np.negative(frame.ImageA.astype(float))
+            else:
+                if frame.DetB != 'None':
+                    if image_name == 'RawImageB':
+                        frame_img[yi:ya, xi:xa]  = frame.RawImageB.astype(float)
+                    if image_name == 'ImageB':
+                        frame_img[yi:ya, xi:xa]  = frame.ImageB.astype(float)
+                if image_name == 'RawImageA':
+                    frame_img[yi:ya, xi:xa]  = frame.RawImageA.astype(float)
+                else:
+                    frame_img[yi:ya, xi:xa]  = frame.ImageA.astype(float)
+            if perform_transformation:
+                transf = ProjectiveTransform(matrix = shift_matrix @ (transformation_matrix[local_ind] @ inv_shift_matrix))
+                frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True)
+            else:
+                frame_img_reg = frame_img.copy()
+            if flipY:
+                frame_img_reg = np.flip(frame_img_reg, axis=0)
+
+            frame_eval += frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval]
+        if zbin_factor > 1:
+            frame_eval /= zbin_factor
+        
+        y = Ys[j]
+        xx = np.int(x)
+        yy = np.int(y)
+        subset = frame_eval[yy-dx2:yy+dx2, xx-dx2:xx+dx2]
+        ax_maps[j].imshow(subset, cmap='Greys')#, vmin=0, vmax=160)
+        ax_maps[j].grid(False)
+        ax_maps[j].axis(False)
+        crop_x = patches.Rectangle((-0.5,dx2-0.5),subset_size,1, linewidth=1, edgecolor=clr_x , facecolor='none')
+        crop_y = patches.Rectangle((dx2-0.5, -0.5),1,subset_size, linewidth=1, edgecolor=clr_y, facecolor='none')
+        ax_maps[j].add_patch(crop_x)
+        ax_maps[j].add_patch(crop_y)
+        ax_maps[j].text(xt,yt,'X-Y', color='black',  bbox=dict(facecolor='white', edgecolor='none'), fontsize=fst)
+        amp_x = subset[dx2, :]
+        amp_y = subset[:, dx2]
+
+        a0 = np.min(np.array((amp_x, amp_y)))
+        a1 = np.max(np.array((amp_x, amp_y)))
+        amp_scale = (a0-(a1-a0)/10.0, a1+(a1-a0)/10.0)
+        #print(amp_scale)
+        #print(shape(amp_x), shape(amp_y), shape(amp_z))
+        tr_x = analyze_blob_transitions(amp_x, pixel_size=pixel_size,
+                                col = clr_x,
+                                cols=['green', 'green', 'black'],
+                                bounds=bounds,
+                                bands = bands,
+                                y_scale = amp_scale,
+                                disp_res=True, ax=ax_profiles[j], pref = 'X-',
+                                fs_labels = fs_labels, fs_legend = fs_legend,
+                                verbose = verbose)
+        ax_profiles[j].legend(loc='upper left', fancybox=False, edgecolor="w", fontsize = fs_legend)
+
+        ax2 = ax_profiles[j].twinx()
+        tr_y = analyze_blob_transitions(amp_y, pixel_size=pixel_size,
+                                col = clr_y,
+                                cols=['blue', 'blue', 'black'],
+                                bounds=bounds,
+                                bands = bands,
+                                y_scale = amp_scale,
+                                disp_res=True, ax=ax2, pref = 'Y-',
+                                fs_labels = fs_labels, fs_legend = fs_legend,
+                                       verbose = verbose)
+        ax2.legend(loc='upper right', fancybox=False, edgecolor="w", fontsize = fs_legend)
+        ax_profiles[j].tick_params(labelleft=False)
+        ax2.tick_params(labelright=False)
+        ax2.get_yaxis().set_visible(False)
+
+    if save_png:
+        axs[3,0].text(0.00, -0.15, save_fname, transform=axs[3,0].transAxes, fontsize=caption_fs)
+        fig.savefig(save_fname, dpi=300)
