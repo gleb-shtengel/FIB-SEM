@@ -869,6 +869,11 @@ def analyze_edge_transitions_image(image, **kwargs):
     section_length  :  float
         the length of the cross-section profile (in poixels), centered at a given center point,
         along the direction of highest local gradient, used for transition evaluation. Default is 50.
+    kernel : 2D float array
+        a kernel to perform 2D smoothing convolution. default is np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]), where st=1/sqrt(2)
+    perform_smoothing : boolean
+        perform smoothing prior to edge detection. used for finding the edge point only, is NOT used during transition analysis.
+        default is False.
     thr_min_criterion  :  float
         minimum threshold value (from image_subset CDF min) that cross-section profile must reach
         in order for this profile to be considered for transition evaluation. Defaults is 0.2 of image_subset CDF level
@@ -909,12 +914,23 @@ def analyze_edge_transitions_image(image, **kwargs):
     section_length = kwargs.get('section_length', 50)
     thr_min_criterion =  kwargs.get('thr_min_criterion', 0.2)
     thr_max_criterion =  kwargs.get('thr_max_criterion', 0.2)
+    canny_threshold1 = kwargs.get('canny_threshold1', 70)
+    canny_threshold2 = kwargs.get('canny_threshold2', 70)
+    canny_apertureSize = kwargs.get('canny_apertureSize', 3)
+    canny_L2gradient = kwargs.get('canny_L2gradient', True)
+
     grad_thr = kwargs.get('grad_thr', 0.005)
     min_max_aperture = kwargs.get('min_max_aperture', 5)
     transition_low_limit = kwargs.get('transition_low_limit', 0.0)
     transition_high_limit = kwargs.get('transition_high_limit', 10.0)
     verbose = kwargs.get('verbose', False)
     results_file_xlsx = kwargs.get('results_file_xlsx', 'results.xlsx')
+
+    st = 1.0/np.sqrt(2.0)
+    def_kernel = np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]).astype(float)
+    def_kernel = def_kernel/def_kernel.sum()
+    kernel = kwargs.get("kernel", def_kernel)
+    perform_smoothing = kwargs.get('perform_smoothing', False)
 
     kwargs['edge_detector'] = edge_detector
     kwargs['bounds'] = bounds
@@ -926,26 +942,50 @@ def analyze_edge_transitions_image(image, **kwargs):
     kwargs['section_length'] = section_length
     kwargs['thr_min_criterion'] = thr_min_criterion
     kwargs['thr_max_criterion'] = thr_max_criterion
+    kwargs['canny_threshold1'] = canny_threshold1
+    kwargs['canny_threshold2'] = canny_threshold2
+    kwargs['canny_apertureSize'] = canny_apertureSize
+    kwargs['canny_L2gradient'] = canny_L2gradient
     kwargs['grad_thr'] = grad_thr
     kwargs['min_max_aperture'] = min_max_aperture
     kwargs['transition_low_limit'] = transition_low_limit
     kwargs['transition_high_limit'] = transition_high_limit
     kwargs['verbose'] = verbose
+    kwargs['perform_smoothing'] = perform_smoothing
+    kwargs['kernel'] = kernel
     kwargs['results_file_xlsx'] = results_file_xlsx
 
     ysz, xsz = image.shape
     xind, yind = np.meshgrid(np.arange(xsz), np.arange(ysz), sparse=False)
     
-    grad = np.gradient(image)
+    if perform_smoothing:
+        grad = np.gradient(convolve2d(image, kernel, mode='same'))
+    else:
+        grad = np.gradient(image)
     grad_array = np.array(grad)
     abs_grad = np.sqrt(grad[0]*grad[0]+grad[1]*grad[1])
     grad_min, grad_max = get_min_max_thresholds(abs_grad, thr_min=0.005, thr_max=grad_thr, disp_res=False)
     
     if edge_detector == 'Canny':
-        canny_edges = cv2.Canny(image, 70, 70,  apertureSize=3, L2gradient = True)
+        if perform_smoothing:
+            image0 = convolve2d(image, kernel, mode='same')
+        else:
+            image0 = image
+        if type(image[0,0]) == uint8:
+            #print('8-bit image already - no need to convert')
+            image_I8 = image0
+        else:
+            data_min, data_max = get_min_max_thresholds(image0, thr_min=1e-3, thr_max=1e-3, nbins=256, disp_res=False)
+            image_I8 = ((np.clip(image0, data_min, data_max) - data_min)/(data_max-data_min)*255.0).astype(np.uint8)
+        canny_edges = cv2.Canny(image_I8, canny_threshold1, canny_threshold2,  apertureSize=canny_apertureSize, L2gradient = canny_L2gradient)
         cond = canny_edges == 255
     else:
         cond = abs_grad > grad_max
+
+    cond[0:subset_size//2, :] = 0
+    cond[-subset_size//2:, :] = 0
+    cond[:, 0:subset_size//2] = 0
+    cond[:, -subset_size//2:] = 0
     if verbose:
         print('Using '+edge_detector+' Edge Detector')
     
@@ -990,7 +1030,7 @@ def analyze_edge_transitions_image(image, **kwargs):
     X = centers[:,1]
 
     results =[]
-    kwargs_loc = { 'bounds' : bounds,
+    kwargs_loc = {'bounds' : bounds,
                   'pixel_size' : pixel_size,
                   'disp_res' : False,
                   'verbose' : verbose,
@@ -1003,7 +1043,7 @@ def analyze_edge_transitions_image(image, **kwargs):
                   'transition_high_limit' : transition_high_limit,
                   'verbose': False,
                   'disp_res' : False}
-    for center, center_grad in zip(tqdm(centers, desc='analyzing transitions'), center_grads):
+    for center, center_grad in zip(tqdm(centers, desc='analyzing transitions', display=verbose), center_grads):
         res = estimate_edge_transition(image, center, center_grad,
                                   **kwargs_loc)
         results.append(res)
@@ -1030,15 +1070,20 @@ def analyze_edge_transitions_image(image, **kwargs):
     cosYs_selected = cosYs[error_flags==0]
     tr_mean = np.mean(transition_distances_selected)
     tr_std = np.std(transition_distances_selected)
-        
+    
     theta = np.array(np.angle(cosXs_selected+1.0j*cosYs_selected)).astype(float)
     # sin2x_fun
     #a*np.sin(.0*x+b)+c
-    p_opt,p_cov=cf(sin2x_fun, theta, transition_distances_selected, p0=(tr_std, 0.0, tr_mean))
     theta_ordered = np.sort(theta)
+    try:
+        p_opt, p_cov = cf(sin2x_fun, theta, transition_distances_selected, p0=(tr_std, 0.0, tr_mean))
+    except:
+        p_opt = [1.0, 1.0, 1.0]
+    '''
     tr_fit = sin2x_fun(theta_ordered, *p_opt)
     trX_fit = tr_fit*np.cos(theta_ordered)
     trY_fit = tr_fit*np.sin(theta_ordered)
+    '''
 
     if verbose:
         print('Saving the results into the file: ', results_file_xlsx)
@@ -1313,6 +1358,11 @@ def plot_edge_transition_analysis_details(image, results_xlsx, **kwargs):
     save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_analysis.png'))
     top_text = saved_kwargs.get("top_text", '')
     bounds = saved_kwargs.get("bounds", [0.0, 0.0])
+    st = 1.0/np.sqrt(2.0)
+    def_kernel = np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]).astype(float)
+    def_kernel = def_kernel/def_kernel.sum()
+    kernel = saved_kwargs.get("kernel", def_kernel)
+    perform_smoothing = saved_kwargs.get('perform_smoothing', False)
 
     int_results = pd.read_excel(results_xlsx, sheet_name='Transition analysis results')
     X = int_results['X']
@@ -1321,6 +1371,7 @@ def plot_edge_transition_analysis_details(image, results_xlsx, **kwargs):
     Y_grads = int_results['Y grad']
     
     error_flags = int_results['error_flag']
+
     X_selected = X[error_flags==0]
     Y_selected = Y[error_flags==0]
     X_grads_selected = X_grads[error_flags==0]
@@ -1340,19 +1391,17 @@ def plot_edge_transition_analysis_details(image, results_xlsx, **kwargs):
     #ell.estimate(a_points)
     #xc, yc, ae, be, thetae = ell.params
     
-    grad = np.gradient(image)
+    if perform_smoothing:
+        grad = np.gradient(convolve2d(image, kernel, mode='same'))
+    else:
+        grad = np.gradient(image)
     grad_array = np.array(grad)
     abs_grad = np.sqrt(grad[0]*grad[0]+grad[1]*grad[1])
     grad_min, grad_max = get_min_max_thresholds(abs_grad, thr_min=0.005, thr_max =0.005, disp_res=False)
     
     theta = np.array(np.angle(cosXs_selected+1.0j*cosYs_selected)).astype(float)
-    # sin2x_fun
-    #a*np.sin(2.0*x+b)+c
-    p_opt,p_cov=cf(sin2x_fun, theta, np.array(transition_distances_selected), p0=(tr_std, 0.0, tr_mean))
     theta_ordered = np.sort(theta)
-    tr_fit = sin2x_fun(theta_ordered, *p_opt)
-    trX_fit = tr_fit*np.cos(theta_ordered)
-    trY_fit = tr_fit*np.sin(theta_ordered)
+
     ysz, xsz = image.shape
     
     fig, axs = subplots(2, 2, figsize=(15,10))
@@ -1399,8 +1448,18 @@ def plot_edge_transition_analysis_details(image, results_xlsx, **kwargs):
     axs[1,1].set_title('Transition Distribution over Directions')
     axs[1,1].set_xlabel('Transition X component')
     axs[1,1].set_ylabel('Transition Y component')
-    axs[1,1].plot(trX_fit, trY_fit, c='magenta', label='centered fit')
-    axs[1,1].text(0.025, 0.95, 'Assymetry: {:.3f}'.format(np.abs(p_opt[0]/p_opt[2])), transform=axs[1,1].transAxes, color='magenta')
+
+    try:
+        # sin2x_fun
+        #a*np.sin(2.0*x+b)+c
+        p_opt,p_cov=cf(sin2x_fun, theta, np.array(transition_distances_selected), p0=(tr_std, 0.0, tr_mean))
+        tr_fit = sin2x_fun(theta_ordered, *p_opt)
+        trX_fit = tr_fit*np.cos(theta_ordered)
+        trY_fit = tr_fit*np.sin(theta_ordered)
+        axs[1,1].plot(trX_fit, trY_fit, c='magenta', label='centered fit')
+        axs[1,1].text(0.025, 0.95, 'Assymetry: {:.3f}'.format(np.abs(p_opt[0]/p_opt[2])), transform=axs[1,1].transAxes, color='magenta')
+    except:
+        axs[1,1].text(0.025, 0.95, 'Could not analyze Assymetry')
 
     if save_png:
         axs[1,0].text(0.05, -0.05, save_fname, transform=axs[1, 0].transAxes)

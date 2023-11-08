@@ -1741,6 +1741,218 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     mrc.close()
 
 
+def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
+    '''
+    Read MRC stack and plot the ortho cross-sections.
+    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+
+    Parameters
+    ---------
+    mrc_filename : str
+        File name (full path) of the mrc stack to be analyzed
+     
+    kwargs:
+    XZ_section : boolean
+        If True (default), XZ cros-section is present.
+    ZY_section : boolean
+        If True (default), ZY cros-section is present.
+    voxel_size : array or list of 3 floats
+        Voxel size (x, y, z) in um. Default is the data obtrained from cellA data in the MRC file.
+    center_coordinates : array or list of 3 floats
+        Center coordinates (x, y, z) in um. Default is middle of the stack.
+    box_dimensions : array or list of 3 floats
+        Dimensions of the sections to plot (x, y, z) in um (box is centered around center coordinates). Default is full stack size.
+    offsets  : array or list of 3 floats
+        offsets for cross-section location from the center of the box (x, y, z) in um. Default is [0.0, 0.0, 0.0].
+    addtl_sp : float
+        Additional white space between the cross-section plots. Default is 0.0.
+    xsection_linewidth : float
+        widt of the cross-secion line. Default is 0.5.
+    xsection_line_color : string
+        color of the cross-secion line. Defalt is 'white'.
+    
+    display_scale_bars : boolean
+        If True (default), the scale bars are displayed in cross-sections.
+    loc : (float, float)
+        bar location in fractional axis coordinates (0, 0) is left bottom corner. (1, 1) is top right corner.
+        Default is (0.1, 0.9)
+    bar_length_um : float
+        length of the scale bar (um). Default is 1um.
+    bar_width : float
+        width of the scale bar. Defalt is 5.0
+    bar_color : string
+        color of the scale bar. Defalt is 'white'
+    display_scale_bar_labels : boolean
+        If True (default), the scale bar labels are displayed
+    label : string
+        scale bar label. Default is length in um.
+    label_color : color
+        color of the scale bar label. Defalt is the same as bar_color.
+    label_font_size : int
+        Font Size of the scale bar label. Defalt is 12
+    label_offset : int
+        Additional vertical offset for the label position. Defalt is 0.
+    
+    save_PNG : bolean
+        If True (default), the data will be saved into PNG file.
+    save_filename : string
+        Filename to save the image. Defaults is mrc_filename.replace('.mrc', '_crosssections.png')
+    dpi : int
+        DPI for the PNG file. Dafult is 300.
+    
+    Returns: images, exs
+    '''
+    display_scale_bars = kwargs.get('display_scale_bars', True)
+    bar_length_um = kwargs.get('bar_length_um', 1.0)  #in um
+    loc = kwargs.get('loc', (0.1, 0.9))
+    bar_width = kwargs.get('bar_width', 5.0)
+    bar_color = kwargs.get('bar_color', 'white')
+    display_scale_bar_labels = kwargs.get('display_scale_bar_labels', True)
+    bar_label = kwargs.get('bar_label', '{:.1f} μm'.format(bar_length_um))
+    label_color = kwargs.get('label_color', bar_color)
+    label_font_size = kwargs.get('label_font_size', 12)
+    label_offset = kwargs.get('label_offset', 0)
+    bar_kwargs = {'bar_length_um' : bar_length_um,
+                 'bar_color' : bar_color,
+                 'display_scale_bar_labels' : display_scale_bar_labels,
+                 'bar_label' : bar_label,
+                 'label_color' : label_color,
+                 'label_font_size' : label_font_size,
+                 'label_offset' : label_offset}
+    xsection_linewidth = kwargs.get('xsection_linewidth', 0.5)
+    xsection_line_color = kwargs.get('xsection_line_color', 'white')
+    addtl_sp = kwargs.get('addtl_sp', 0.0)
+    XZ_section = kwargs.get('XZ_section', True)
+    ZY_section = kwargs.get('ZY_section', True)
+
+    mrc_filename  = os.path.normpath(mrc_filename)
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    header = mrc_obj.header
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    voxel_size_angstr = mrc_obj.voxel_size # Angstrom per pixel
+    voxel_size = np.array(kwargs.get('voxel_size', [voxel_size_angstr.x/1.0e4, voxel_size_angstr.y/1.0e4, voxel_size_angstr.z/1.0e4])) # in um per pixel
+    stack_size = np.array([nx*voxel_size[0], ny*voxel_size[1], nz*voxel_size[2]])
+    print('EM cross-sections dimensions (um):', stack_size)
+    cc_default = stack_size/2.0
+    
+    center_coordinates = kwargs.get('center_coordinates', cc_default)   # in um
+    print('Center coordinates (um):', center_coordinates)
+    box_dimensions = kwargs.get('box_dimensions', stack_size)           # in um
+    xsection_offsets = np.array(kwargs.get('xsection_offsets', [0.0, 0.0, 0.0]))                    # in um
+        
+    save_PNG = kwargs.get('save_PNG', True)
+    save_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_crosssections.png'))
+    dpi = kwargs.get('dpi', 300)
+    
+    # Build XYZ ranges 
+    cc_EM = center_coordinates / voxel_size
+    cs_EM = (center_coordinates + xsection_offsets) / voxel_size
+    bd_EM = box_dimensions / voxel_size
+    bs = (box_dimensions/2 + xsection_offsets)  / voxel_size
+
+    lines = [[bs[1], bs[0]], [bs[2], bs[0]], [bs[1], bs[2]]]
+    cs_names = ['X-Y cross-section', 'X-Z cross-section', 'Y-Z cross-section' ] 
+
+    c_EM = np.flip(np.round(cc_EM).astype(int), axis=0)  # swapped to match the EM array index locations
+    s_EM = np.flip(np.round(cs_EM).astype(int), axis=0)
+    ci_EM = np.flip(np.round(cc_EM - bd_EM / 2.0).astype(int), axis=0)
+    ca_EM = np.flip(np.round(cc_EM + bd_EM / 2.0).astype(int), axis=0)
+
+    dx = ca_EM-ci_EM
+    yratios = [dx[1], dx[0]] if XZ_section else [dx[1]]
+    xratios = [dx[2], dx[0]] if ZY_section else [dx[2]]
+    xy_ratio = np.sum(yratios) / np.sum(xratios)
+    hor_size = 5.0
+    vert_size = hor_size * xy_ratio
+
+    # ---------------------------------------------------------------------
+    # now generate figures
+    ncols = 2 if ZY_section else 1
+    nrows = 2 if XZ_section else 1
+    if XZ_section and ZY_section: gs_kw={"height_ratios" : yratios, "width_ratios" : xratios}
+    if XZ_section and (not ZY_section): gs_kw={"height_ratios" : yratios}
+    if (not XZ_section) and ZY_section: gs_kw={"width_ratios" : xratios}
+
+    fig, axs = plt.subplots(nrows, ncols, figsize=(hor_size, vert_size), 
+                            gridspec_kw=gs_kw, dpi=dpi)
+    if XZ_section and ZY_section:
+        fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.025*(xy_ratio**2)+addtl_sp, hspace=0.025)
+    if XZ_section and (not ZY_section):
+        fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, hspace=0.025)
+    if (not XZ_section) and ZY_section:
+        fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.025*(xy_ratio**2)+addtl_sp)
+    
+    EM_mins = []
+    EM_maxs =[]                       
+    # build images  
+    images = []
+    for i, s in enumerate(tqdm(s_EM, desc = 'Loading EM Cross-sections Data')):
+        ci_x = ci_EM.copy()
+        ca_x = ca_EM.copy()
+        ci_x[i] = s
+        ca_x[i] = s+1
+        #print(ci_x[0],ca_x[0], ci_x[1],ca_x[1], ci_x[2],ca_x[2])
+        EM_crop = np.squeeze(mrc_obj.data[ci_x[0]:ca_x[0], ci_x[1]:ca_x[1], ci_x[2]:ca_x[2]])
+        ysz, xsz = np.shape(EM_crop)
+        print(cs_names[i] + ' loaded, dimensions (pixels):', xsz, ysz)
+        if i==2:
+            EM_crop = np.transpose(EM_crop)
+        images.append(EM_crop)
+        ysz, xsz = np.shape(EM_crop)
+        vmin, vmax = get_min_max_thresholds(EM_crop[ysz//5:ysz//5*4, xsz//5:xsz//5*4], thr_min = 1e-3, thr_max=1e-3, disp_res=False)
+        EM_mins.append(vmin)
+        EM_maxs.append(vmax)
+
+    mrc_obj.close()
+    
+    EM_min = kwargs.get('EM_min', np.min(np.array(EM_mins)))
+    EM_max = kwargs.get('EM_max', np.max(np.array(EM_maxs)))
+    print('Will use EM-data range: {:.1f} - {:.1f}'.format(EM_min, EM_max))
+        
+    print('Generating Cross-Section Images')
+    if XZ_section and ZY_section:
+        for x in np.arange(ncols):
+            for y in np.arange(nrows):
+                j=y*2+x
+                if j<3:
+                    if x==0 or (x==1 and XZ_section) or y==0 or (y==1 and ZY_section):
+                        print('Generating '+ cs_names[j])
+                        axs[x,y].imshow(images[j], cmap='Greys', vmin=EM_min, vmax=EM_max, clip_on=True)
+                        if XZ_section:
+                            axs[x,y].axhline(lines[j][0], c = xsection_line_color, linewidth = xsection_linewidth)
+                        if ZY_section:
+                            axs[x,y].axvline(lines[j][1], c = xsection_line_color, linewidth = xsection_linewidth)
+                        axs[x,y].set_xticks([])
+                        axs[x,y].set_yticks([])
+                        for sp in ['bottom','top', 'left', 'right']:
+                            axs[x,y].spines[sp].set_color('white')
+                            axs[x,y].spines[sp].set_linewidth(0.5)
+                    if display_scale_bars:
+                        add_scale_bar(axs[x,y], pixel_size_um = voxel_size[j], **bar_kwargs)
+        fig.delaxes(axs[1,1])
+        
+    if (XZ_section and (not ZY_section)) or (ZY_section and (not XZ_section)):
+        for x in np.arange(2):
+            j=x if XZ_section else 2*x
+            axs[x].imshow(images[j], cmap='Greys', vmin=EM_min, vmax=EM_max, clip_on=True)
+            if XZ_section:
+                axs[x].axhline(lines[j][0], c = xsection_line_color, linewidth = xsection_linewidth)
+                add_scale_bar(axs[x], pixel_size_um = voxel_size[2], **bar_kwargs)
+            if ZY_section:
+                axs[x].axvline(lines[j][1], c = xsection_line_color, linewidth = xsection_linewidth)
+                add_scale_bar(axs[x], pixel_size_um = voxel_size[0], **bar_kwargs)
+            axs[x].set_xticks([])
+            axs[x].set_yticks([])
+            for sp in ['bottom','top', 'left', 'right']:
+                axs[x].spines[sp].set_color('white')
+                axs[x].spines[sp].set_linewidth(0.5)
+
+    if save_PNG:
+        print('Saving image into: ', save_filename)
+        savefig(save_filename, dpi=dpi, transparent=True)
+        
+    return images, axs
+
 def bin_crop_mrc_stack(mrc_filename, **kwargs):
     '''
     Bins and crops a 3D mrc stack along X-, Y-, or Z-directions and saves it into MRC or HDF5 format. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
@@ -2072,6 +2284,266 @@ def bin_crop_mrc_stack_DASK(DASK_client, mrc_filename, **kwargs):
             pass
 
     return fnms_saved
+
+
+def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data_max, **kwargs):
+    '''
+    Read MRC stack and destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT.
+    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+
+    Parameters
+    ---------
+    mrc_filename : str
+        File name (full path) of the mrc stack to be analyzed
+    destreak_kernel : 2D array - to multiply the FFT
+    data_min, data_max : floats
+        In case if the data has been padded by constant values at the edges during the previous registrations steps,
+        it will need to be replaced temporarily by a fake "real" data - otherwise FFT will be distorted.
+        The padded values (that should out of range data_min-data_max) will be:
+         - identified by comparing to data_min and data_max
+         - if ouside the above range - replaced by mirror imaged adjacent data
+         - after FFT, kernel multiplication, and reverse FFT, they will be replaced by zeros.
+
+    kwargs:
+    frame_inds : array
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+    invert_data : boolean
+        If True, the data will be inverted
+    fri : int
+        start frame
+    fra : int
+        stop frame
+    save_filename : str
+        Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used
+    
+    Returns the name of the destreaked MRC stack
+    '''
+    mrc_filename  = os.path.normpath(mrc_filename)
+    save_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_destreaked.mrc'))
+
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    header = mrc_obj.header
+    '''
+        mode 0 -> uint8
+        mode 1 -> int16
+        mode 2 -> float32
+        mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    mrc_mode = mrc_obj.header.mode
+    voxel_size_angstr = mrc_obj.voxel_size
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    fri = kwargs.get('fri', 0)
+    fra = kwargs.get('fra', nz)
+
+    dt = type(mrc_obj.data[0,0,0])
+    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    mrc_mode = 1
+    dt = int16
+    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    st_frames = np.arange(fri, fra)
+    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
+
+    mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
+    mrc_new.voxel_size = voxel_size_angstr
+    #mrc_new.header.cella = voxel_size_angstr
+    print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    desc = 'Saving the destreaked data stack into MRC file'
+
+    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
+        read_fr = mrc_obj.data[st_frame, :, :]
+        clip_mask = (read_fr>data_min)*(read_fr<data_max)
+        ny, nx = np.shape(clip_mask)
+        yi = np.min(np.where(clip_mask[:, nx//2]))
+        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
+        xi = np.min(np.where(clip_mask[ny//2, :]))
+        xa = nx-np.max(np.where(clip_mask[nx//2, :]))
+        #print(xi, xa, yi, ya)
+        pad_width = np.max((xi, xa, yi, ya))
+        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+        destreaked_fft = fftshift(fftn(ifftshift(padded_fr))) * destreak_kernel
+        mrc_new.data[j,:,:] = np.real(fftshift(ifftn(ifftshift(destreaked_fft)))).astype(dt) * clip_mask
+        
+    mrc_new.close()
+    mrc_obj.close()
+
+    return save_filename
+
+
+def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max, **kwargs):
+    '''
+    Read MRC stack and smooth the data by performing 2D-convolution with smooth_kernel.
+    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+
+    Parameters
+    ---------
+    mrc_filename : str
+        File name (full path) of the mrc stack to be analyzed
+    smooth_kernel : 2D array - to multiply the FFT
+    data_min, data_max : floats
+        In case if the data has been padded by constant values at the edges during the previous registrations steps,
+        it will need to be replaced temporarily by a fake "real" data - otherwise smoothing will be distorted.
+        The padded values (that should out of range data_min-data_max) will be:
+         - identified by comparing to data_min and data_max
+         - if ouside the above range - replaced by mirror imaged adjacent data
+         - after smoothing they will be replaced by zeros.
+    
+    kwargs:
+    
+    frame_inds : array
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+    invert_data : boolean
+        If True, the data will be inverted
+    save_filename : str
+        Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used
+    
+    Returns the name of the destreaked MRC stack
+    '''
+    mrc_filename  = os.path.normpath(mrc_filename)
+    save_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_smoothed.mrc'))
+
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    header = mrc_obj.header
+    '''
+        mode 0 -> uint8
+        mode 1 -> int16
+        mode 2 -> float32
+        mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    mrc_mode = mrc_obj.header.mode
+    voxel_size_angstr = mrc_obj.voxel_size
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    fri = kwargs.get('fri', 0)
+    fra = kwargs.get('fra', nz)
+    use_DASK = kwargs.get("use_DASK", False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
+
+    dt = type(mrc_obj.data[0,0,0])
+    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    mrc_mode = 1
+    dt = int16
+    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    st_frames = np.arange(fri, fra)
+    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
+
+    mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
+    mrc_new.voxel_size = voxel_size_angstr
+    #mrc_new.header.cella = voxel_size_angstr
+    print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    desc = 'Saving the destreaked data stack into MRC file'
+
+    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
+        read_fr = mrc_obj.data[st_frame, :, :]
+        clip_mask = (read_fr>data_min)*(read_fr<data_max)
+        ny, nx = np.shape(clip_mask)
+        yi = np.min(np.where(clip_mask[:, nx//2]))
+        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
+        xi = np.min(np.where(clip_mask[ny//2, :]))
+        xa = nx-np.max(np.where(clip_mask[nx//2, :]))
+        #print(xi, xa, yi, ya)
+        pad_width = np.max((xi, xa, yi, ya))
+        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+        mrc_new.data[j,:,:] = convolve2d(padded_fr, smooth_kernel, mode='same').astype(dt) * clip_mask
+        
+    mrc_new.close()
+    mrc_obj.close()
+
+    return save_filename
+
+
+def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth_kernel, data_min, data_max, **kwargs):
+    '''
+    Read MRC stack and destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT.
+    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+
+    Parameters
+    ---------
+    mrc_filename : str
+        File name (full path) of the mrc stack to be analyzed
+    destreak_kernel : 2D array - to multiply the FFT
+    smooth_kernel : 2D array - to multiply the FFT
+    data_min, data_max : floats
+        In case if the data has been padded by constant values at the edges during the previous registrations steps,
+        it will need to be replaced temporarily by a fake "real" data - otherwise FFT and smoothing will be distorted.
+        The padded values (that should out of range data_min-data_max) will be:
+         - identified by comparing to data_min and data_max
+         - if ouside the above range - replaced by mirror imaged adjacent data
+         - after destreaking and smoothing they will be replaced by zeros.
+
+    kwargs:
+    frame_inds : array
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+    invert_data : boolean
+        If True, the data will be inverted
+    save_destreak_filename : str
+        Path to the filename to save the destreaked stack. If empty, mrc_filename+'_destreaked.mrc' will be used
+    save_destreak_smooth_filename : str
+        Path to the filename to save the destreaked stack. If empty, mrc_filename+'_destreaked_smoothed.mrc' will be used
+    
+    Returns the name of the destreaked MRC stack
+    '''
+    mrc_filename  = os.path.normpath(mrc_filename)
+    save_destreak_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_destreaked.mrc'))
+    save_destreak_smooth_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_destreaked_smoothed.mrc'))
+
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    header = mrc_obj.header
+    '''
+        mode 0 -> uint8
+        mode 1 -> int16
+        mode 2 -> float32
+        mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    mrc_mode = mrc_obj.header.mode
+    voxel_size_angstr = mrc_obj.voxel_size
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    fri = kwargs.get('fri', 0)
+    fra = kwargs.get('fra', nz)
+
+    dt = type(mrc_obj.data[0,0,0])
+    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    if mode == 'sum':
+        mrc_mode = 1
+        dt = int16
+    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    st_frames = np.arange(fri, fra)
+    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
+
+    mrc_new_destreaked = mrcfile.new_mmap(save_destreak_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
+    mrc_new_destreaked.voxel_size = voxel_size_angstr
+    mrc_new_destreaked_smoothed = mrcfile.new_mmap(save_destreak_smooth_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
+    mrc_new_destreaked_smoothed.voxel_size = voxel_size_angstr
+    #mrc_new_destreaked.header.cella = voxel_size_angstr
+    #mrc_new_destreaked_smoothed.header.cella = voxel_size_angstr
+    print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    desc = 'Saving the destreaked data stacks into MRC files'
+
+    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
+        read_fr = mrc_obj.data[st_frame, :, :]
+        clip_mask = (read_fr>data_min)*(read_fr<data_max)
+        ny, nx = np.shape(clip_mask)
+        yi = np.min(np.where(clip_mask[:, nx//2]))
+        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
+        xi = np.min(np.where(clip_mask[ny//2, :]))
+        xa = nx-np.max(np.where(clip_mask[nx//2, :]))
+        #print(xi, xa, yi, ya)
+        pad_width = np.max((xi, xa, yi, ya))
+        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+        destreaked_fft = fftshift(fftn(ifftshift(padded_fr))) * destreak_kernel
+        destreaked_data = np.real(fftshift(ifftn(ifftshift(destreaked_fft)))).astype(dt)
+        mrc_new_destreaked.data[j,:,:] = destreaked_data * clip_mask       
+        mrc_new_destreaked_smoothed.data[j,:,:] = convolve2d(destreaked_data, smooth_kernel, mode='same').astype(dt) * clip_mask
+        
+    mrc_new_destreaked.close()
+    mrc_new_destreaked_smoothed.colse()
+    mrc_obj.close()
+
+    return save_destreak_filename, save_destreak_smooth_filename
 
 
 ##########################################
@@ -2667,6 +3139,60 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','_Mill_Rate.png')), dpi=300)
 
 
+def generate_report_ScanRate_EHT_xlsx(ScanRate_EHT_Data_xlsx, **kwargs):
+    '''
+    Generate Report Plot for Scan Rate and EHT from XLSX spreadsheet file. ©G.Shtengel 09/2023 gleb.shtengel@gmail.com
+    
+    Parameters:
+    ScanRate_EHT_Data_xlsx : str
+        Path to the xlsx workbook containing the Scan Rate and EHT data.
+    
+    kwargs:
+    '''
+    disp_res = kwargs.get('disp_res', False)
+    if disp_res:
+        print('Loading kwarg Data')
+    saved_kwargs = read_kwargs_xlsx(ScanRate_EHT_Data_xlsx, 'kwargs Info', **kwargs)
+    data_dir = saved_kwargs.get("data_dir", '')
+    Sample_ID = saved_kwargs.get("Sample_ID", '')
+    
+    if disp_res:
+        print('Loading Scan Rate and EHT Data')
+    try:
+        int_results = pd.read_excel(ScanRate_EHT_Data_xlsx, sheet_name='FIBSEM Data')
+    except:
+        int_results =[]
+    fr = int_results['Frame']
+    ScanRate = int_results['Scan Rate (Hz)']
+    EHT = int_results['EHT (kV)']
+    try:
+        SEMSpecimenI = int_results['SEMSpecimenI (nA)']
+    except:
+        SEMSpecimenI = EHT*0.0
+
+    if disp_res:
+        print('Generating Plot')
+    fs = 12
+
+    fig, axs = subplots(2,1, figsize = (6,7), sharex=True)
+    fig.subplots_adjust(left=0.12, bottom=0.06, right=0.88, top=0.96, wspace=0.05, hspace=0.05)
+    axs[0].plot(ScanRate/1000.0, 'b', label='Scan Rate')
+    ax2 = axs[0].twinx()
+    ax2.plot(EHT, 'r', linestyle='dashed', label='EHT')
+    ax2.set_ylabel('EHT (kV)', color = 'red')
+    ax2.legend(loc='upper right')
+    
+    axs[1].plot(SEMSpecimenI, 'g', label='SEM Specimen I')
+    axs[1].set_xlabel('Frame')
+    axs[0].set_ylabel('Scan Rate (kHz)', color = 'blue')
+    axs[1].set_ylabel('SEM Specimen I (nA)', color='g')
+    for ax in axs:
+        ax.grid(True)
+        ax.legend(loc='upper left')
+    axs[0].set_title(data_dir)
+    fig.savefig(os.path.join(data_dir, ScanRate_EHT_Data_xlsx.replace('.xlsx','_FIBSEM_Data_ScanRate_EHT.png')), dpi=300)
+
+
 def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     '''
     Generate Report Plot for FOV center shift from XLSX spreadsheet file. ©G.Shtengel 12/2022 gleb.shtengel@gmail.com
@@ -2767,9 +3293,15 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     sliding_min = int_results['Sliding Min']
     sliding_max = int_results['Sliding Max']
     '''
-    sv_apert = min([fit_params[1], len(frames)//8*2+1])
-    sliding_min = savgol_filter(frame_min.astype(double), sv_apert, fit_params[2])
-    sliding_max = savgol_filter(frame_max.astype(double), sv_apert, fit_params[2])
+    if fit_params[0] != 'None':
+        sv_apert = min([fit_params[1], len(frames)//8*2+1])
+        print('Using fit_params: ', 'SG', sv_apert, fit_params[2])
+        sliding_min = savgol_filter(frame_min.astype(double), sv_apert, fit_params[2])
+        sliding_max = savgol_filter(frame_min.astype(double), sv_apert, fit_params[2])
+    else:
+        print('Not smoothing the Min/Max data')
+        sliding_min = frame_min.astype(double)
+        sliding_max = frame_min.astype(double)
 
     if disp_res:
         print('Generating Plot')
@@ -5242,7 +5774,8 @@ def evaluate_FIBSEM_frame(params):
             number of histogram bins for building the PDF and CDF
 
     Returns:
-        dmin, dmax: (float) minimum and maximum values of the data range.   
+        dmin, dmax: (float) minimum and maximum values of the data range.
+        WD, MillingYVoltage, center_x, center_y, ScanRate, EHT, SEMSpecimenI - SEM parameters 
     '''
     fl, kwargs = params
     ftype = kwargs.get("ftype", 0)
@@ -5261,9 +5794,15 @@ def evaluate_FIBSEM_frame(params):
             try:
                 WD = frame.WD
                 MillingYVoltage = frame.MillingYVoltage
+                ScanRate = frame.ScanRate
+                EHT = frame.EHT
+                SEMSpecimenI = -1.0* frame.SEMSpecimenI
             except:
                 WD = 0
                 MillingYVoltage = 0
+                ScanRate = 0
+                EHT = 0
+                SEMSpecimenI = 0
             try:
                 center_x = (frame.FirstPixelX + frame.XResolution/2.0)
                 center_y = (frame.FirstPixelY + frame.YResolution/2.0)
@@ -5275,6 +5814,9 @@ def evaluate_FIBSEM_frame(params):
             MillingYVoltage = 0
             center_x = 0
             center_y = 0
+            ScanRate = 0
+            EHT = 0
+            SEMSpecimenI = 0
     except:
         dmin = 0
         dmax = 0
@@ -5282,7 +5824,10 @@ def evaluate_FIBSEM_frame(params):
         MillingYVoltage = 0
         center_x = 0
         center_y = 0
-    return dmin, dmax, WD, MillingYVoltage, center_x, center_y
+        ScanRate = 0
+        EHT = 0
+        SEMSpecimenI = 0
+    return dmin, dmax, WD, MillingYVoltage, center_x, center_y, ScanRate, EHT, SEMSpecimenI
 
 
 def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
@@ -5325,7 +5870,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         If True (default), intermediate messages and results will be displayed.
 
     Returns:
-    list of 9 parameters: FIBSEM_Data_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y
+    list of 12 parameters: FIBSEM_Data_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y, ScanRate, EHT, SEMSpecimenI
         FIBSEM_Data_xlsx : str
             path to Excel file with the FIBSEM data
         data_min_glob : float   
@@ -5345,6 +5890,12 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
             FOV Center X-coordinate extrated from the header data
         center_y : float array
             FOV Center Y-coordinate extrated from the header data
+        ScanRate : float array
+            SEM Scan Rate (Hz)
+        EHT : float array
+            SEM EHT voltage (kV)
+        SEMSpecimenI : float array
+            SEM Specimen current (nA)
     '''
 
     nfrs = len(fls)
@@ -5380,6 +5931,9 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         mill_rate_MV = np.zeros(nfrs, dtype=float)
         center_x = np.zeros(nfrs, dtype=float)
         center_y = np.zeros(nfrs, dtype=float)
+        ScanRate = np.zeros(nfrs, dtype=float)
+        EHT = np.zeros(nfrs, dtype=float)
+        SEMSpecimenI = np.zeros(nfrs, dtype=float)
 
     else:
         params_s2 = [[fl, kwargs] for fl in np.array(fls)[frame_inds]]
@@ -5397,21 +5951,30 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
                 results_s2[j, :] = evaluate_FIBSEM_frame(param_s2)
 
         data_minmax_glob = results_s2[:, 0:2]
-        sv_apert = min([fit_params[1], len(frame_inds)//8*2+1])
         data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
         trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
-        data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), sv_apert, fit_params[2])
-        data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), sv_apert, fit_params[2])
+        if fit_params[0] != 'None':
+            sv_apert = min([fit_params[1], len(frame_inds)//8*2+1])
+            print('Using fit_params: ', 'SG', sv_apert, fit_params[2])
+            data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), sv_apert, fit_params[2])
+            data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), sv_apert, fit_params[2])
+        else:
+            print('Not smoothing the Min/Max data')
+            data_min_sliding = data_minmax_glob[:, 0].astype(double)
+            data_max_sliding = data_minmax_glob[:, 1].astype(double)
         mill_rate_WD = results_s2[:, 2]
         mill_rate_MV = results_s2[:, 3]
         center_x = results_s2[:, 4]
         center_y = results_s2[:, 5]
+        ScanRate = results_s2[:, 6]
+        EHT = results_s2[:, 7]
+        SEMSpecimenI = results_s2[:, 8]
 
     if disp_res:
         print('Saving the FIBSEM dataset statistics (Min/Max, Mill Rate, FOV Shifts into the file: ', FIBSEM_Data_xlsx_path)
         # Create a Pandas Excel writer using XlsxWriter as the engine.
     xlsx_writer = pd.ExcelWriter(FIBSEM_Data_xlsx_path, engine='xlsxwriter')
-    columns=['Frame', 'Min', 'Max', 'Sliding Min', 'Sliding Max', 'Working Distance (mm)', 'Milling Y Voltage (V)', 'FOV X Center (Pix)', 'FOV Y Center (Pix)']
+    columns=['Frame', 'Min', 'Max', 'Sliding Min', 'Sliding Max', 'Working Distance (mm)', 'Milling Y Voltage (V)', 'FOV X Center (Pix)', 'FOV Y Center (Pix)', 'Scan Rate (Hz)', 'EHT (kV)', 'SEMSpecimenI (nA)']
     minmax_df = pd.DataFrame(np.vstack((frame_inds.T,
         data_minmax_glob.T,
         data_min_sliding.T,
@@ -5419,13 +5982,16 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         mill_rate_WD.T,
         mill_rate_MV.T,
         center_x.T,
-        center_y.T)).T, columns = columns, index = None)
+        center_y.T,
+        ScanRate.T,
+        EHT.T,
+        SEMSpecimenI.T)).T, columns = columns, index = None)
     minmax_df.to_excel(xlsx_writer, index=None, sheet_name='FIBSEM Data')
     kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
     kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
     xlsx_writer.save()
            
-    return FIBSEM_Data_xlsx_path, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y
+    return [FIBSEM_Data_xlsx_path, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y, ScanRate, EHT, SEMSpecimenI]
 
 
 # Routines to extract Key-Points and Descriptors
@@ -6797,7 +7363,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
 
     Parameters
     chunk_of_frame_parametrs : list of following parameters
-        [save_filename, frame_filenames, tr_matrices, tr_args]
+        [save_filename, frame_filenames, tr_matrices, image_scale, image_offset, tr_args]
     
     save_filename : path
         Filename for saving the transformed frame
@@ -6805,6 +7371,10 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         Filenames (Full paths) of FIB-SEM frame files for every frame in frame_inds
     tr_matrices : list of 2D (or 3d array)
         Transformation matrix for every frame in frame_inds.
+    image_scales : list (array) of floats
+        image multipliers for image rescaling: I = (I-image_offset)*image_scale + image_offset
+    image_offsets : list (array) of floats
+        image offsets for image rescaling: I = (I-image_offset)*image_scale + image_offset
 
     tr_args : list of lowwowing parameters:
         tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
@@ -6829,7 +7399,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         Invert data, default is False.
     flipY : boolean
         Flip output along Y-axis, default is False.
-    flatten_image : bolean
+    flatten_image : boolean
         perform image flattening
     image_correction_file : str
         full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
@@ -6846,13 +7416,13 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
 
     Returns
     '''
-    save_filename, frame_filenames, tr_matrices, tr_args = chunk_of_frame_parametrs
+    save_filename, frame_filenames, tr_matrices, image_scales, image_offsets, tr_args = chunk_of_frame_parametrs
     ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp = tr_args
     num_frames = len(frame_filenames)
     transformed_img = np.zeros((ysz, xsz), dtype=float)
     frame_img = np.zeros((ysz, xsz), dtype=float)
     
-    for frame_filename, tr_matrix in zip(frame_filenames, tr_matrices):
+    for frame_filename, tr_matrix, image_scale, image_offset in zip(frame_filenames, tr_matrices, image_scales, image_offsets):
         frame = FIBSEM_frame(frame_filename, ftype=ftype)
 
         if ImgB_fraction < 1e-5:
@@ -6872,7 +7442,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
                 image = flattened_RawImageA* (1.0 - ImgB_fraction) + flattened_RawImageB * ImgB_fraction
             else:
                 image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
-
+        image = (image - image_offset) * image_scale + image_offset
         if invert_data:
             frame_img[yi:ya, xi:xa] = np.negative(image)
             '''
@@ -7154,6 +7724,10 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
         perform image flattening
     image_correction_file : str
         full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
+    image_scales : array of floats
+        image multipliers for image rescaling: I = (I-image_offset)*image_scale + image_offset
+    image_offsets : array of floats
+        image offsets for image rescaling: I = (I-image_offset)*image_scale + image_offset
     invert_data : boolean
         If True - the data is inverted.
     dtp  : dtype
@@ -7188,6 +7762,8 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
     flatten_image = kwargs.get("flatten_image", False)
     image_correction_file = kwargs.get("image_correction_file", '')
+    image_scales = kwargs.get("image_scales", np.zeros(len(fls))+1.0)
+    image_offsets = kwargs.get("image_offsets", np.zeros(len(fls)))
     invert_data =  kwargs.get("invert_data", False)
     dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
     disp_res = kwargs.get("disp_res", False)
@@ -7231,7 +7807,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
 
     '''
     transform_and_save_chunk_of_frames(save_filename, frame_filenames, tr_matrices, tr_args):
-    chunk_of_frame_parametrs = save_filename, frame_filenames, tr_matrices_cum_residual, tr_args
+    chunk_of_frame_parametrs = save_filename, frame_filenames, tr_matrices_cum_residual, image_scale, image_offset, tr_args
     tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
     process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
     chunk_of_frame_parametrs_dataset.append([save_filename, process_frames, np.array(tr_matr_cum_residual)[process_frames], tr_args])
@@ -7242,7 +7818,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     for j, st_frame in enumerate(tqdm(st_frames, desc='Setting up parameter sets', display=False)):
         save_filename = os.path.join(os.path.split(fls[st_frame])[0],'Registered_Frame_{:d}.tif'.format(j))
         process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
-        chunk_of_frame_parametrs_dataset.append([save_filename, np.array(fls)[process_frames], np.array(tr_matr_cum_residual)[process_frames], tr_args])
+        chunk_of_frame_parametrs_dataset.append([save_filename, np.array(fls)[process_frames], np.array(tr_matr_cum_residual)[process_frames], np.array(image_scales)[process_frames], np.array(image_offsets)[process_frames], tr_args])
 
     if use_DASK:
         if disp_res:
@@ -7355,6 +7931,8 @@ def save_data_stack(FIBSEMstack, **kwargs):
 def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
                                      transformation_matrix,
                                      error_abs_mean, npts,
+                                     FOVtrend_x, FOVtrend_y,
+                                     FIBSEM_Data,
                                      thr_npt, **kwargs):
     data_dir = kwargs.get("data_dir", '')
     ftype = kwargs.get("ftype", 0)
@@ -7390,6 +7968,10 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
             fnms = np.delete(fnms, frj)
             fnms_matches = np.delete(fnms_matches, frj)
             error_abs_mean = np.delete(error_abs_mean, frj)
+            FOVtrend_x = np.delete(FOVtrend_x, frj)
+            FOVtrend_y = np.delete(FOVtrend_y, frj)
+            for j in np.arange(3, len(FIBSEM_Data)): 
+                FIBSEM_Data[j] = np.delete(FIBSEM_Data[j], frj, axis = 0)
             transformation_matrix = np.delete(transformation_matrix, frj, axis = 0)
             npts = np.delete(npts, frj, axis = 0)
             fname1 = fnms[frj-1]
@@ -7399,7 +7981,7 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
             error_abs_mean[frj-1] = new_step4_res[3]
             transformation_matrix[frj-1] = np.array(new_step4_res[0])
         print('Mean Number of Keypoints :', np.mean(npts).astype(int))
-    return frames_to_remove, fls, fnms, fnms_matches, error_abs_mean, npts, transformation_matrix
+    return frames_to_remove, fls, fnms, fnms_matches, error_abs_mean, npts, transformation_matrix, FOVtrend_x, FOVtrend_y, FIBSEM_Data
 
 def select_blobs_LoG_analyze_transitions_2D_dataset(params):
     '''
@@ -7557,9 +8139,8 @@ def select_blobs_LoG_analyze_transitions_2D_dataset(params):
 
     results_file_xlsx, blobs_LoG, error_flags, tr_results, hst_datas =  select_blobs_LoG_analyze_transitions(frame_eval, **kwargs)
     if save_data and disp_res:
-        res = plot_blob_map_and_results(frame_eval, results_file_xlsx, save_png=True)
-        res = plot_blob_examples(frame_eval, results_file_xlsx, save_png=True)
-
+        res = plot_blob_map_and_results_single_image(frame_eval, results_file_xlsx, save_png=True)
+        res = plot_blob_examples_single_image(frame_eval, results_file_xlsx, save_png=True)
 
     tr_results_arr = np.array(tr_results)
     frame_ind_arr = np.zeros(len(error_flags), dtype=int)+frame_ind
@@ -8239,7 +8820,7 @@ class FIBSEM_dataset:
                         'disp_res' : disp_res}
 
         if disp_res:
-            print('Evaluating the parameters of FIBSEM data set (data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)')
+            print('Evaluating the parameters of FIBSEM data set (data Min/Max, Working Distance, Milling Y Voltage, FOV center positions, Scan Rate, EHT)')
         self.FIBSEM_Data = evaluate_FIBSEM_frames_dataset(self.fls, DASK_client, **local_kwargs)
         self.data_minmax = self.FIBSEM_Data[0:5]
         WD = self.FIBSEM_Data[5]
@@ -8732,9 +9313,10 @@ class FIBSEM_dataset:
   
         res_nomatch_check = check_for_nomatch_frames_dataset(self.fls, self.fnms, self.fnms_matches,
                                      self.transformation_matrix, self.error_abs_mean, self.npts,
+                                     self.FOVtrend_x, self.FOVtrend_y, self.FIBSEM_Data,
                                      thr_npt,
                                      data_dir = self.data_dir, fnm_reg = self.fnm_reg, ftype=self.ftype)
-        frames_to_remove, self.fls, self.fnms, self.fnms_matches, self.error_abs_mean, self.npts, self.transformation_matrix = res_nomatch_check
+        frames_to_remove, self.fls, self.fnms, self.fnms_matches, self.error_abs_mean, self.npts, self.transformation_matrix, self.FOVtrend_x, self.FOVtrend_y, self.FIBSEM_Data = res_nomatch_check
 
         if len(frames_to_remove) > 0:
             TM_kwargs = {'fnm_reg' : fnm_reg,
@@ -8810,6 +9392,10 @@ class FIBSEM_dataset:
             perform image flattening
         image_correction_file : str
             full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
+        image_scales : array of floats
+            image multipliers for image rescaling: I = (I-image_offset)*image_scale + image_offset
+        image_offsets : array of floats
+            image offset for image rescaling: I = (I-image_offset)*image_scale + image_offset
         flipY : boolean
             If True, the data will be flipped along Y-axis. Default is False.
         zbin_factor : int
@@ -8909,6 +9495,8 @@ class FIBSEM_dataset:
             image_correction_file = kwargs.get("image_correction_file", self.image_correction_file)
         else:
             image_correction_file = kwargs.get("image_correction_file", '')
+        image_scales = kwargs.get("image_scales", np.zeros(len(self.fls))+1.0)
+        image_offsets = kwargs.get("image_offsets", np.zeros(len(self.fls)))
         perform_transformation =  kwargs.get("perform_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
         if hasattr(self, 'pad_edges'):
             pad_edges = kwargs.get("pad_edges", self.pad_edges)
@@ -8946,6 +9534,8 @@ class FIBSEM_dataset:
                         'preserve_scales' : preserve_scales,
                         'flatten_image' : flatten_image,
                         'image_correction_file' : image_correction_file,
+                        'image_scales' : image_scales,
+                        'image_offsets' : image_offsets,
                         'perform_transformation' : perform_transformation,
                         'invert_data' : invert_data,
                         'evaluation_box' : evaluation_box,
@@ -9934,10 +10524,10 @@ class FIBSEM_dataset:
                     print('Analyzing file: ', fls[params_single[1]])
                 results_2D.append(select_blobs_LoG_analyze_transitions_2D_dataset(params_single))
 
-        frame_inds = np.concatenate(np.array(results_2D, dtype=object)[:, 0])
-        error_flags = np.concatenate(np.array(results_2D, dtype=object)[:, 1])
-        blobs_LoG = np.concatenate(np.array(results_2D, dtype=object)[:, 2])
-        tr_results = np.concatenate(np.array(results_2D, dtype=object)[:, 3])
+        frame_inds = np.concatenate(np.array(results_2D, dtype=object)[:, 0], axis=0)
+        error_flags = np.concatenate(np.array(results_2D, dtype=object)[:, 1], axis=0)
+        blobs_LoG = np.concatenate(np.array(results_2D, dtype=object)[:, 2], axis=0)
+        tr_results = np.concatenate(np.array(results_2D, dtype=object)[:, 3], axis=0)
 
         if save_data_xlsx:
             xlsx_writer = pd.ExcelWriter(results_file_xlsx, engine='xlsxwriter')
@@ -9970,7 +10560,6 @@ class FIBSEM_dataset:
         # return results_2D
         return results_file_xlsx, frame_inds, error_flags, blobs_LoG, tr_results
         
-    
 
 def plot_2D_blob_results(results_xlsx, **kwargs):
     save_png = kwargs.get('save_png', False)
@@ -9984,12 +10573,12 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     perform_transformation =  saved_kwargs.get("perform_transformation", False)
         
     xs=7.0
-    ys = xs*1.6
+    ys = xs*1.5
     text_col = 'brown'
     text_fs = 12
     axis_label_fs = 10
     table_fs = 12
-    caption_fs = 8
+    caption_fs = 7
     
     trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
     int_results = pd.read_excel(results_xlsx, sheet_name='Transition analysis results')
@@ -10013,6 +10602,7 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     tr_std = np.std(XYpt_selected)
     
     fig, axs = subplots(2, 1, figsize=(xs,ys))
+    fig.subplots_adjust(left=0.1, bottom=0.08, right=0.98, top=0.97, wspace=0.02, hspace=0.12)
     ax1, ax2 = axs
     ax1.set_title('Blobs determined by Laplasian of Gaussians', fontsize=text_fs)
     ax1.text(0.6, 0.55, '# of blobs: {:d}'.format(len(Xpt1)), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
@@ -10054,7 +10644,7 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
         rows = ['X, Y', 'X', 'Y']
         n_cols = len(columns)
         n_rows = len(rows)
-        cell_text = [['{:.2f}'.format(d) for d in dd] for dd in hst_data]
+        cell_text = [['{:.3f}'.format(d) for d in dd] for dd in hst_data]
 
         tbl = axloc.table(cellText=cell_text,
                          rowLabels=rows,
@@ -10064,7 +10654,6 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
                          colLoc='center',
                          loc=1,
                          zorder=10)
-
         tbl.scale(1.0, 1.5)
         table_props = tbl.properties()
         try:
@@ -10081,10 +10670,10 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
         #    cell.get_text().set_fontweight('bold')
             cell.get_text().set_fontsize(table_fs)
     
-    fig.subplots_adjust(left=0.01, bottom=0.10, right=0.99, top=0.98, wspace=0.02, hspace=0.12)
     if save_png:
-        ax2.text(0.0, -0.15, save_fname, transform=ax2.transAxes, fontsize=caption_fs)
+        ax2.text(-0.1, -0.15, save_fname, transform=ax2.transAxes, fontsize=caption_fs)
         fig.savefig(save_fname, dpi=300)
+
 
 
 

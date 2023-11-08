@@ -26,9 +26,61 @@ try:
 except:
     from FIBSEM_custom_transforms_gs import *
 
+
+
 ######################################################
 #    General Help Functions
 ######################################################
+
+def swap_elements(a, i, j):
+    '''
+    Swaps tw elements of the array.
+    ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
+
+    Parameters:
+    a : array
+    i : int
+        Index of the first element to swap
+    j : int
+        Index of the second element to swap
+    Returns: 
+        array with i-th and j-th elements swapped
+    '''
+    b=a.copy()
+    b[i]=a[j]
+    b[j]=a[i]
+    return b
+
+
+def scale_image_gs(image, im_min, im_max, amplitude, **kwargs):
+    '''
+    Clips the image between the values im_min and im_max and then rescales it to fit the new range: 0 to amplituide.
+    ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
+
+    Parameters:
+    image : array
+    im_min : float
+        min value. The values below that will be set to im_min
+    im_max : float
+        max value. The values above that will be set to im_max
+    amplitude : float
+        the rescaled range for output value
+
+    kwargs:
+    invert : boolean
+        If True, the data is inverted. Default is False
+    Returns:
+        data_spread : float
+
+    '''
+    invert = kwargs.get('invert', False)
+    out = np.clip((image-im_min)*np.float(amplitude)/(im_max - im_min), 0, amplitude)
+    if invert:
+        out = amplitude-out
+    out = out.astype(int)
+    return out
+
+
 def get_spread(data, window=501, porder=3):
     '''
     Calculates spread - standard deviation of the (signal - Sav-Gol smoothed signal).
@@ -176,7 +228,7 @@ def radial_profile(data, center):
     return radialprofile
 
 
-def radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4):
+def radial_profile_select_angles(data, scale, center, **kwargs):
     '''
     Calculates radially average profile of the 2D array (used for FRC) within a select range of angles.
     ©G.Shtengel 08/2020 gleb.shtengel@gmail.com
@@ -186,31 +238,43 @@ def radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4):
     center : list of two ints
         [xcenter, ycenter]
 
+    kwargs
     astart : float
         Start angle for radial averaging. Default is 0
     astop : float
         Stop angle for radial averaging. Default is 90
+    rstart : float
+        Start radius
+    rstop : float
+        Stop radius
     symm : int
         Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
-
 
     Returns
         radialprofile : float array
             limited to x-size//2 of the input data
     '''
+    astart = kwargs.get('astart', -1.0)
+    astop = kwargs.get('astop', 1.0)
+    rstart = kwargs.get('rstart', 0.0)
+    rstop = kwargs.get('rstop', 1.0)
+    symm = kwargs.get('symm', 4)
+    
     y, x = np.indices((data.shape))
     r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
-    r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True)).ravel()
+    rmin = np.max(r)*rstart
+    rmax = np.max(r)*rstop
+    r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True))
     r = r.astype(np.int)
     
     if symm>0:
-        ind = np.squeeze(np.array(np.where((r_ang > astart) & (r_ang < astart))))
+        ind = np.squeeze(np.array(np.where((r_ang > astart) & (r_ang < astart) & (r >= rmin) & (r <= rmax))))
         for i in np.arange(symm):
             ai = astart +360.0/symm*i -180.0
             aa = astop +360.0/symm*i -180.0
-            ind = np.concatenate((ind, np.squeeze((np.array(np.where((r_ang > ai) & (r_ang < aa)))))), axis=0)
+            ind = np.concatenate((ind, np.squeeze((np.array(np.where((r_ang > ai) & (r_ang < aa) & (r >= rmin) & (r <= rmax)))))), axis=0)
     else:
-        ind = np.squeeze(np.where((r_ang > astart) & (r_ang < astop)))
+        ind = np.squeeze(np.where((r_ang > astart) & (r_ang < astop) & (r >= rmin) & (r <= rmax)))
         
     rr = np.ravel(r)[ind]
     dd = np.ravel(data)[ind]
@@ -219,6 +283,232 @@ def radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4):
     nr = np.bincount(rr)
     radialprofile = tbin / nr
     return radialprofile
+
+
+def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
+    '''
+    Build a Rescales the FFT data within a select range of angles.
+    ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
+
+    Parameters:
+    data : 2D array
+
+    kwargs
+    astart : float
+        Start angle for radial averaging. Default is 0
+    astop : float
+        Stop angle for radial averaging. Default is 90
+    rstart : float
+        Start radius
+    rstop : float
+        Stop radius
+    symm : int
+        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+
+    Returns
+        rescaler : float array
+    '''
+    astart = kwargs.get('astart', -1.0)
+    astop = kwargs.get('astop', 1.0)
+    rstart = kwargs.get('rstart', 0.0)
+    rstop = kwargs.get('rstop', 1.0)
+    symm = kwargs.get('symm', 4)
+    
+    ds = data.shape
+    y, x = np.indices(ds)
+    yc, xc = ds[0]//2, ds[1]//2
+    r = np.sqrt((x - xc)**2 + (y - yc)**2)
+    rmin = np.max(r) * rstart
+    rmax = np.max(r) * rstop
+    r_ang = (np.angle(x - xc+1j*(y - yc), deg=True))
+    
+    rescaler = np.ones(ds, dtype=float)
+    
+    if symm>0:
+        for i in np.arange(symm*2):
+            ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
+            aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
+            if abs(ai-aa)>1e-10:
+                #print(ai, aa)
+                cond = (r_ang > ai)*(r_ang < aa)*(r >= rmin)*(r <= rmax)
+                rescaler[cond] = 0.0
+    else:
+        cond = (r_ang > astart)*(r_ang < astop)*(r >= rmin)*(r <= rmax)
+        rescaler[cond] = 0.0
+    return rescaler
+
+
+def rescale_FFT_select_radii_angles(data, scale, center, **kwargs):
+    '''
+    Rescales the FFT data within a select range of angles.
+    ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
+
+    Parameters:
+    data : 2D array
+    center : list of two ints
+        [xcenter, ycenter]
+
+    kwargs
+    astart : float
+        Start angle for radial averaging. Default is 0
+    astop : float
+        Stop angle for radial averaging. Default is 90
+    rstart : float
+        Start radius
+    rstop : float
+        Stop radius
+    symm : int
+        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+
+    Returns
+        radialprofile : float array
+            limited to x-size//2 of the input data
+    '''
+    astart = kwargs.get('astart', -1.0)
+    astop = kwargs.get('astop', 1.0)
+    rstart = kwargs.get('rstart', 0.0)
+    rstop = kwargs.get('rstop', 1.0)
+    symm = kwargs.get('symm', 4)
+    
+    y, x = np.indices((data.shape))
+    r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
+    rmin = np.max(r)*rstart
+    rmax = np.max(r)*rstop
+    r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True))
+    
+    r = r.astype(np.int)  
+    newdata = data.copy()
+    if symm>0:
+        for i in np.arange(symm*2):
+            ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
+            aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
+            if abs(ai-aa)>1e-10:
+                #print(ai, aa)
+                cond = (r_ang > ai)*(r_ang < aa)*(r >= rmin)*(r <= rmax)
+                newdata[cond] = data[cond] * scale[cond]
+    else:
+        cond = (r_ang > astart)*(r_ang < astop)*(r >= rmin)*(r <= rmax)
+        newdata[cond] = data[cond] * scale[cond]
+    return newdata
+
+
+def add_scale_bar(ax, **kwargs):
+    '''
+    Adda a scale bar to the existing plot.
+    ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
+
+    Parameters:
+    ax : axis object
+
+    kwargs:
+    bar_length_um : float
+        length of the scale bar (um). Default is 1um.
+    pixel_size_um : float
+        Pixel size in um. Default is 0.004 um.
+    loc : (float, float)
+        bar location in fractional axis coordinates (0, 0) is left bottom corner. (1, 1) is top right corner.
+        Default is (0.07, 0.93)
+    bar_width : float
+        width of the scale bar. Defalt is 3.0
+    bar_color : color
+        color of the scale bar. Defalt is 'white'
+    label : string
+        scale bar label. Default is length in um.
+    label_color : color
+        color of the scale bar label. Defalt is the same as bar_color.
+    label_font_size : int
+        Font Size of the scale bar label. Defalt is 12
+    label_offset : int
+        Additional vertical offset for the label position. Defalt is 0.
+    '''
+    
+    bar_length_um = kwargs.get('bar_length_um', 1.0)
+    pixel_size_um = kwargs.get('pixel_size_um', 0.004)
+    loc = kwargs.get('loc', (0.07, 0.93))
+    bar_width = kwargs.get('bar_width', 3.0)
+    bar_color = kwargs.get('bar_color', 'white')
+    bar_label = kwargs.get('bar_label', '{:.1f} μm'.format(bar_length_um))
+    label_color = kwargs.get('label_color', bar_color)
+    label_font_size = kwargs.get('label_font_size', 12)
+    label_offset = kwargs.get('label_offset', 0)
+    bar_length_image_pixels = bar_length_um / pixel_size_um # length of scale bar in pixels
+    
+    dpi = ax.get_figure().dpi
+    xi_pix, xa_pix = ax.get_xlim()
+    dx_pix = (xa_pix - xi_pix)  # size in image pixels
+    yi_pix, ya_pix = ax.get_ylim()
+    dy_pix = (ya_pix - yi_pix)
+    
+    y1, y2 = ax.get_window_extent().get_points()[:, 1]
+    x1, x2 = ax.get_window_extent().get_points()[:, 0]
+    yscale = np.abs(y2-y1) / np.abs(dy_pix)                 # Get unit scale
+    #print(np.abs(dy_pix), np.abs(y2-y1))
+    #print(yscale, label_font_size/yscale)
+  
+    dx_um = dx_pix * pixel_size_um                  # X-width of plot im um     
+    xi_bar = xi_pix + loc[0] * dx_pix
+    xa_bar = xi_bar + bar_length_image_pixels
+    yi_bar = yi_pix + loc[1] * dy_pix
+    ax.plot([xi_bar, xa_bar], [yi_bar, yi_bar], color = bar_color, linewidth = bar_width)
+    label_font_size_scaled = label_font_size
+    
+    xi_text = xi_bar
+    yi_text = yi_bar + bar_width + label_offset + 6.0 * label_font_size
+    #print(yi_bar, yi_text, label_font_size)
+    ax.text(xi_text, yi_text, bar_label, color = label_color, fontsize = label_font_size)
+
+
+def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
+    '''
+    Builds a Rescales the FFT data within a select range of angles.
+    ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
+
+    Parameters:
+    data : 2D array
+
+    kwargs
+    astart : float
+        Start angle for radial averaging. Default is 0
+    astop : float
+        Stop angle for radial averaging. Default is 90
+    rstart : float
+        Start radius
+    rstop : float
+        Stop radius
+    symm : int
+        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+
+    Returns
+        rescaler_kernel : float array
+    '''
+    astart = kwargs.get('astart', -1.0)
+    astop = kwargs.get('astop', 1.0)
+    rstart = kwargs.get('rstart', 0.0)
+    rstop = kwargs.get('rstop', 1.0)
+    symm = kwargs.get('symm', 4)
+    
+    ds = data.shape
+    y, x = np.indices(ds)
+    yc, xc = ds[0]//2, ds[1]//2
+    r = np.sqrt((x - xc)**2 + (y - yc)**2)
+    rmin = np.max(r) * rstart
+    rmax = np.max(r) * rstop
+    r_ang = (np.angle(x - xc+1j*(y - yc), deg=True))
+    
+    rescaler_kernel = np.ones(ds, dtype=float)
+    
+    if symm>0:
+        for i in np.arange(symm*2):
+            ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
+            aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
+            if abs(ai-aa)>1e-10:
+                #print(ai, aa)
+                cond = (r_ang > ai)*(r_ang < aa)*(r >= rmin)*(r <= rmax)
+                rescaler_kernel[cond] = 0.0
+    else:
+        cond = (r_ang > astart)*(r_ang < astop)*(r >= rmin)*(r <= rmax)
+        rescaler_kernel[cond] = 0.0
+    return rescaler_kernel
 
 
 def smooth(x, window_len=11, window='hanning'):
@@ -374,6 +664,8 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
             exec('kwargs_dict["subtract_linear_fit"] = np.array(' + kwargs_dict_initial[key]+')')
         elif 'Stack Filename' in key:
             exec('kwargs_dict["Stack Filename"] = str(kwargs_dict_initial[key])')
+        elif 'kernel' in key:
+            exec('kwargs_dict["kernel"] = np.array(' + kwargs_dict_initial['kernel'].replace(', ', ',').replace(' ', ',') +')')
         else:
             try:
                 exec('kwargs_dict["'+str(key)+'"] = '+ str(kwargs_dict_initial[key]))
