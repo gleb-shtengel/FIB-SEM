@@ -1882,9 +1882,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     if (not XZ_section) and ZY_section:
         fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.025*(xy_ratio**2)+addtl_sp)
     
-    EM_mins = []
-    EM_maxs =[]                       
-    # build images  
+    # Build images
     images = []
     for i, s in enumerate(tqdm(s_EM, desc = 'Loading EM Cross-sections Data')):
         ci_x = ci_EM.copy()
@@ -1893,17 +1891,22 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
         ca_x[i] = s+1
         #print(ci_x[0],ca_x[0], ci_x[1],ca_x[1], ci_x[2],ca_x[2])
         EM_crop = np.squeeze(mrc_obj.data[ci_x[0]:ca_x[0], ci_x[1]:ca_x[1], ci_x[2]:ca_x[2]])
+        #print('EM Crop Base: ', EM_crop.base)
         ysz, xsz = np.shape(EM_crop)
         print(cs_names[i] + ' loaded, dimensions (pixels):', xsz, ysz)
         if i==2:
             EM_crop = np.transpose(EM_crop)
         images.append(EM_crop)
+    mrc_obj.close()
+
+    # Determine EM data range
+    EM_mins = []
+    EM_maxs =[]  
+    for img in tqdm(images, desc='Determining EM data range'):
         ysz, xsz = np.shape(EM_crop)
-        vmin, vmax = get_min_max_thresholds(EM_crop[ysz//5:ysz//5*4, xsz//5:xsz//5*4], thr_min = 1e-3, thr_max=1e-3, disp_res=False)
+        vmin, vmax = get_min_max_thresholds(img[ysz//5:ysz//5*4, xsz//5:xsz//5*4], thr_min = 1e-3, thr_max=1e-3, disp_res=False)
         EM_mins.append(vmin)
         EM_maxs.append(vmax)
-
-    mrc_obj.close()
     
     EM_min = kwargs.get('EM_min', np.min(np.array(EM_mins)))
     EM_max = kwargs.get('EM_max', np.max(np.array(EM_maxs)))
@@ -1952,6 +1955,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
         savefig(save_filename, dpi=dpi, transparent=True)
         
     return images, axs
+
 
 def bin_crop_mrc_stack(mrc_filename, **kwargs):
     '''
@@ -2507,9 +2511,8 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
     dt = type(mrc_obj.data[0,0,0])
     print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
-    if mode == 'sum':
-        mrc_mode = 1
-        dt = int16
+    mrc_mode = 1
+    dt = int16
     print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(fri, fra)
     print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
