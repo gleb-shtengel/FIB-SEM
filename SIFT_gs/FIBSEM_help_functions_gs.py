@@ -293,7 +293,7 @@ def radial_profile_select_angles(data, center, **kwargs):
 
 def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
     '''
-    Build a Rescales the FFT data within a select range of angles.
+    Build a Rescaler Kernel for the FFT data within a select range of angles.
     ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
 
     Parameters:
@@ -400,7 +400,7 @@ def rescale_FFT_select_radii_angles(data, scale, center, **kwargs):
 
 def add_scale_bar(ax, **kwargs):
     '''
-    Adda a scale bar to the existing plot.
+    Add a scale bar to the existing plot.
     ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
 
     Parameters:

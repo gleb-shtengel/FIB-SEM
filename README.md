@@ -7,9 +7,9 @@ The main features of this workflow:
 -   The resulting registered stack can be saved as a single MRC or HDF5 file (the registered stack is a DASK array, so extending it to Zarr or N5 should also be straightforward).
 -   Can be performed on a single workstation (with decent number of cores and memory). A month-long FIB-SEM acquisition takes about 2-3 days to process.
 
-## "Register_FIB-SEM_stack_DASK_v3.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
+## "Register_FIB-SEM_stack_DASK_v4.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
 
-## "Register_FIB-SEM_stack_DASK_v3_AMST.ipynb" - Python Notebook which performs FIB-SEM stack registration of AMST dataset and compares the results with AMST registration [1]
+## "Register_FIB-SEM_stack_DASK_v4_AMST.ipynb" - Python Notebook which performs FIB-SEM stack registration of AMST dataset and compares the results with AMST registration [1]
 1. J. Hennies et al, "AMST: Alignment to Median Smoothed Template for Focused Ion Beam Scanning Electron Microscopy Image Stacks", Sci. Rep. 10, 2004 (2020).
 
 ## "Evaluate_FIB-SEM_MRC_stack_registrations.ipynb" - Python Notebook for evaluating FIB-SEM stack registration (works with stacks saved into MRC files, uses DASK)
@@ -42,10 +42,14 @@ You will also need to have these packages installed:
         Determines the data range (min and max) with given fractional thresholds for cumulative distribution.
     radial_profile(data, center)
         Calculates radially average profile of the 2D array (used for FRC and auto-correlation)
-    radial_profile_select_angles(data, center, astart = 89, astop = 91, symm=4)
-        Calculates radially average profile of the 2D array (used for FRC) within a select range of angles.
+    radial_profile_select_angles(data, center, **kwargs)
+        Calculates radially average profile of the 2D array (used for FRC) within a select range of angles (astart = 89, astop = 91, symm=4).
+    build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs)
+        Build a Rescaler Kernel for the FFT data within a select range of angles.
     smooth(x, window_len=11, window='hanning')
         smooth the data using a window with requested size.
+    add_scale_bar(ax, **kwargs)
+        Add a scale bar to the existing plot.
 
 
 ## Single Frame Image Processing Functions
@@ -77,13 +81,18 @@ You will also need to have these packages installed:
 
 
 ## MRC stack evaluation Functions
-    analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs)
+    analyze_mrc_stack_registration(mrc_filename, **kwargs)
         Read MRC stack and analyze registration - calculate NSAD, NCC, and MI.
     show_eval_box_mrc_stack(mrc_filename, **kwargs)
         Read MRC stack and display the eval box for each frame from the list.
     bin_crop_mrc_stack(mrc_filename, **kwargs)
         Bins and crops a 3D mrc stack along X-, Y-, or Z-directions and saves it into MRC or HDF5 format
-
+    plot_cross_sections_mrc_stack(mrc_filename, **kwargs)
+        Read MRC stack and plot the ortho cross-sections.
+    destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data_max, **kwargs)
+        Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it.
+    smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max, **kwargs)
+        Read MRC stack, smooth the data by performing 2D-convolution with smooth_kernel, and save the data.
 
 ## TIF stack evaluation Functions
     analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs)
@@ -321,4 +330,7 @@ You will also need to have these packages installed:
         Estimate SNRs in Image A and Image B based on single-image SNR calculation.
     evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs)
         Calculate NCC and SNR vs Image B fraction over a set of frames.
+    estimate_resolution_blobs_2D(self, **kwargs)
+        Estimate transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs).
+
 

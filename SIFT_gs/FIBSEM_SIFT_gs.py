@@ -10696,7 +10696,7 @@ class FIBSEM_dataset:
 
     def estimate_resolution_blobs_2D(self, **kwargs):
         '''
-        Estimate transitions in the image, uses analyze_edge_transitions_image(image, **kwargs). gleb.shtengel@gmail.com  06/2023 
+        Estimate transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs). gleb.shtengel@gmail.com  06/2023 
 
         kwargs
         ---------
