@@ -228,7 +228,7 @@ def radial_profile(data, center):
     return radialprofile
 
 
-def radial_profile_select_angles(data, scale, center, **kwargs):
+def radial_profile_select_angles(data, center, **kwargs):
     '''
     Calculates radially average profile of the 2D array (used for FRC) within a select range of angles.
     ©G.Shtengel 08/2020 gleb.shtengel@gmail.com
@@ -260,24 +260,30 @@ def radial_profile_select_angles(data, scale, center, **kwargs):
     rstop = kwargs.get('rstop', 1.0)
     symm = kwargs.get('symm', 4)
     
-    y, x = np.indices((data.shape))
+    ds = data.shape
+    y, x = np.indices(ds)
     r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
     rmin = np.max(r)*rstart
     rmax = np.max(r)*rstop
     r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True))
     r = r.astype(np.int)
     
+    cond_tot = np.zeros(ds, dtype=float)
+    
     if symm>0:
-        ind = np.squeeze(np.array(np.where((r_ang > astart) & (r_ang < astart) & (r >= rmin) & (r <= rmax))))
-        for i in np.arange(symm):
-            ai = astart +360.0/symm*i -180.0
-            aa = astop +360.0/symm*i -180.0
-            ind = np.concatenate((ind, np.squeeze((np.array(np.where((r_ang > ai) & (r_ang < aa) & (r >= rmin) & (r <= rmax)))))), axis=0)
+        for i in np.arange(symm*2):
+            ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
+            aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
+            if abs(ai-aa)>1e-10:
+                #print(ai, aa)
+                cond = (r_ang > ai)*(r_ang < aa)
+                cond_tot[cond] = 1.0
     else:
-        ind = np.squeeze(np.where((r_ang > astart) & (r_ang < astop) & (r >= rmin) & (r <= rmax)))
-        
-    rr = np.ravel(r)[ind]
-    dd = np.ravel(data)[ind]
+        cond = (r_ang > astart)*(r_ang < astop)
+        cond_tot[cond] = 1.0
+    
+    rr = np.ravel(r[cond_tot>0])
+    dd = np.ravel(data[cond_tot>0])
 
     tbin = np.bincount(rr, dd)
     nr = np.bincount(rr)
@@ -508,6 +514,46 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
     else:
         cond = (r_ang > astart)*(r_ang < astop)*(r >= rmin)*(r <= rmax)
         rescaler_kernel[cond] = 0.0
+    return rescaler_kernel
+
+
+def build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
+    '''
+    Builds a Rescales the FFT data within a select ranges of x and y.
+    ©G.Shtengel 11/2023 gleb.shtengel@gmail.com
+
+    Parameters:
+    data : 2D array
+
+    kwargs
+    
+    xstart : float
+        Start X
+    xstop : float
+        Stop X
+    dy : float
+        Y range
+    symm : int
+        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+
+    Returns
+        rescaler_kernel : float array
+    '''
+    xstart = kwargs.get('xstart', 0.1)
+    xstop = kwargs.get('xstop', 1.0)
+    dy = kwargs.get('dy', 0.01)
+    symm = kwargs.get('symm', 4)
+    ds = data.shape
+    yc, xc = ds[0]//2, ds[1]//2
+    
+    y, x = np.indices(ds)
+    xa = np.abs(x - xc) / np.max(x - xc)
+    ya = np.abs(y - yc) / np.max(y - yc)
+    
+    rescaler_kernel = np.ones(ds, dtype=float)
+    cond = (xa > xstart)*(xa < xstop)*(ya<=dy/2.0)
+    rescaler_kernel[cond] = 0.0
+    
     return rescaler_kernel
 
 

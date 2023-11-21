@@ -8,6 +8,8 @@ from pathlib import Path
 import time
 import glob
 import re
+import gc
+from copy import deepcopy
 
 import matplotlib
 import matplotlib.image as mpimg
@@ -50,6 +52,7 @@ import dask
 import dask.array as da
 from dask.distributed import Client, progress, get_task_stream
 from dask.diagnostics import ProgressBar
+from dask.distributed import as_completed
 
 import cv2
 print('Open CV version: ', cv2. __version__)
@@ -623,9 +626,9 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     if disp_res:
         fs=11
         fig, axss = subplots(2,3, figsize=(xsz,ysz),  gridspec_kw={"height_ratios" : [yx_ratio, 1.0]})
-        fig.subplots_adjust(left=0.07, bottom=0.06, right=0.99, top=0.92, wspace=0.15, hspace=0.10)
+        fig.subplots_adjust(left=0.07, bottom=0.08, right=0.99, top=0.90, wspace=0.15, hspace=0.10)
         axs = axss.ravel()
-        axs[0].text(-0.1, (1.0 + 0.1/yx_ratio), res_fname + ',       ' +  Notes, transform=axs[0].transAxes, fontsize=fs-2)
+        axs[0].text(-0.1, (0.98 + 0.1/yx_ratio), res_fname + ',       ' +  Notes, transform=axs[0].transAxes, fontsize=fs-2)
 
         axs[0].imshow(img, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs[0].axis(False)
@@ -1150,9 +1153,9 @@ def Two_Image_FSC(img1, img2, **kwargs):
     C_imre = np.multiply(I1,np.conj(I2))
     C12_ar = abs(np.multiply((I1+I2),np.conj(I1+I2)))
     y0,x0 = argmax2d(C12_ar)
-    C1 = radial_profile_select_angles(abs(np.multiply(I1,np.conj(I1))), [x0,y0], astart, astop, symm)
-    C2 = radial_profile_select_angles(abs(np.multiply(I2,np.conj(I2))), [x0,y0], astart, astop, symm)
-    C  = radial_profile_select_angles(np.real(C_imre), [x0,y0], astart, astop, symm) + 1j * radial_profile_select_angles(np.imag(C_imre), [x0,y0], astart, astop, symm)
+    C1 = radial_profile_select_angles(abs(np.multiply(I1,np.conj(I1))), [x0,y0], astart=astart, astop=astop, symm=symm)
+    C2 = radial_profile_select_angles(abs(np.multiply(I2,np.conj(I2))), [x0,y0], astart=astart, astop=astop, symm=symm)
+    C  = radial_profile_select_angles(np.real(C_imre), [x0,y0], astart=astart, astop=astop, symm=symm) + 1j * radial_profile_select_angles(np.imag(C_imre), [x0,y0], astart=astart, astop=astop, symm=symm)
 
     FSC_data = abs(C)/np.sqrt(abs(np.multiply(C1,C2)))
     '''
@@ -1370,7 +1373,7 @@ def evaluate_registration_two_frames(params_mrc):
     return image_nsad, image_ncc, image_mi
 
 
-def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
+def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     '''
     Read MRC stack and analyze registration - calculate NSAD, NCC, and MI.
     ©G.Shtengel, 04/2021. gleb.shtengel@gmail.com
@@ -1379,12 +1382,10 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     ---------
     mrc_filename : str
         File name (full path) of the mrc stack to be analyzed
-    DASK client (needs to be initialized and running by this time)
 
     kwargs:
-    use_DASK : boolean
-        use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-    DASK_client_retries : int (default to 0)
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    DASK_client_retries : int (default is 3)
         Number of allowed automatic retries if a task fails
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
@@ -1411,8 +1412,25 @@ def analyze_mrc_stack_registration(mrc_filename, DASK_client, **kwargs):
     mrc_filename  = os.path.normpath(mrc_filename)
 
     Sample_ID = kwargs.get("Sample_ID", '')
-    use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    DASK_client = kwargs.get('DASK_client', '')
+    DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    try:
+        client_services = DASK_client.scheduler_info()['services']
+        if client_services:
+            try:
+                dport = client_services['dashboard']
+            except:
+                dport = client_services['bokeh']
+            status_update_address = 'http://localhost:{:d}/status'.format(dport)
+            print('DASK client exists. Will perform distributed computations')
+            print('Use ' + status_update_address +' to monitor DASK progress')
+            use_DASK = True
+        else:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
+    except:
+        print('DASK client does not exist. Will perform local computations')
+        use_DASK = False
     invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", mrc_filename )
@@ -1762,7 +1780,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
         Center coordinates (x, y, z) in um. Default is middle of the stack.
     box_dimensions : array or list of 3 floats
         Dimensions of the sections to plot (x, y, z) in um (box is centered around center coordinates). Default is full stack size.
-    offsets  : array or list of 3 floats
+    xsection_offsets  : array or list of 3 floats
         offsets for cross-section location from the center of the box (x, y, z) in um. Default is [0.0, 0.0, 0.0].
     addtl_sp : float
         Additional white space between the cross-section plots. Default is 0.0.
@@ -1813,7 +1831,9 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     label_font_size = kwargs.get('label_font_size', 12)
     label_offset = kwargs.get('label_offset', 0)
     bar_kwargs = {'bar_length_um' : bar_length_um,
+                 'bar_width' : bar_width,
                  'bar_color' : bar_color,
+                 'loc' : loc,
                  'display_scale_bar_labels' : display_scale_bar_labels,
                  'bar_label' : bar_label,
                  'label_color' : label_color,
@@ -1890,7 +1910,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
         ci_x[i] = s
         ca_x[i] = s+1
         #print(ci_x[0],ca_x[0], ci_x[1],ca_x[1], ci_x[2],ca_x[2])
-        EM_crop = np.squeeze(mrc_obj.data[ci_x[0]:ca_x[0], ci_x[1]:ca_x[1], ci_x[2]:ca_x[2]])
+        EM_crop = deepcopy(np.squeeze(mrc_obj.data[ci_x[0]:ca_x[0], ci_x[1]:ca_x[1], ci_x[2]:ca_x[2]]))
         #print('EM Crop Base: ', EM_crop.base)
         ysz, xsz = np.shape(EM_crop)
         print(cs_names[i] + ' loaded, dimensions (pixels):', xsz, ysz)
@@ -1898,12 +1918,14 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
             EM_crop = np.transpose(EM_crop)
         images.append(EM_crop)
     mrc_obj.close()
+    #del mrc_obj
+    #gc.collect()
 
     # Determine EM data range
     EM_mins = []
     EM_maxs =[]  
     for img in tqdm(images, desc='Determining EM data range'):
-        ysz, xsz = np.shape(EM_crop)
+        ysz, xsz = np.shape(img)
         vmin, vmax = get_min_max_thresholds(img[ysz//5:ysz//5*4, xsz//5:xsz//5*4], thr_min = 1e-3, thr_max=1e-3, disp_res=False)
         EM_mins.append(vmin)
         EM_maxs.append(vmax)
@@ -1957,7 +1979,234 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     return images, axs
 
 
+def bin_crop_frames(bin_crop_parameters):
+    '''
+    Read frames from MRC bin/crop them and return to be saved.
+    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+    
+    Parameters:
+    params : list
+        mrc_filename : filename for the MRC source file
+        dtp : data type
+        start_frame_ID : int
+            start frame to read
+        stop_frame_ID : int
+            stop frame to read
+        target_frame_ID : int
+            frame to save
+        xbin_factor, ybin_factor, zbin_factor,
+        mode,
+        xi, xa, yi, ya
+    Returns : target_frame_ID, transformed_frame
+    '''
+    mrc_filename, dtp, start_frame_ID, stop_frame_ID, target_frame_ID, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya = bin_crop_parameters
+    nx_binned = (xa-xi)//xbin_factor
+    ny_binned = (ya-yi)//ybin_factor
+    xa = xi + nx_binned * xbin_factor
+    ya = yi + ny_binned * ybin_factor
+    mrc_filename  = os.path.normpath(mrc_filename)
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    if mode == 'mean':
+        zbinnd_fr = np.mean(mrc_obj.data[start_frame_ID:stop_frame_ID, yi:ya, xi:xa], axis=0)
+    else:
+        zbinnd_fr = np.sum(mrc_obj.data[startstart_frame_ID_frame:stop_frame_ID, yi:ya, xi:xa], axis=0)
+    if (xbin_factor > 1) or (ybin_factor > 1):
+        if mode == 'mean':
+            zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
+        else:
+            zbinnd_fr = np.sum(np.sum(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
+    mrc_obj.close()
+    return target_frame_ID, zbinnd_fr.astype(dtp)
+
+
 def bin_crop_mrc_stack(mrc_filename, **kwargs):
+    '''
+    Bins and crops a 3D mrc stack along X-, Y-, or Z-directions and saves it into MRC or HDF5 format. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
+
+    Parameters:
+        mrc_filename : str
+            name (full path) of the mrc file to be binned
+    **kwargs:
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        DASK_client_retries : int (default is 3)
+            Number of allowed automatic retries if a task fails
+        fnm_types : list of strings.
+            File type(s) for output data. Options are: ['h5', 'mrc'].
+            Defauls is ['mrc']. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
+        zbin_factor : int
+            binning factor in z-direction
+        xbin_factor : int
+            binning factor in x-direction
+        ybin_factor : int
+            binning factor in y-direction
+        mode  : str
+            Binning mode. Default is 'mean', other option is 'sum'
+        frmax : int
+            Maximum frame to bin. If not present, the entire file is binned
+        binned_copped_filename : str
+            name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
+        xi : int
+            left edge of the crop
+        xa : int
+            right edge of the crop
+        yi : int
+            top edge of the crop
+        ya : int
+            bottom edge of the crop
+        fri : int
+            start frame
+        fra : int
+            stop frame
+        voxel_size_new : rec array
+            new voxel size in nm. Will be converted into Angstroms for MRC header.
+    Returns:
+        fnms_saved : list of str
+            Names of the new (binned and cropped) data files.
+    '''
+    DASK_client = kwargs.get('DASK_client', '')
+    DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    try:
+        client_services = DASK_client.scheduler_info()['services']
+        if client_services:
+            try:
+                dport = client_services['dashboard']
+            except:
+                dport = client_services['bokeh']
+            status_update_address = 'http://localhost:{:d}/status'.format(dport)
+            print('DASK client exists. Will perform distributed computations')
+            print('Use ' + status_update_address +' to monitor DASK progress')
+            use_DASK = True
+        else:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
+    except:
+        print('DASK client does not exist. Will perform local computations')
+        use_DASK = False
+    
+    mrc_filename  = os.path.normpath(mrc_filename)
+
+    fnm_types = kwargs.get("fnm_types", ['mrc'])
+    xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
+    ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
+    zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
+
+    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    header = mrc_obj.header
+    '''
+        mode 0 -> uint8
+        mode 1 -> int16
+        mode 2 -> float32
+        mode 4 -> complex64
+        mode 6 -> uint16
+    '''
+    mrc_mode = mrc_obj.header.mode
+    voxel_size_angstr = mrc_obj.voxel_size
+    voxel_size_angstr_new = voxel_size_angstr.copy()
+    voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
+    voxel_size_angstr_new.y = voxel_size_angstr.y * ybin_factor
+    voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
+    voxel_size_new = voxel_size_angstr.copy()
+    voxel_size_new.x = voxel_size_angstr_new.x / 10.0
+    voxel_size_new.y = voxel_size_angstr_new.y / 10.0
+    voxel_size_new.z = voxel_size_angstr_new.z / 10.0
+    try:
+        voxel_size_new = kwargs.get('voxel_size_new', voxel_size_new)
+        voxel_size_angstr_new.x = voxel_size_new.x * 10.0
+        voxel_size_angstr_new.y = voxel_size_new.y * 10.0
+        voxel_size_angstr_new.z = voxel_size_new.z * 10.0
+    except:
+        print('Incorrect voxel size entry')
+        print('will use : ', voxel_size_new)
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    frmax = kwargs.get('frmax', nz)
+    xi = kwargs.get('xi', 0)
+    xa = kwargs.get('xa', nx)
+    yi = kwargs.get('yi', 0)
+    ya = kwargs.get('ya', ny)
+    fri = kwargs.get('fri', 0)
+    fra = kwargs.get('fra', nz)
+    nx_binned = (xa-xi)//xbin_factor
+    ny_binned = (ya-yi)//ybin_factor
+    xa = xi + nx_binned * xbin_factor
+    ya = yi + ny_binned * ybin_factor
+    binned_copped_filename_default = os.path.splitext(mrc_filename)[0] + '_binned_croped.mrc'
+    binned_copped_filename = kwargs.get('binned_copped_filename', binned_copped_filename_default)
+    binned_mrc_filename = os.path.splitext(binned_copped_filename)[0] + '.mrc'
+    binned_mrc_filename = os.path.normpath(binned_mrc_filename)
+    dt = type(mrc_obj.data[0,0,0])
+    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    if mode == 'sum':
+        mrc_mode = 1
+        dt = int16
+    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    st_frames = np.arange(fri, fra, zbin_factor)
+    mrc_obj.close()
+    
+    desc = 'Building Parameters Sets'
+    params_mult = []
+    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
+        params = [mrc_filename, dt, st_frame, (min(st_frame+zbin_factor, nz-1)), j, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya]
+        params_mult.append(params)
+    
+    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
+    
+    fnms_saved = []
+    if 'mrc' in fnm_types:
+        fnms_saved.append(binned_mrc_filename)
+        mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
+        mrc_new.voxel_size = voxel_size_angstr_new
+        #mrc_new.header.cella = voxel_size_angstr_new
+        print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
+        desc = 'Saving the data stack into MRC file'
+
+    if 'h5' in fnm_types:
+        binned_h5_filename = os.path.splitext(binned_mrc_filename)[0] + '.h5'
+        try:
+            os.remove(binned_h5_filename)
+        except:
+            pass
+        fnms_saved.append(binned_h5_filename)
+        bdv_writer = npy2bdv.BdvWriter(binned_h5_filename, nchannels=1, blockdim=((1, 256, 256),))
+        bdv_writer.append_view(stack=None, virtual_stack_dim=(len(st_frames),ny_binned,nx_binned),
+                    time=0, channel=0,
+                    voxel_size_xyz=(voxel_size_new.x, voxel_size_new.y, voxel_size_new.z), voxel_units='nm')
+        if 'mrc' in fnm_types:
+            desc = 'Saving the data stack into MRC and H5 files'
+        else:
+            desc = 'Saving the data stack into H5 file'
+    
+    if use_DASK:
+        print('Using DASK distributed')
+        futures = DASK_client.map(bin_crop_frames, params_mult, retries = DASK_client_retries)       
+        for future in as_completed(futures):
+            j, binned_cropped_fr = future.result()
+            if 'mrc' in fnm_types:
+                mrc_new.data[j,:,:] = binned_cropped_fr
+            if 'h5' in fnm_types:
+                bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
+            future.cancel()
+    else:
+        desc = 'Performing local computations'
+        for params in tqdm(params_mult, desc = desc):
+            j, binned_cropped_fr = bin_crop_frames(params)
+            if 'mrc' in fnm_types:
+                mrc_new.data[j,:,:] = binned_cropped_fr
+            if 'h5' in fnm_types:
+                bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
+
+    if 'mrc' in fnm_types:
+        mrc_new.close()
+
+    if 'h5' in fnm_types:
+        bdv_writer.write_xml()
+        bdv_writer.close()
+
+    return fnms_saved
+
+
+def bin_crop_mrc_stack_old(mrc_filename, **kwargs):
     '''
     Bins and crops a 3D mrc stack along X-, Y-, or Z-directions and saves it into MRC or HDF5 format. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
 
@@ -2112,88 +2361,113 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     return fnms_saved
 
 
-def bin_crop_frames(bin_crop_parameters):
+def destreak_single_frame_kernel_shared(destreak_kernel, params):
     '''
-    Help function used by bin_crop_mrc_stack_DASK
-    '''
-    import logging
-    logger = logging.getLogger("distributed.utils_perf")
-    logger.setLevel(logging.ERROR)
-    mrc_filename, save_filename, dtp, start_frame, stop_frame, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya = bin_crop_parameters
-    mrc_filename  = os.path.normpath(mrc_filename)
-    save_filename  = os.path.normpath(save_filename)
-    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
-    if mode == 'mean':
-        zbinnd_fr = np.mean(mrc_obj.data[start_frame:stop_frame, yi:ya, xi:xa], axis=0)
-    else:
-        zbinnd_fr = np.sum(mrc_obj.data[start_frame:stop_frame, yi:ya, xi:xa], axis=0)
-    if (xbin_factor > 1) or (ybin_factor > 1):
-        if mode == 'mean':
-            zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
-        else:
-            zbinnd_fr = np.sum(np.sum(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
-    tiff.imsave(save_filename, zbinnd_fr.astype(dtp))
-    mrc_obj.close()
-    return save_filename
-
-
-def bin_crop_mrc_stack_DASK(DASK_client, mrc_filename, **kwargs):
-    '''
-    Bins a 3D mrc stack along Z-direction (optional binning in X-Y plane as well) and crops it along X- and Y- directions. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
-
+    Read a single frame from MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT.
+    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+    
     Parameters:
-        DASK_client
-        mrc_filename : str
-            name (full path) of the mrc file to be binned
-    **kwargs:
-        use_DASK : boolean
-            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-        DASK_client_retries : int (default to 0)
-            Number of allowed automatic retries if a task fails
-        fnm_types : list of strings.
-            File type(s) for output data. Options are: ['h5', 'mrc'].
-            Defauls is ['mrc']. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
-        zbin_factor : int
-            binning factor in z-direction
-        xbin_factor : int
-            binning factor in x-direction
-        ybin_factor : int
-            binning factor in y-direction
-        mode  : str
-            Binning mode. Default is 'mean', other option is 'sum'
-        frmax : int
-            Maximum frame to bin. If not present, the entire file is binned
-        binned_copped_filename : str
-            name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
-        xi : int
-            left edge of the crop
-        xa : int
-            right edge of the crop
-        yi : int
-            top edge of the crop
-        ya : int
-            bottom edge of the crop
-        fri : int
-            start frame
-        fra : int
-            stop frame
-        disp_res : bolean
-            Display messages and intermediate results
-    Returns:
-        fnms_saved : list of str
-            Names of the new (binned and cropped) data files.
+    destreak_kernel : 2D array - to multiply the FFT
+    params : list
+        mrc_filename : filename for the MRC source file
+        source_frame_ID : int
+            frame to read / destreak
+        target_frame_ID : int
+            frame to save
+        data_min, data_max : floats
+    Returns : target_frame_ID, transformed_frame
     '''
+    mrc_filename, dt, source_frame_ID, target_frame_ID, data_min, data_max = params
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    read_fr = mrc_obj.data[source_frame_ID, :, :]
+    mrc_obj.close()
+    clip_mask = (read_fr>data_min)*(read_fr<data_max)
+    ny, nx = np.shape(clip_mask)
+    try:
+        yi = np.min(np.where(clip_mask[:, nx//2]))
+    except:
+        yi = 0
+    try:
+        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
+    except:
+        ya = 0
+    try:
+        xi = np.min(np.where(clip_mask[ny//2, :]))
+    except:
+        xi = 0
+    try:
+        xa = nx-np.max(np.where(clip_mask[ny//2, :]))
+    except:
+        xa = 0
+    pad_width = np.max((xi, xa, yi, ya))
+    if pad_width > 0:
+        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+    else:
+        padded_fr = read_fr
+    destreaked_fft = fftshift(fftn(ifftshift(padded_fr))) * destreak_kernel
+    transformed_frame = np.real(fftshift(ifftn(ifftshift(destreaked_fft)))).astype(dt) * clip_mask
+    
+    return target_frame_ID, transformed_frame
+
+
+def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data_max, **kwargs):
+    '''
+    Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it.
+    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+
+    Parameters
+    ---------
+    mrc_filename : str
+        File name (full path) of the mrc stack to be analyzed
+    destreak_kernel : 2D array - to multiply the FFT
+    data_min, data_max : floats
+        In case if the data has been padded by constant values at the edges during the previous registrations steps,
+        it will need to be replaced temporarily by a fake "real" data - otherwise FFT will be distorted.
+        The padded values (that should out of range data_min-data_max) will be:
+         - identified by comparing to data_min and data_max
+         - if ouside the above range - replaced by mirror imaged adjacent data
+         - after FFT, kernel multiplication, and reverse FFT, they will be replaced by zeros.
+
+    kwargs:
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    DASK_client_retries : int (default is 3)
+        Number of allowed automatic retries if a task fails
+    frame_inds : array
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+    invert_data : boolean
+        If True, the data will be inverted
+    fri : int
+        start frame
+    fra : int
+        stop frame
+    save_filename : str
+        Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used
+    
+    Returns the name of the destreaked MRC stack
+    '''
+    DASK_client = kwargs.get('DASK_client', '')
+    DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    try:
+        client_services = DASK_client.scheduler_info()['services']
+        if client_services:
+            try:
+                dport = client_services['dashboard']
+            except:
+                dport = client_services['bokeh']
+            status_update_address = 'http://localhost:{:d}/status'.format(dport)
+            print('DASK client exists. Will perform distributed computations')
+            print('Use ' + status_update_address +' to monitor DASK progress')
+            use_DASK = True
+        else:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
+    except:
+        print('DASK client does not exist. Will perform local computations')
+        use_DASK = False
+    
     mrc_filename  = os.path.normpath(mrc_filename)
+    save_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_destreaked.mrc'))
 
-    use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
-    fnm_types = kwargs.get("fnm_types", ['mrc'])
-    xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
-    ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
-    zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
-    disp_res  = kwargs.get("disp_res", True )
-
-    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     header = mrc_obj.header
     '''
@@ -2204,93 +2478,55 @@ def bin_crop_mrc_stack_DASK(DASK_client, mrc_filename, **kwargs):
         mode 6 -> uint16
     '''
     mrc_mode = mrc_obj.header.mode
-    #voxel_size_angstr = mrc_obj.header.cella
     voxel_size_angstr = mrc_obj.voxel_size
-    voxel_size_angstr_new = voxel_size_angstr.copy()
-    voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
-    voxel_size_angstr_new.y = voxel_size_angstr.y * ybin_factor
-    voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
-    voxel_size_new = voxel_size_angstr.copy()
-    voxel_size_new.x = voxel_size_angstr_new.x / 10.0
-    voxel_size_new.y = voxel_size_angstr_new.y / 10.0
-    voxel_size_new.z = voxel_size_angstr_new.z / 10.0
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
-    frmax = kwargs.get('frmax', nz)
-    xi = kwargs.get('xi', 0)
-    xa = kwargs.get('xa', nx)
-    yi = kwargs.get('yi', 0)
-    ya = kwargs.get('ya', ny)
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
-    nx_binned = (xa-xi)//xbin_factor
-    ny_binned = (ya-yi)//ybin_factor
-    xa = xi + nx_binned * xbin_factor
-    ya = yi + ny_binned * ybin_factor
-    binned_copped_filename_default = os.path.splitext(mrc_filename)[0] + '_binned_croped.mrc'
-    binned_copped_filename = kwargs.get('binned_copped_filename', binned_copped_filename_default)
-    binned_mrc_filename = os.path.splitext(binned_copped_filename)[0] + '.mrc'
-    binned_mrc_filename = os.path.normpath(binned_mrc_filename)
-    dtp = type(mrc_obj.data[0,0,0])
-    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dtp)
+
+    dt = type(mrc_obj.data[0,0,0])
+    mrc_obj.close()
+    
+    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print('Source Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, nz))
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
-    if mode == 'sum':
-        mrc_mode = 1
-        dtp = int16
-    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dtp)
+    mrc_mode = 1
+    dt = int16
+    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    st_frames = np.arange(fri, fra)
+    print('New Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
     
-    st_frames = np.arange(fri, fra, zbin_factor)
-    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
-
-    bin_crop_parameters_dataset = []
-    for j, st_frame in enumerate(tqdm(st_frames, desc='Setting up parameter sets', display=False)):
-        save_filename = os.path.join(os.path.split(mrc_filename)[0],'Binned_Cropped_Frame_{:d}.tif'.format(j))
-        start_frame = st_frame
-        stop_frame = min(st_frame+zbin_factor, nz-1)
-        bin_crop_parameters_dataset.append([mrc_filename, save_filename, dtp, start_frame, stop_frame, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya])
-
+    mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
+    mrc_new.voxel_size = voxel_size_angstr
+    #mrc_new.header.cella = voxel_size_angstr
+    print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    
+    desc = 'Creating params list'
+    # mrc_source_obj, mrc_target_obj, dt, source_frame, target_frame, destreak_kernel, data_min, data_max = params
+    params_mult = []
+    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
+        params = [mrc_filename, dt, st_frame, j, data_min, data_max]
+        params_mult.append(params)
+    
     if use_DASK:
-        if disp_res:
-            print('Binning / Cropping and Saving Intermediate Frames: Starting DASK jobs')
-        futures_bin_crop = DASK_client.map(bin_crop_frames, bin_crop_parameters_dataset, retries = DASK_client_retries)
-        binned_cropped_filenames = np.array(DASK_client.gather(futures_bin_crop))
-        if disp_res:
-            print('Finished DASK jobs')
-    else:   # if DASK is not used - perform local computations
-        if disp_res:
-            print('Binning / Cropping and Saving Intermediate Frames: Will perform local computations')
-        binned_cropped_filenames = []
-        for bin_crop_parameters in tqdm(bin_crop_parameters_dataset, desc = 'Transforming and saving frame chunks', display = disp_res):
-            binned_cropped_filenames.append(bin_crop_frames(bin_crop_parameters))
-                
-    print("Creating Dask Array Stack")
-    # now build dask array of the transformed dataset
-    # read the first file to get the shape and dtype (ASSUMING THAT ALL FILES SHARE THE SAME SHAPE/TYPE)
-    frame0 = tiff.imread(binned_cropped_filenames[0])
-    lazy_imread = dask.delayed(tiff.imread)  # lazy reader
-    lazy_arrays = [lazy_imread(fn) for fn in binned_cropped_filenames]
-    dask_arrays = [ da.from_delayed(delayed_reader, shape=frame0.shape, dtype=frame0.dtype)   for delayed_reader in lazy_arrays]
-    # Stack infividual frames into one large dask.array
-    FIBSEMstack = da.stack(dask_arrays, axis=0)
-    nz, ny, nx = FIBSEMstack.shape
+        print('Using DASK distributed')
+        [future] = DASK_client.scatter([destreak_kernel], broadcast=True)
+        futures = [DASK_client.submit(destreak_single_frame_kernel_shared, future, params) for params in params_mult]
+        #futures = DASK_client.map(destreak_single_frame_kernel_shared, params_mult, retries = DASK_client_retries)       
+        for future in as_completed(futures):
+            target_frame_ID, transformed_frame = future.result()
+            mrc_new.data[target_frame_ID,:,:] = transformed_frame
+            future.cancel()
+    else:
+        desc = 'Saving the destreaked data stack into MRC file'    
+        for params in tqdm(params_mult, desc=desc):
+            target_frame_ID, transformed_frame = destreak_single_frame_kernel_shared(destreak_kernel, params)
+            mrc_new.data[target_frame_ID,:,:] = transformed_frame
+    mrc_new.close()
     
-    print('Saving Intermediate Frames into Final Stacks')
-    save_kwargs = {'fnm_types' : fnm_types,
-                'fnm_reg' : binned_mrc_filename,
-                'voxel_size' : voxel_size_new,
-                'dtp' : dtp,
-                'disp_res' : True}
-    fnms_saved = save_data_stack(FIBSEMstack, **save_kwargs)
-    
-    for fnm in tqdm(binned_cropped_filenames, desc='Removing Intermediate Files: ', display = disp_res):
-        try:
-            os.remove(os.path.join(fnm))
-        except:
-            pass
-
-    return fnms_saved
+    return save_filename
 
 
-def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data_max, **kwargs):
+def destreak_mrc_stack_with_kernel_old(mrc_filename, destreak_kernel, data_min, data_max, **kwargs):
     '''
     Read MRC stack and destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT.
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
@@ -2375,35 +2611,109 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     return save_filename
 
 
+def smooth_single_frame_kernel_shared(smooth_kernel, params):
+    '''
+    Read a single frame from MRC stack, smooth the data by performing 2D-convolution with kernel.
+    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+    
+    Parameters:
+    smooth_kernel : 2D array - for 2D-convolution
+    params : list
+        mrc_filename : filename for the MRC source file
+        source_frame_ID : int
+            frame to read / smooth
+        target_frame_ID : int
+            frame to save
+        data_min, data_max : floats
+    Returns : target_frame_ID, transformed_frame
+    '''
+    mrc_filename, dt, source_frame_ID, target_frame_ID, data_min, data_max = params
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
+    read_fr = mrc_obj.data[source_frame_ID, :, :]
+    mrc_obj.close()
+    clip_mask = (read_fr>data_min)*(read_fr<data_max)
+    ny, nx = np.shape(clip_mask)
+    try:
+        yi = np.min(np.where(clip_mask[:, nx//2]))
+    except:
+        yi = 0
+    try:
+        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
+    except:
+        ya = 0
+    try:
+        xi = np.min(np.where(clip_mask[ny//2, :]))
+    except:
+        xi = 0
+    try:
+        xa = nx-np.max(np.where(clip_mask[ny//2, :]))
+    except:
+        xa = 0
+    pad_width = np.max((xi, xa, yi, ya))
+    if pad_width > 0:
+        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+    else:
+        padded_fr = read_fr
+    transformed_frame = convolve2d(padded_fr, smooth_kernel, mode='same').astype(dt) * clip_mask
+    
+    return target_frame_ID, transformed_frame
+
+
 def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max, **kwargs):
     '''
-    Read MRC stack and smooth the data by performing 2D-convolution with smooth_kernel.
+    Read MRC stack, smooth the data by performing 2D-convolution with smooth_kernel, and save the data.
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
 
     Parameters
     ---------
     mrc_filename : str
         File name (full path) of the mrc stack to be analyzed
-    smooth_kernel : 2D array - to multiply the FFT
+    smooth_kernel : 2D array - for 2D-convolution
     data_min, data_max : floats
         In case if the data has been padded by constant values at the edges during the previous registrations steps,
-        it will need to be replaced temporarily by a fake "real" data - otherwise smoothing will be distorted.
+        it will need to be replaced temporarily by a fake "real" data - otherwise FFT will be distorted.
         The padded values (that should out of range data_min-data_max) will be:
          - identified by comparing to data_min and data_max
          - if ouside the above range - replaced by mirror imaged adjacent data
-         - after smoothing they will be replaced by zeros.
-    
+         - after FFT, kernel multiplication, and reverse FFT, they will be replaced by zeros.
+
     kwargs:
-    
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    DASK_client_retries : int (default is 3)
+        Number of allowed automatic retries if a task fails
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
     invert_data : boolean
         If True, the data will be inverted
+    fri : int
+        start frame
+    fra : int
+        stop frame
     save_filename : str
-        Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used
+        Path to the filename to save the results. If empty, mrc_filename+'_smoothed.mrc' will be used
     
-    Returns the name of the destreaked MRC stack
+    Returns the name of the smoothed MRC stack
     '''
+    DASK_client = kwargs.get('DASK_client', '')
+    DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    try:
+        client_services = DASK_client.scheduler_info()['services']
+        if client_services:
+            try:
+                dport = client_services['dashboard']
+            except:
+                dport = client_services['bokeh']
+            status_update_address = 'http://localhost:{:d}/status'.format(dport)
+            print('DASK client exists. Will perform distributed computations')
+            print('Use ' + status_update_address +' to monitor DASK progress')
+            use_DASK = True
+        else:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
+    except:
+        print('DASK client does not exist. Will perform local computations')
+        use_DASK = False
+    
     mrc_filename  = os.path.normpath(mrc_filename)
     save_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_smoothed.mrc'))
 
@@ -2421,40 +2731,47 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
     nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
-    use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
 
     dt = type(mrc_obj.data[0,0,0])
+    mrc_obj.close()
+    
     print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print('Source Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, nz))
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     mrc_mode = 1
     dt = int16
     print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(fri, fra)
-    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
-
+    print('New Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
+    
     mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
     mrc_new.voxel_size = voxel_size_angstr
     #mrc_new.header.cella = voxel_size_angstr
     print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
-    desc = 'Saving the destreaked data stack into MRC file'
-
+    
+    desc = 'Creating params list'
+    # mrc_source_obj, mrc_target_obj, dt, source_frame, target_frame, smooth_kernel, data_min, data_max = params
+    params_mult = []
     for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
-        read_fr = mrc_obj.data[st_frame, :, :]
-        clip_mask = (read_fr>data_min)*(read_fr<data_max)
-        ny, nx = np.shape(clip_mask)
-        yi = np.min(np.where(clip_mask[:, nx//2]))
-        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
-        xi = np.min(np.where(clip_mask[ny//2, :]))
-        xa = nx-np.max(np.where(clip_mask[nx//2, :]))
-        #print(xi, xa, yi, ya)
-        pad_width = np.max((xi, xa, yi, ya))
-        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
-        mrc_new.data[j,:,:] = convolve2d(padded_fr, smooth_kernel, mode='same').astype(dt) * clip_mask
-        
+        params = [mrc_filename, dt, st_frame, j, data_min, data_max]
+        params_mult.append(params)
+    
+    if use_DASK:
+        print('Using DASK distributed')
+        [future] = DASK_client.scatter([smooth_kernel], broadcast=True)
+        futures = [DASK_client.submit(smooth_single_frame_kernel_shared, future, params) for params in params_mult]
+        #futures = DASK_client.map(smooth_single_frame_kernel_shared, params_mult, retries = DASK_client_retries)       
+        for future in as_completed(futures):
+            target_frame_ID, transformed_frame = future.result()
+            mrc_new.data[target_frame_ID,:,:] = transformed_frame
+            future.cancel()
+    else:
+        desc = 'Saving the smoothed data stack into MRC file'    
+        for params in tqdm(params_mult, desc=desc):
+            target_frame_ID, transformed_frame = smooth_single_frame_kernel_shared(smooth_kernel, params)
+            mrc_new.data[target_frame_ID,:,:] = transformed_frame
     mrc_new.close()
-    mrc_obj.close()
-
+    
     return save_filename
 
 
@@ -2468,7 +2785,7 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
     mrc_filename : str
         File name (full path) of the mrc stack to be analyzed
     destreak_kernel : 2D array - to multiply the FFT
-    smooth_kernel : 2D array - to multiply the FFT
+    smooth_kernel : 2D array - for 2D-convolution
     data_min, data_max : floats
         In case if the data has been padded by constant values at the edges during the previous registrations steps,
         it will need to be replaced temporarily by a fake "real" data - otherwise FFT and smoothing will be distorted.
@@ -2490,8 +2807,8 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
     Returns the name of the destreaked MRC stack
     '''
     mrc_filename  = os.path.normpath(mrc_filename)
-    save_destreak_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_destreaked.mrc'))
-    save_destreak_smooth_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_destreaked_smoothed.mrc'))
+    save_destreak_filename = kwargs.get('save_destreak_filename', mrc_filename.replace('.mrc', '_destreaked.mrc'))
+    save_destreak_smooth_filename = kwargs.get('save_destreak_smooth_filename', mrc_filename.replace('.mrc', '_destreaked_smoothed.mrc'))
 
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     header = mrc_obj.header
@@ -2543,7 +2860,7 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
         mrc_new_destreaked_smoothed.data[j,:,:] = convolve2d(destreaked_data, smooth_kernel, mode='same').astype(dt) * clip_mask
         
     mrc_new_destreaked.close()
-    mrc_new_destreaked_smoothed.colse()
+    mrc_new_destreaked_smoothed.close()
     mrc_obj.close()
 
     return save_destreak_filename, save_destreak_smooth_filename
@@ -2730,7 +3047,7 @@ def evaluate_registration_two_frames_tif(params_tif):
     return image_nsad, image_ncc, image_mi
 
 
-def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
+def analyze_tif_stack_registration(tif_filename, **kwargs):
     '''
     Read MRC stack and analyze registration - calculate NSAD, NCC, and MI.
     ©G.Shtengel, 08/2022. gleb.shtengel@gmail.com
@@ -2739,12 +3056,10 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     ---------
     tif_filename : str
         File name (full path) of the mrc stack to be analyzed
-    DASK client (needs to be initialized and running by this time)
 
     kwargs:
-    use_DASK : boolean
-        use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-    DASK_client_retries : int (default to 0)
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    DASK_client_retries : int (default is 3)
         Number of allowed automatic retries if a task fails
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
@@ -2771,8 +3086,25 @@ def analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs):
     tif_filename = os.path.normpath(tif_filename)
     
     Sample_ID = kwargs.get("Sample_ID", '')
-    use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    DASK_client = kwargs.get('DASK_client', '')
+    DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    try:
+        client_services = DASK_client.scheduler_info()['services']
+        if client_services:
+            try:
+                dport = client_services['dashboard']
+            except:
+                dport = client_services['bokeh']
+            status_update_address = 'http://localhost:{:d}/status'.format(dport)
+            print('DASK client exists. Will perform distributed computations')
+            print('Use ' + status_update_address +' to monitor DASK progress')
+            use_DASK = True
+        else:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
+    except:
+        print('DASK client does not exist. Will perform local computations')
+        use_DASK = False
     invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", tif_filename )
@@ -5903,7 +6235,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
 
     nfrs = len(fls)
     use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
     ftype = kwargs.get("ftype", 0)
     frame_inds = kwargs.get("frame_inds", np.arange(len(fls)))
     data_dir = kwargs.get("data_dir", '')
@@ -6133,7 +6465,7 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
         if False - same data_min_glob and data_max_glob will be used for all files
     use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-    DASK_client_retries : int (default to 0)
+    DASK_client_retries : int (default to 3)
         Number of allowed automatic retries if a task fails
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
@@ -6177,7 +6509,7 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
     minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding  = data_minmax
     sliding_minmax = kwargs.get("sliding_minmax", True)
     use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
     if sliding_minmax:
         params_s3 = [[dts3[0], dts3[1], dts3[2], kwargs] for dts3 in zip(fls, data_min_sliding, data_max_sliding)]
     else:
@@ -6447,7 +6779,7 @@ def determine_transformations_files(params_dsf):
 
 def determine_transformations_dataset(fnms, DASK_client, **kwargs):
     use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
     params_s4 = []
     for j, fnm in enumerate(fnms[:-1]):
         fname1 = fnms[j]
@@ -7591,7 +7923,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
     '''
 
     use_DASK = kwargs.get("use_DASK", True)  # do not use DASK the data is to be saved
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
     
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
@@ -7704,7 +8036,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     ---------
     use_DASK : boolean
         perform remote DASK computations
-    DASK_client_retries : int (default to 0)
+    DASK_client_retries : int (default to 3)
         Number of allowed automatic retries if a task fails
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
@@ -7747,7 +8079,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     
     save_transformed_dataset = kwargs.get("save_transformed_dataset", True)
     use_DASK = kwargs.get("use_DASK", False)  # do not use DASK the data is to be saved
-    DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     dump_filename = kwargs.get('dump_filename', '')
@@ -8281,16 +8613,16 @@ class FIBSEM_dataset:
     SIFT_evaluation(eval_fls = [], **kwargs):
         Evaluate SIFT settings and perfromance of few test frames (eval_fls).
 
-    convert_raw_data_to_tif_files(DASK_client = '', **kwargs):
+    convert_raw_data_to_tif_files(**kwargs):
         Convert binary ".dat" files into ".tif" files
 
-    evaluate_FIBSEM_statistics(self, DASK_client, **kwargs):
+    evaluate_FIBSEM_statistics(**kwargs):
         Evaluates parameters of FIBSEM data set (data Min/Max, Working Distance, Milling Y Voltage, FOV center positions).
 
-    extract_keypoints(DASK_client, **kwargs):
+    extract_keypoints(**kwargs):
         Extract Key-Points and Descriptors
 
-    determine_transformations(DASK_client, **kwargs):
+    determine_transformations(**kwargs):
         Determine transformation matrices for sequential frame pairs
 
     process_transformation_matrix(**kwargs):
@@ -8302,7 +8634,7 @@ class FIBSEM_dataset:
     check_for_nomatch_frames(thr_npt, **kwargs):
         Check for frames with low number of Key-Point matches,m exclude them and re-calculate the cumulative transformation matrix
 
-    transform_and_save(DASK_client, **kwargs):
+    transform_and_save(**kwargs):
         Transform the frames using the cumulative transformation matrix and save the data set into .mrc file
 
     show_eval_box(**kwargs):
@@ -8332,7 +8664,7 @@ class FIBSEM_dataset:
             file type (0 - Shan Xu's .dat, 1 - tif)
         use_DASK : boolean
             use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-        DASK_client_retries : int (default to 0)
+        DASK_client_retries : int (default to 3)
             Number of allowed automatic retries if a task fails
         Sample_ID : str
                 Sample ID
@@ -8460,7 +8792,7 @@ class FIBSEM_dataset:
         self.Sample_ID = kwargs.get("Sample_ID", '')
         self.EightBit = kwargs.get("EightBit", 1)
         self.use_DASK = kwargs.get("use_DASK", True)
-        self.DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+        self.DASK_client_retries = kwargs.get("DASK_client_retries", 3)
         self.threshold_min = kwargs.get("threshold_min", 1e-3)
         self.threshold_max = kwargs.get("threshold_max", 1e-3)
         self.nbins = kwargs.get("nbins", 256)
@@ -8677,28 +9009,38 @@ class FIBSEM_dataset:
         return dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts
 
 
-    def convert_raw_data_to_tif_files(self, DASK_client = '', **kwargs):
+    def convert_raw_data_to_tif_files(self, **kwargs):
         '''
         Convert binary ".dat" files into ".tif" files.
         
-        Parameters:
-        DASK_client : instance of the DASK client object
-        
         kwargs
         ---------
-        use_DASK : boolean
-            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-        DASK_client_retries : int (default to 0)
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        DASK_client_retries : int (default is 3)
             Number of allowed automatic retries if a task fails
         '''
-        if hasattr(self, "use_DASK"):
-            use_DASK = kwargs.get("use_DASK", self.use_DASK)
-        else:
-            use_DASK = kwargs.get("use_DASK", False)
+        DASK_client = kwargs.get('DASK_client', '')
+        try:
+            client_services = DASK_client.scheduler_info()['services']
+            if client_services:
+                try:
+                    dport = client_services['dashboard']
+                except:
+                    dport = client_services['bokeh']
+                status_update_address = 'http://localhost:{:d}/status'.format(dport)
+                print('DASK client exists. Will perform distributed computations')
+                print('Use ' + status_update_address +' to monitor DASK progress')
+                use_DASK = True
+            else:
+                print('DASK client does not exist. Will perform local computations')
+                use_DASK = False
+        except:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
-            DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+            DASK_client_retries = kwargs.get("DASK_client_retries", 3)
         if self.ftype ==0 :
             print('Step 2a: Creating "*InLens.tif" files using DASK distributed')
             t00 = time.time()
@@ -8722,17 +9064,14 @@ class FIBSEM_dataset:
             print('Step 2a: data is already in TIF format')
 
 
-    def evaluate_FIBSEM_statistics(self, DASK_client, **kwargs):
+    def evaluate_FIBSEM_statistics(self, **kwargs):
         '''
         Evaluates parameters of FIBSEM data set (Min/Max, Working Distance (WD), Milling Y Voltage (MV), FOV center positions).
-
-        Parameters:
-        use_DASK : boolean
-            perform remote DASK computations
-        DASK_client_retries : int (default to 0)
-            Number of allowed automatic retries if a task fails
-
+        
         kwargs:
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
+        DASK_client_retries : int (default to 3)
+            Number of allowed automatic retries if a task fails
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         frame_inds : array
@@ -8782,14 +9121,28 @@ class FIBSEM_dataset:
             center_y : float array
                 FOV Center Y-coordinate extrated from the header data
         '''
-        if hasattr(self, "use_DASK"):
-            use_DASK = kwargs.get("use_DASK", self.use_DASK)
-        else:
-            use_DASK = kwargs.get("use_DASK", False)
+        DASK_client = kwargs.get('DASK_client', '')
+        try:
+            client_services = DASK_client.scheduler_info()['services']
+            if client_services:
+                try:
+                    dport = client_services['dashboard']
+                except:
+                    dport = client_services['bokeh']
+                status_update_address = 'http://localhost:{:d}/status'.format(dport)
+                print('DASK client exists. Will perform distributed computations')
+                print('Use ' + status_update_address +' to monitor DASK progress')
+                use_DASK = True
+            else:
+                print('DASK client does not exist. Will perform local computations')
+                use_DASK = False
+        except:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
-            DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+            DASK_client_retries = kwargs.get("DASK_client_retries", 3)
         ftype = kwargs.get("ftype", self.ftype)
         frame_inds = kwargs.get("frame_inds", np.arange(len(self.fls)))
         data_dir = self.data_dir
@@ -8860,18 +9213,14 @@ class FIBSEM_dataset:
         return self.FIBSEM_Data
 
 
-    def extract_keypoints(self, DASK_client, **kwargs):
+    def extract_keypoints(self, **kwargs):
         '''
         Extract Key-Points and Descriptors
-
-        Parameters:
-        DASK_client : instance of the DASK client object
         
         kwargs
         ---------
-        use_DASK : boolean
-            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-        DASK_client_retries : int (default to 0)
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        DASK_client_retries : int (default is 3)
             Number of allowed automatic retries if a task fails
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
@@ -8913,14 +9262,28 @@ class FIBSEM_dataset:
             print('Data set not defined, perform initialization first')
             fnms = []
         else:  
-            if hasattr(self, "use_DASK"):
-                use_DASK = kwargs.get("use_DASK", self.use_DASK)
-            else:
-                use_DASK = kwargs.get("use_DASK", False)
+            DASK_client = kwargs.get('DASK_client', '')
+            try:
+                client_services = DASK_client.scheduler_info()['services']
+                if client_services:
+                    try:
+                        dport = client_services['dashboard']
+                    except:
+                        dport = client_services['bokeh']
+                    status_update_address = 'http://localhost:{:d}/status'.format(dport)
+                    print('DASK client exists. Will perform distributed computations')
+                    print('Use ' + status_update_address +' to monitor DASK progress')
+                    use_DASK = True
+                else:
+                    print('DASK client does not exist. Will perform local computations')
+                    use_DASK = False
+            except:
+                print('DASK client does not exist. Will perform local computations')
+                use_DASK = False
             if hasattr(self, "DASK_client_retries"):
                 DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
             else:
-                DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+                DASK_client_retries = kwargs.get("DASK_client_retries", 3)
             ftype = kwargs.get("ftype", self.ftype)
             data_dir = self.data_dir
             fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
@@ -8967,18 +9330,14 @@ class FIBSEM_dataset:
         return fnms
 
 
-    def determine_transformations(self, DASK_client, **kwargs):
+    def determine_transformations(self, **kwargs):
         '''
         Determine transformation matrices for sequential frame pairs
-
-        Parameters:
-        DASK_client : instance of the DASK client object
         
         kwargs
         ---------
-        use_DASK : boolean
-            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-        DASK_client_retries : int (default to 0)
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        DASK_client_retries : int (default is 3)
             Number of allowed automatic retries if a task fails
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
@@ -9027,14 +9386,28 @@ class FIBSEM_dataset:
             print('No data on individual key-point data files, peform key-point search')
             results_s4 = []
         else:
-            if hasattr(self, "use_DASK"):
-                use_DASK = kwargs.get("use_DASK", self.use_DASK)
-            else:
-                use_DASK = kwargs.get("use_DASK", False)
+            DASK_client = kwargs.get('DASK_client', '')
+            try:
+                client_services = DASK_client.scheduler_info()['services']
+                if client_services:
+                    try:
+                        dport = client_services['dashboard']
+                    except:
+                        dport = client_services['bokeh']
+                    status_update_address = 'http://localhost:{:d}/status'.format(dport)
+                    print('DASK client exists. Will perform distributed computations')
+                    print('Use ' + status_update_address +' to monitor DASK progress')
+                    use_DASK = True
+                else:
+                    print('DASK client does not exist. Will perform local computations')
+                    use_DASK = False
+            except:
+                print('DASK client does not exist. Will perform local computations')
+                use_DASK = False
             if hasattr(self, "DASK_client_retries"):
                 DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
             else:
-                DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+                DASK_client_retries = kwargs.get("DASK_client_retries", 3)
             ftype = kwargs.get("ftype", self.ftype)
             TransformType = kwargs.get("TransformType", self.TransformType)
             l2_matrix = kwargs.get("l2_matrix", self.l2_matrix)
@@ -9350,25 +9723,21 @@ class FIBSEM_dataset:
         return self.tr_matr_cum_residual, self.transf_matrix_xlsx_file
 
 
-    def transform_and_save(self, DASK_client, save_transformed_dataset=True, save_registration_summary=True, frame_inds=np.array((-1)), **kwargs):
+    def transform_and_save(self, **kwargs):
         '''
         Transform the frames using the cumulative transformation matrix and save the data set into .mrc and/or .h5 file
-
-        Parameters
-        DASK_client : instance of the DASK client object
-        save_transformed_dataset : boolean
-            If true, the transformed data set will be saved into MRC file
-        save_registration_summary : bolean
-            If True, the registration analysis data will be saved into XLSX file
-        frame_inds : int array (or list)
-            Array of frame indecis. If not set or set to np.array((-1)), all frames will be transformed
         
         kwargs
         ---------
-        use_DASK : boolean
-            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-        DASK_client_retries : int (default to 0)
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
+        DASK_client_retries : int (default to 3)
             Number of allowed automatic retries if a task fails
+        save_transformed_dataset : boolean
+            If True (default), the transformed data set will be saved into MRC file
+        save_registration_summary : bolean
+            If True (default()), the registration analysis data will be saved into XLSX file
+        frame_inds : int array (or list)
+            Array of frame indecis. Default is all frames (to be transformed).
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
@@ -9427,17 +9796,34 @@ class FIBSEM_dataset:
             reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
             reg_summary_xlsx : name of the XLSX workbook containing the data
         '''
-        if (frame_inds == np.array((-1))).all():
-            frame_inds = np.arange(len(self.fls))
 
-        if hasattr(self, "use_DASK"):
-            use_DASK = kwargs.get("use_DASK", self.use_DASK)
-        else:
-            use_DASK = kwargs.get("use_DASK", False)
+        DASK_client = kwargs.get('DASK_client', '')
+        try:
+            client_services = DASK_client.scheduler_info()['services']
+            if client_services:
+                try:
+                    dport = client_services['dashboard']
+                except:
+                    dport = client_services['bokeh']
+                status_update_address = 'http://localhost:{:d}/status'.format(dport)
+                print('DASK client exists. Will perform distributed computations')
+                print('Use ' + status_update_address +' to monitor DASK progress')
+                use_DASK = True
+            else:
+                print('DASK client does not exist. Will perform local computations')
+                use_DASK = False
+        except:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
+
+        save_transformed_dataset = kwargs.get('save_transformed_dataset', True)
+        save_registration_summary = kwargs.get('save_registration_summary', True)
+        frame_inds = kwargs.get('frame_inds', np.arange(len(self.fls)))
+    
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
-            DASK_client_retries = kwargs.get("DASK_client_retries", 0)
+            DASK_client_retries = kwargs.get("DASK_client_retries", 3)
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
         if hasattr(self, 'XResolution'):
@@ -10069,8 +10455,8 @@ class FIBSEM_dataset:
         ---------
         DASK_client : DASK client
             Default is '' and not using DASK
-        use_DASK : bolean
-            If True, DASK is used. Deafault is False
+        DASK_client_retries : int (default is 3)
+            Number of allowed automatic retries if a task fails
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -10096,11 +10482,28 @@ class FIBSEM_dataset:
         '''
         data_dir = kwargs.get("data_dir", self.data_dir)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
-        DASK_client = kwargs.get("DASK_client", '')
-        if DASK_client == '':
+        DASK_client = kwargs.get('DASK_client', '')
+        try:
+            client_services = DASK_client.scheduler_info()['services']
+            if client_services:
+                try:
+                    dport = client_services['dashboard']
+                except:
+                    dport = client_services['bokeh']
+                status_update_address = 'http://localhost:{:d}/status'.format(dport)
+                print('DASK client exists. Will perform distributed computations')
+                print('Use ' + status_update_address +' to monitor DASK progress')
+                use_DASK = True
+            else:
+                print('DASK client does not exist. Will perform local computations')
+                use_DASK = False
+        except:
+            print('DASK client does not exist. Will perform local computations')
             use_DASK = False
+        if hasattr(self, "DASK_client_retries"):
+            DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
-            use_DASK = kwargs.get("use_DASK", False)
+            DASK_client_retries = kwargs.get("DASK_client_retries", 3)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         if hasattr(self, 'invert_data'):
             invert_data = kwargs.get("invert_data", self.invert_data)
@@ -10151,7 +10554,7 @@ class FIBSEM_dataset:
             kwargs_local['invert_data'] = invert_data
             kwargs_local['disp_res'] = False
             kwargs_local['flatten_image'] = flatten_image
-            br_res, br_res_xlsx = self.transform_and_save(DASK_client,
+            br_res, br_res_xlsx = self.transform_and_save(DASK_client = DASK_client,
                                                             save_transformed_dataset=False,
                                                             save_registration_summary=False,
                                                             frame_inds=frame_inds,
@@ -10297,10 +10700,9 @@ class FIBSEM_dataset:
 
         kwargs
         ---------
-        DASK_client : DASK client
-            Default is '' and not using DASK
-        use_DASK : bolean
-            If True, DASK is used. Deafault is False
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        DASK_client_retries : int (default is 3)
+            Number of allowed automatic retries if a task fails
         image_name : str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         frame_inds : list of int
@@ -10374,12 +10776,25 @@ class FIBSEM_dataset:
             array consists of lines - one line for each frame in frame_inds
             each line has 4 elements: [Xpt1, Xpt2, Ypt1, Ypt2]
         '''
-        DASK_client = kwargs.get("DASK_client", '')
-        if DASK_client == '':
+        DASK_client = kwargs.get('DASK_client', '')
+        DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+        try:
+            client_services = DASK_client.scheduler_info()['services']
+            if client_services:
+                try:
+                    dport = client_services['dashboard']
+                except:
+                    dport = client_services['bokeh']
+                status_update_address = 'http://localhost:{:d}/status'.format(dport)
+                print('DASK client exists. Will perform distributed computations')
+                print('Use ' + status_update_address +' to monitor DASK progress')
+                use_DASK = True
+            else:
+                print('DASK client does not exist. Will perform local computations')
+                use_DASK = False
+        except:
+            print('DASK client does not exist. Will perform local computations')
             use_DASK = False
-        else:
-            use_DASK = kwargs.get("use_DASK", False)
-        DASK_client_retries = kwargs.get("DASK_client_retries", 3)
         image_name = kwargs.get("image_name", 'ImageA')
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
