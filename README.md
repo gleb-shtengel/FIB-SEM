@@ -7,7 +7,9 @@ The main features of this workflow:
 -   The resulting registered stack can be saved as a single MRC or HDF5 file (the registered stack is a DASK array, so extending it to Zarr or N5 should also be straightforward).
 -   Can be performed on a single workstation (with decent number of cores and memory). A month-long FIB-SEM acquisition takes about 2-3 days to process.
 
-## "Register_FIB-SEM_stack_DASK_v4.ipynb" - Python Notebook for perfroming FIB-SEM stack registration (uses SIFT package in OpenCV, DASK package and few other)
+## "Register_FIB-SEM_stack_DASK_v4_example1.ipynb" - Example Python Notebook for perfroming FIB-SEM stack registration of cultured cell sample.
+
+## "Register_FIB-SEM_stack_DASK_v4_example2.ipynb" - Example Python Notebook for perfroming FIB-SEM stack registration of tissue sample.
 
 ## "Register_FIB-SEM_stack_DASK_v4_AMST.ipynb" - Python Notebook which performs FIB-SEM stack registration of AMST dataset and compares the results with AMST registration [1]
 1. J. Hennies et al, "AMST: Alignment to Median Smoothed Template for Focused Ion Beam Scanning Electron Microscopy Image Stacks", Sci. Rep. 10, 2004 (2020).

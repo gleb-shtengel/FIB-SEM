@@ -1788,6 +1788,11 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
         widt of the cross-secion line. Default is 0.5.
     xsection_line_color : string
         color of the cross-secion line. Defalt is 'white'.
+    EM_min : float
+        Min value for EM data range. If not defined will be determined automatically from the section data.
+    EM_max : float
+        Max value for EM data range. If not defined will be determined automatically from the section data.
+
     
     display_scale_bars : boolean
         If True (default), the scale bars are displayed in cross-sections.
