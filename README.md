@@ -50,7 +50,6 @@ You will also need to have these packages installed:
         Builds a de-streaking kernel to zero FFT data within a select range of angles.
     build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
         Builds a de-streaking kernel to zero FFT data within a select ranges of x and y.
-    Builds a Rescales the FFT data within a select ranges of x and y
     smooth(x, window_len=11, window='hanning')
         smooth the data using a window with requested size.
     add_scale_bar(ax, **kwargs)
