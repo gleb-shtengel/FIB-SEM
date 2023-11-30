@@ -466,7 +466,7 @@ def add_scale_bar(ax, **kwargs):
 
 def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
     '''
-    Builds a Rescales the FFT data within a select range of angles.
+    Builds a de-streaking kernel to zero FFT data within a select range of angles.
     ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
 
     Parameters:
@@ -519,7 +519,7 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
 
 def build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
     '''
-    Builds a Rescales the FFT data within a select ranges of x and y.
+    Builds a de-streaking kernel to zero FFT data within a select ranges of x and y.
     ©G.Shtengel 11/2023 gleb.shtengel@gmail.com
 
     Parameters:

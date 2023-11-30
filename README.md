@@ -47,7 +47,10 @@ You will also need to have these packages installed:
     radial_profile_select_angles(data, center, **kwargs)
         Calculates radially average profile of the 2D array (used for FRC) within a select range of angles (astart = 89, astop = 91, symm=4).
     build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs)
-        Build a Rescaler Kernel for the FFT data within a select range of angles.
+        Builds a de-streaking kernel to zero FFT data within a select range of angles.
+    build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
+        Builds a de-streaking kernel to zero FFT data within a select ranges of x and y.
+    Builds a Rescales the FFT data within a select ranges of x and y
     smooth(x, window_len=11, window='hanning')
         smooth the data using a window with requested size.
     add_scale_bar(ax, **kwargs)
