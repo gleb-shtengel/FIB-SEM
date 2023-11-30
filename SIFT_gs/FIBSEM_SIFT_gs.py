@@ -6782,27 +6782,6 @@ def determine_transformations_files(params_dsf):
     return transform_matrix, fnm_matches, kpts, error_abs_mean, iteration
 
 
-def determine_transformations_dataset(fnms, DASK_client, **kwargs):
-    use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
-    params_s4 = []
-    for j, fnm in enumerate(fnms[:-1]):
-        fname1 = fnms[j]
-        fname2 = fnms[j+1]
-        params_s4.append([fname1, fname2, kwargs])
-    if use_DASK:
-        print('Using DASK distributed')
-        futures4 = DASK_client.map(determine_transformations_files, params_s4, retries = DASK_client_retries)
-        #determine_transformations_files returns (transform_matrix, fnm_matches, kpts, iteration)
-        results_s4 = DASK_client.gather(futures4)
-    else:
-        print('Using Local Computation')
-        results_s4 = []
-        for param_s4 in tqdm(params_s4, desc = 'Extracting Transformation Parameters: '):
-            results_s4.append(determine_transformations_files(param_s4))
-    return results_s4
-
-
 def build_filename(fname, **kwargs):
     ftype = kwargs.get("ftype", 0)
     dtp = kwargs.get("dtp", int16)                             #  int16 or uint8
@@ -8650,6 +8629,9 @@ class FIBSEM_dataset:
 
     evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs):
         Calculate NCC and SNR vs Image B fraction over a set of frames.
+
+    estimate_resolution_blobs_2D(**kwargs)
+        Estimate transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs).
     """
 
     def __init__(self, fls, **kwargs):

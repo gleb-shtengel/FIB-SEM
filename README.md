@@ -204,8 +204,6 @@ You will also need to have these packages installed:
         file type (0 - Shan Xu's .dat, 1 - tif)
     fnm_reg : str
         filename for the final registed dataset
-    use_DASK : boolean
-        use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
     threshold_min : float
         CDF threshold for determining the minimum data value
     threshold_max : float
@@ -310,13 +308,13 @@ You will also need to have these packages installed:
     -------
     SIFT_evaluation(eval_fls = [], **kwargs)
         Evaluate SIFT settings and perfromance of few test frames (eval_fls).
-    convert_raw_data_to_tif_files(sDASK_client = '', **kwargs)
+    convert_raw_data_to_tif_files(**kwargs)
         Convert binary ".dat" files into ".tif" files
-    evaluate_FIBSEM_statistics(self, DASK_client, **kwargs)
+    evaluate_FIBSEM_statistics(**kwargs)
         Evaluates parameters of FIBSEM data set (data Min/Max, Working Distance, Milling Y Voltage, FOV center positions).
-    extract_keypoints(DASK_client, **kwargs)
+    extract_keypoints(**kwargs)
         Extract Key-Points and Descriptors
-    determine_transformations(DASK_client, **kwargs)
+    determine_transformations(**kwargs)
         Determine transformation matrices for sequential frame pairs
     process_transformation_matrix(**kwargs)
         Calculate cumulative transformation matrix
@@ -332,7 +330,7 @@ You will also need to have these packages installed:
         Estimate SNRs in Image A and Image B based on single-image SNR calculation.
     evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs)
         Calculate NCC and SNR vs Image B fraction over a set of frames.
-    estimate_resolution_blobs_2D(self, **kwargs)
+    estimate_resolution_blobs_2D(**kwargs)
         Estimate transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs).
 
 
