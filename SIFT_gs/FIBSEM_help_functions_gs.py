@@ -248,7 +248,7 @@ def radial_profile_select_angles(data, center, **kwargs):
     rstop : float
         Stop radius
     symm : int
-        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 4.
 
     Returns
         radialprofile : float array
@@ -301,15 +301,15 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
 
     kwargs
     astart : float
-        Start angle for radial averaging. Default is 0
+        Start angle for radial segment. Default is -1.0.
     astop : float
-        Stop angle for radial averaging. Default is 90
+        Stop angle for radial segment. Default is 1.0.
     rstart : float
-        Start radius
+        Low bound for spatial frequencies in FFT space.
     rstop : float
-        Stop radius
+        High bound for spatial frequencies in FFT space.
     symm : int
-        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 2.
 
     Returns
         rescaler : float array
@@ -318,7 +318,7 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
     astop = kwargs.get('astop', 1.0)
     rstart = kwargs.get('rstart', 0.0)
     rstop = kwargs.get('rstop', 1.0)
-    symm = kwargs.get('symm', 4)
+    symm = kwargs.get('symm', 2)
     
     ds = data.shape
     y, x = np.indices(ds)
@@ -356,15 +356,15 @@ def rescale_FFT_select_radii_angles(data, scale, center, **kwargs):
 
     kwargs
     astart : float
-        Start angle for radial averaging. Default is 0
+        Start angle for radial segment. Default is -1.0.
     astop : float
-        Stop angle for radial averaging. Default is 90
+        Stop angle for radial segment. Default is 1.0.
     rstart : float
-        Start radius
+        Low bound for spatial frequencies in FFT space.
     rstop : float
-        Stop radius
+        High bound for spatial frequencies in FFT space.
     symm : int
-        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 2.
 
     Returns
         radialprofile : float array
@@ -374,7 +374,7 @@ def rescale_FFT_select_radii_angles(data, scale, center, **kwargs):
     astop = kwargs.get('astop', 1.0)
     rstart = kwargs.get('rstart', 0.0)
     rstop = kwargs.get('rstop', 1.0)
-    symm = kwargs.get('symm', 4)
+    symm = kwargs.get('symm', 2)
     
     y, x = np.indices((data.shape))
     r = np.sqrt((x - center[0])**2 + (y - center[1])**2)
@@ -474,15 +474,15 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
 
     kwargs
     astart : float
-        Start angle for radial averaging. Default is 0
+        Start angle for radial segment. Default is -1.0.
     astop : float
-        Stop angle for radial averaging. Default is 90
+        Stop angle for radial segment. Default is 1.0.
     rstart : float
-        Start radius
+        Low bound for spatial frequencies in FFT space.
     rstop : float
-        Stop radius
+        High bound for spatial frequencies in FFT space.
     symm : int
-        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 2.
 
     Returns
         rescaler_kernel : float array
@@ -491,7 +491,7 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
     astop = kwargs.get('astop', 1.0)
     rstart = kwargs.get('rstart', 0.0)
     rstop = kwargs.get('rstop', 1.0)
-    symm = kwargs.get('symm', 4)
+    symm = kwargs.get('symm', 2)
     
     ds = data.shape
     y, x = np.indices(ds)
@@ -528,13 +528,13 @@ def build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
     kwargs
     
     xstart : float
-        Start X
+        Low bound on X- spatial frequencies in FFT space
     xstop : float
-        Stop X
+        High bound on X- spatial frequencies in FFT space
     dy : float
-        Y range
+        Width of Y- spatial frequency band in FFT space
     symm : int
-        Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
+        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 4.
 
     Returns
         rescaler_kernel : float array
