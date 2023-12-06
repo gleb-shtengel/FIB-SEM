@@ -7576,7 +7576,8 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
                         ImgB_fraction=0.0,
                         invert_data=False,
                         int_order=1,
-                        flipY=False):
+                        flipY=False,
+                        fill_value=0.0):
     '''
     Transform Chunk of Frames and average into a single transformed frames. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
 
@@ -7617,11 +7618,13 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
         Default is 1. Interpolation order (0: Nearest-neighbor, 1: Bi-linear (default), 2: Bi-quadratic, 3: Bi-cubic, 4: Bi-quartic, 5: Bi-quintic)
     flipY : boolean
         Flip output along Y-axis, default is False.
+    fill_value : float
+        fill value for padding. Default is zero.
     
     Returns
     '''
     transformed_img = np.zeros((ysz, xsz), dtype=float)
-    frame_img = np.zeros((ysz, xsz), dtype=float)
+    frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
     num_frames = len(frame_filenames)
     for frame_filename, tr_matrix in zip(frame_filenames, tr_matrices):
         frame = FIBSEM_frame(frame_filename, ftype=ftype)
@@ -7696,7 +7699,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         image offsets for image rescaling: I = (I-image_offset)*image_scale + image_offset
 
     tr_args : list of lowwowing parameters:
-        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
+        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp, fill_value]
     
     ImgB_fraction : float
         Fractional weight of Image B for fused images, default is 0
@@ -7736,12 +7739,12 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     Returns
     '''
     save_filename, frame_filenames, tr_matrices, image_scales, image_offsets, tr_args = chunk_of_frame_parametrs
-    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp = tr_args
+    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp, fill_value = tr_args
     num_frames = len(frame_filenames)
     transformed_img = np.zeros((ysz, xsz), dtype=float)
-    frame_img = np.zeros((ysz, xsz), dtype=float)
     
     for frame_filename, tr_matrix, image_scale, image_offset in zip(frame_filenames, tr_matrices, image_scales, image_offsets):
+        frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
         frame = FIBSEM_frame(frame_filename, ftype=ftype)
 
         if ImgB_fraction < 1e-5:
@@ -8051,6 +8054,8 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
         If True - the data is inverted.
     dtp  : dtype
         Python data type for saving. Deafult is int16, the other option currently is uint8.
+    fill_value : float
+        Fill value for padding. Default is zero.
     disp_res : bolean
         Default is False
 
@@ -8059,6 +8064,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     
     '''
     ftype = kwargs.get("ftype", 0)
+    fill_value = kwargs.get('fill_value', 0.0)
     test_frame = FIBSEM_frame(fls[0], ftype=ftype)
     
     save_transformed_dataset = kwargs.get("save_transformed_dataset", True)
@@ -8127,12 +8133,12 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     '''
     transform_and_save_chunk_of_frames(save_filename, frame_filenames, tr_matrices, tr_args):
     chunk_of_frame_parametrs = save_filename, frame_filenames, tr_matrices_cum_residual, image_scale, image_offset, tr_args
-    tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
+    tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp, fill_value]
     process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
     chunk_of_frame_parametrs_dataset.append([save_filename, process_frames, np.array(tr_matr_cum_residual)[process_frames], tr_args])
     
     '''
-    tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp]
+    tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp, fill_value]
     chunk_of_frame_parametrs_dataset = []
     for j, st_frame in enumerate(tqdm(st_frames, desc='Setting up parameter sets', display=False)):
         save_filename = os.path.join(os.path.split(fls[st_frame])[0],'Registered_Frame_{:d}.tif'.format(j))
@@ -9774,6 +9780,8 @@ class FIBSEM_dataset:
             If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
         dtp  : dtype
             Python data type for saving. Deafult is int16, the other option currently is uint8.
+        fill_value : float
+            Fill value for padding. Default is zero.
         disp_res : bolean
             If True (default), intermediate messages and results will be displayed.
         
@@ -9888,6 +9896,7 @@ class FIBSEM_dataset:
         stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         disp_res  = kwargs.get("disp_res", True )
         dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
+        fill_value = kwargs.get('fill_value', 0.0)
         
         save_kwargs = {'fnm_types' : fnm_types,
                         'fnm_reg' : fnm_reg,
@@ -9903,6 +9912,7 @@ class FIBSEM_dataset:
                         'save_res_png ' : save_res_png ,
                         'dump_filename' : dump_filename,
                         'dtp' : dtp,
+                        'fill_value' : fill_value,
                         'zbin_factor' : zbin_factor,
                         'eval_metrics' : eval_metrics,
                         'flipY' : flipY,
