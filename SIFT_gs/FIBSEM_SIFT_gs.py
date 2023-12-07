@@ -6264,7 +6264,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         data_min_glob = uint8(0)
         data_max_glob =  uint8(255)
         data_min_sliding = np.zeros(nfrs, dtype=uint8)
-        data_max_sliding = np.zeros(nfrs, dtype=uint8)+ uint8(255)
+        data_max_sliding = np.full(nfrs, uint8(255), dtype=uint8)
         data_minmax_glob = np.zeros((nfrs, 2), dtype=uint8)
         data_minmax_glob[1, :] = uint8(255)
         mill_rate_WD = np.zeros(nfrs, dtype=float)
@@ -7624,9 +7624,11 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
     Returns
     '''
     transformed_img = np.zeros((ysz, xsz), dtype=float)
-    frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
     num_frames = len(frame_filenames)
+
     for frame_filename, tr_matrix in zip(frame_filenames, tr_matrices):
+        #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
+        frame_img = np.full((ysz, xsz), fill_value, dtype=float)
         frame = FIBSEM_frame(frame_filename, ftype=ftype)
 
         if ImgB_fraction < 1e-5:
@@ -7660,7 +7662,7 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
 
         if perform_transformation:
             transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
-            frame_img_reg = warp(frame_img, transf, order = int_order,  preserve_range=True)
+            frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
         else:
             frame_img_reg = frame_img.copy()
 
@@ -7744,7 +7746,8 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     transformed_img = np.zeros((ysz, xsz), dtype=float)
     
     for frame_filename, tr_matrix, image_scale, image_offset in zip(frame_filenames, tr_matrices, image_scales, image_offsets):
-        frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
+        #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
+        frame_img = np.full((ysz, xsz), fill_value, dtype=float)
         frame = FIBSEM_frame(frame_filename, ftype=ftype)
 
         if ImgB_fraction < 1e-5:
@@ -7778,7 +7781,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
 
         if perform_transformation:
             transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
-            frame_img_reg = warp(frame_img, transf, order = int_order,  preserve_range=True)
+            frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
         else:
             frame_img_reg = frame_img.copy()
 
@@ -7793,73 +7796,6 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     tiff.imsave(save_filename, transformed_img.astype(dtp))
 
     return save_filename
-
-
-def transform_two_chunks(params):
-    '''
-    Transforms two chunks of EM frames and evaluates registration
-
-    Parameters:
-    params: list
-    params = [chunk0_frames, chunk1_frames, fls, tr_matr_cum_residual, shift_matrix, inv_shift_matrix, xi_eval, xa_eval, yi_eval, ya_eval, save_frame_png, frame_number, filename_frame_png, tr_args]
-        chunk0_frames : array of int
-            indecis of the frames in the first chunk 
-        chunk1_frames : array of int
-            indecis of the frames in the second chunk
-        fls : array of str
-            Filenames (full paths) of the ioriginal data frames
-        tr_matr_cum_residual : 3d array
-            Transformation matrix
-        shift_matrix : 2d array
-            shift matrix
-        inv_shift_matrix : 2d array
-            inverse shift matrix
-    tr_args : list
-        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perform_transformation, ftype]
-
-    Returns:
-    registration_stat : list
-        registration
-    '''
-    # first, unpack the parameters
-    chunk0_filenames, chunk1_filenames, chunk0_tr_matrices, chunk1_tr_matrices, shift_matrix, inv_shift_matrix, xi_eval, xa_eval, yi_eval, ya_eval, save_frame_png, frame_number, filename_frame_png, tr_args = params
-    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, zbin_factor, flatten_image, image_correction_file, perform_transformation, ftype = tr_args
-    binned_fr_img0 = transform_chunk_of_frames(chunk0_filenames, xsz, ysz, ftype,
-                                flatten_image, image_correction_file,
-                                perform_transformation, chunk0_tr_matrices, shift_matrix, inv_shift_matrix,
-                                xi, xa, yi, ya,
-                                ImgB_fraction = ImgB_fraction,
-                                invert_data = invert_data,
-                                int_order = int_order,
-                                flipY=flipY)
-    binned_fr_img1 = transform_chunk_of_frames(chunk1_filenames, xsz, ysz, ftype,
-                                flatten_image, image_correction_file,
-                                perform_transformation, chunk1_tr_matrices, shift_matrix, inv_shift_matrix,
-                                xi, xa, yi, ya,
-                                ImgB_fraction = ImgB_fraction,
-                                invert_data = invert_data,
-                                int_order = int_order,
-                                flipY=flipY)
-
-    I1 = binned_fr_img0[yi_eval:ya_eval, xi_eval:xa_eval]
-    I2 = binned_fr_img1[yi_eval:ya_eval, xi_eval:xa_eval]
-    fr_mean = np.abs(I1/2.0 + I2/2.0)
-    image_nsad =  np.mean(np.abs(I1-I2))/(np.mean(fr_mean)-np.amin(fr_mean))
-    image_ncc = Two_Image_NCC_SNR(I1, I2)[0]
-    image_mi = mutual_information_2d(I1.ravel(), I2.ravel(), sigma=1.0, bin=2048, normalized=True)
-    if save_frame_png:
-        yshape, xshape = binned_fr_img0.shape
-        fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
-        fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
-        dmin, dmax = get_min_max_thresholds(I1)
-        ax.imshow(binned_fr_img0, cmap='Greys', vmin=dmin, vmax=dmax)
-        ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frame_number, image_nsad, image_ncc, image_mi), color='red', transform=ax.transAxes, fontsize=12)
-        rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
-        ax.add_patch(rect_patch)
-        ax.axis('off')
-        fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
-        plt.close(fig)
-    return [image_nsad, image_ncc, image_mi]
 
 
 def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
@@ -8087,7 +8023,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     int_order = kwargs.get("int_order", 1)                  # The order of interpolation. 1: Bi-linear
     flatten_image = kwargs.get("flatten_image", False)
     image_correction_file = kwargs.get("image_correction_file", '')
-    image_scales = kwargs.get("image_scales", np.zeros(len(fls))+1.0)
+    image_scales = kwargs.get("image_scales", np.full(len(fls), 1.0))
     image_offsets = kwargs.get("image_offsets", np.zeros(len(fls)))
     invert_data =  kwargs.get("invert_data", False)
     dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
@@ -8392,8 +8328,8 @@ def select_blobs_LoG_analyze_transitions_2D_dataset(params):
     ya = yi+frame.YResolution
     xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds_single_frame
     
-    frame_img = np.zeros((ysz, xsz))
-    frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)))
+    frame_img = np.zeros((ysz, xsz), dtype=float)
+    frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)), dtype=float)
 
     if verbose:
         print('Will analyze a subset of ', image_name)
@@ -8468,7 +8404,7 @@ def select_blobs_LoG_analyze_transitions_2D_dataset(params):
         res = plot_blob_examples_single_image(frame_eval, results_file_xlsx, save_png=True)
 
     tr_results_arr = np.array(tr_results)
-    frame_ind_arr = np.zeros(len(error_flags), dtype=int)+frame_ind
+    frame_ind_arr = np.full(len(error_flags), frame_ind, dtype=int)
     Xpt1 = tr_results_arr[error_flags==0, 1]
     Xpt2 = tr_results_arr[error_flags==0, 2]
     Ypt1 = tr_results_arr[error_flags==0, 3]
@@ -9837,13 +9773,20 @@ class FIBSEM_dataset:
             fnm_types = kwargs.get("fnm_types", self.fnm_types)
         else:
             fnm_types = kwargs.get("fnm_types", ['mrc'])
-        ImgB_fraction = kwargs.get("ImgB_fraction", self.ImgB_fraction)
+        if hasattr(self, 'ImgB_fraction'):
+            ImgB_fraction = kwargs.get("ImgB_fraction", self.ImgB_fraction)
+        else:
+            ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)
         if self.DetB == 'None':
             ImgB_fraction = 0.0
         if hasattr(self, 'add_offset'):
             add_offset = kwargs.get("add_offset", self.add_offset)
         else:
             add_offset = kwargs.get("add_offset", False)
+        if add_offset:
+            offset = self.Scaling[1, 0] * (1.0-ImgB_fraction) + self.Scaling[1, 1] * ImgB_fraction
+        else:
+            offset = 0.0
         save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         if hasattr(self, 'eval_metrics'):
@@ -9879,7 +9822,7 @@ class FIBSEM_dataset:
             image_correction_file = kwargs.get("image_correction_file", self.image_correction_file)
         else:
             image_correction_file = kwargs.get("image_correction_file", '')
-        image_scales = kwargs.get("image_scales", np.zeros(len(self.fls))+1.0)
+        image_scales = kwargs.get("image_scales", np.full(len(self.fls), 1.0))
         image_offsets = kwargs.get("image_offsets", np.zeros(len(self.fls)))
         perform_transformation =  kwargs.get("perform_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
         if hasattr(self, 'pad_edges'):
@@ -9896,7 +9839,7 @@ class FIBSEM_dataset:
         stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         disp_res  = kwargs.get("disp_res", True )
         dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
-        fill_value = kwargs.get('fill_value', 0.0)
+        fill_value = kwargs.get('fill_value', 0.0) + offset
         
         save_kwargs = {'fnm_types' : fnm_types,
                         'fnm_reg' : fnm_reg,
@@ -9990,8 +9933,6 @@ class FIBSEM_dataset:
         reg_summary, reg_summary_xlsx = analyze_registration_frames(DASK_client, registered_filenames, **save_kwargs)
 
         if save_transformed_dataset:
-            if add_offset:
-                offset = self.Scaling[1, 0] * (1.0-ImgB_fraction) + self.Scaling[1, 1] * ImgB_fraction
             if disp_res:
                 print("Creating Dask Array Stack")
             # now build dask array of the transformed dataset
@@ -10069,6 +10010,8 @@ class FIBSEM_dataset:
             If True, the data will be padded before transformation to avoid clipping.
         flipY : boolean
             If True, the data will be flipped along Y-axis. Default is False.
+        fill_value : float
+            fill value for padding. Default is zero
         verbose : boolean
             Desplay intermediate comments / results. Default is False
         
@@ -10089,6 +10032,7 @@ class FIBSEM_dataset:
         box_color = kwargs.get("box_color", 'yellow')
         flipY = kwargs.get("flipY", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
+        fill_value = kwargs.get('fill_value', 0.0)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         fls = self.fls
         nfrs = len(fls)
@@ -10149,9 +10093,15 @@ class FIBSEM_dataset:
         if verbose:
             print('Will analyze frames with inds:', frame_inds)
             print('Frame files:', np.array(fls)[frame_inds])
+            print('Will use fill_value = {:.3f} for padding'.format(fill_value))
+            if perform_transformation:
+                print('Will perform transformation')
+            else:
+                print('Will NOT perform transformation')
         for j,fr_ind in enumerate(frame_inds):
             frame = FIBSEM_frame(fls[fr_ind], ftype=ftype)
-            frame_img = np.zeros((ysz, xsz))
+            #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
+            frame_img = np.full((ysz, xsz), fill_value, dtype=float)
             frame_img[yi:yi+self.YResolution, xi:xi+self.XResolution]  = frame.RawImageA.astype(float)
 
             if perform_transformation:
@@ -10160,7 +10110,7 @@ class FIBSEM_dataset:
                 #print('shift matrices', shift_matrix, inv_shift_matrix)
                 #print('direct matrix: ', shift_matrix @ (self.tr_matr_cum_residual[fr_ind] @ inv_shift_matrix))
                 #print('inverse matrix: ', np.linalg.inv(shift_matrix @ (self.tr_matr_cum_residual[fr_ind] @ inv_shift_matrix)))
-                frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True)
+                frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
             else:
                 frame_img_reg = frame_img.copy()
 
@@ -10302,9 +10252,9 @@ class FIBSEM_dataset:
             ya = yi+frame.YResolution
             xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[j, :]
 
-            frame_imgA = np.zeros((ysz, xsz))
+            frame_imgA = np.zeros((ysz, xsz), dtype=float)
             if self.DetB != 'None':
-                frame_imgB = np.zeros((ysz, xsz))
+                frame_imgB = np.zeros((ysz, xsz), dtype=float)
 
             if invert_data:
                 frame_imgA[yi:ya, xi:xa] = np.negative(frame.RawImageA.astype(float))
@@ -10376,9 +10326,9 @@ class FIBSEM_dataset:
                 xa = xi+frame.XResolution
                 ya = yi+frame.YResolution
 
-                frame_imgA = np.zeros((ysz, xsz))
+                frame_imgA = np.zeros((ysz, xsz), dtype=float)
                 if self.DetB != 'None':
-                    frame_imgB = np.zeros((ysz, xsz))
+                    frame_imgB = np.zeros((ysz, xsz), dtype=float)
 
                 if invert_data:
                     frame_imgA[yi:ya, xi:xa] = np.negative(frame.RawImageA.astype(float))
@@ -11189,8 +11139,8 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
         xa = xi+frame.XResolution
         ya = yi+frame.YResolution
   
-        frame_img = np.zeros((ysz, xsz))
-        frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)))
+        frame_img = np.zeros((ysz, xsz), dtype=float)
+        frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)), dtype=float)
 
         for jk in np.arange(zbin_factor):
             if jk>0:
