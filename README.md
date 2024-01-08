@@ -21,10 +21,13 @@ https://www.anaconda.com/products/individual
 This notebook uses OpenCV implementation of SIFT. SIFT is part of standard OpenCV releases for version 3.4.1 or earlier. If you have newer version of OpenCV-python installed, SIFT will most likely be not part of it (because of patent issues), and the Python command sift = cv2.xfeatures2d.SIFT_create() will generate error. In this case replace it with a version supporting SIFT using these commands (in anaconda command window):
 
 Uninstall the OpenCV:
->pip uninstall opencv-python
+'pip uninstall opencv-python'
 
 Then install the contrib version of OpenCV:
->pip install opencv-contrib-python
+'pip install opencv-contrib-python'
+
+Then use pip to install the repository directly
+'pip install git+https://github.com/gleb-shtengel/FIB-SEM.git#egg=FIBSEM_gs'
 
 You will also need to have these packages installed:
 -   openpyxl
