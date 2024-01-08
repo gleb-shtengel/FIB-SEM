@@ -1,6 +1,8 @@
 numpy
 pandas
-pickle
+mrcfile
+h5py
+npy2bdv
 copy
 pathlib
 matplotlib
@@ -13,6 +15,3 @@ struct
 dask
 cv2
 tifffile
-mrcfile
-h5py
-npy2bdv
