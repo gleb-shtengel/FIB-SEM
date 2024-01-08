@@ -4,12 +4,10 @@
 """
 Setup files.
 
-Copyright (c) 2023, Gleb Shtengel
+Copyright (c) 2024, gleb.shtengel@gmail.com
 """
 
-import os
 import setuptools
-import versioneer
 
 setuptools.setup(
     name="FIBSEM_gs",
