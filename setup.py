@@ -28,6 +28,6 @@ setuptools.setup(
         "Operating System :: OS Independent",
         "Topic :: Scientific/Engineering",
     ],
-    python_requires=">=3.8",
+    python_requires=">=3.7",
     install_requires=[line.strip() for line in open('requirements.txt', "r")],
 )
