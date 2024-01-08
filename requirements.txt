@@ -3,7 +3,6 @@ pandas
 mrcfile
 h5py
 npy2bdv
-copy
 pathlib
 matplotlib
 skimage
