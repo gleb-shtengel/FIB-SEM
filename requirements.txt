@@ -1,8 +1,5 @@
 numpy
 pandas
-mrcfile
-h5py
-npy2bdv
 pathlib
 matplotlib
 skimage
@@ -14,3 +11,6 @@ struct
 dask
 cv2
 tifffile
+mrcfile
+h5py
+npy2bdv
