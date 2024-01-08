@@ -1,6 +1,5 @@
 numpy
 pandas
-warnings
 webbrowser
 IPython
 pickle
