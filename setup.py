@@ -22,7 +22,7 @@ def get_version(rel_path):
     else:
         raise RuntimeError("Unable to find version string.")
 
-version=get_version("SIFT_gs/__init__.py")
+#version=get_version("SIFT_gs/__init__.py")
 
 setuptools.setup(
     name="FIBSEM_gs",
