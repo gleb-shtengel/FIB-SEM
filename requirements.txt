@@ -1,7 +1,5 @@
 numpy
 pandas
-webbrowser
-IPython
 pickle
 copy
 pathlib
