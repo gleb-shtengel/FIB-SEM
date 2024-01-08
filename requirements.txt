@@ -2,9 +2,9 @@ numpy
 pandas
 pathlib
 matplotlib
-sklearn
-scipy
 scikit-image
+scikit-learn
+scipy
 PIL
 struct
 dask
