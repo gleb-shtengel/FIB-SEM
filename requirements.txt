@@ -1,9 +1,5 @@
 numpy
 pandas
-time
-glob
-re
-gc
 warnings
 webbrowser
 IPython
