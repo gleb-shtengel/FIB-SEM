@@ -73,7 +73,8 @@ sys.path.append('/SIFT_gs/')
 try:
     from SIFT_gs.FIBSEM_help_functions_gs import *
 except:
-    from FIBSEM_help_functions_gs import *
+    #from FIBSEM_help_functions_gs import *
+    raise RuntimeError("Unable to load FIBSEM_help_functions_gs")
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)

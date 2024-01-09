@@ -24,7 +24,8 @@ sys.path.append('/SIFT_gs/')
 try:
     from SIFT_gs.FIBSEM_custom_transforms_gs import *
 except:
-    from FIBSEM_custom_transforms_gs import *
+    #from FIBSEM_custom_transforms_gs import *
+    raise RuntimeError("Unable to load FIBSEM_custom_transforms_gs")
 
 
 
