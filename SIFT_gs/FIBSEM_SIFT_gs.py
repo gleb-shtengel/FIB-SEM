@@ -68,6 +68,7 @@ EPS = np.finfo(float).eps
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
+import SIFT_gs
 print('SIFT_gs version: ', SIFT_gs.__version__)
 try:
     from SIFT_gs.FIBSEM_help_functions_gs import *
