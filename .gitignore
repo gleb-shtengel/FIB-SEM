@@ -127,3 +127,4 @@ Register_FIB-SEM_stack_DASK_v4_LID674_ROI1.ipynb
 Register_FIB-SEM_stack_DASK_v4_PDC_WTDN_ROI3_J8.ipynb
 Notebooks/Register_FIB-SEM_stack_DASK_v4_PDC_WTCC_ROI1_J6.ipynb
 Notebooks/Evaluate_FIB-SEM_MRC_stack_registrations_large.ipynb
+SIFT_gs/SNR_analysis_functions.py
