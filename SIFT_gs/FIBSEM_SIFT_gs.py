@@ -9142,7 +9142,7 @@ class FIBSEM_dataset:
         else:
             if disp_res:
                 print('No milling rate data is available, isotropic voxel size is set to {:.2f} nm'.format(self.PixelSize))
-            self.voxel_size = np.rec.array((self.PixelSize,  self.PixelSize,  Z_pixel_size_WD), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
+            self.voxel_size = np.rec.array((self.PixelSize,  self.PixelSize,  self.PixelSize), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
 
         return self.FIBSEM_Data
 
