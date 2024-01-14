@@ -267,7 +267,7 @@ def radial_profile_select_angles(data, center, **kwargs):
     rmin = np.max(r)*rstart
     rmax = np.max(r)*rstop
     r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True))
-    r = r.astype(np.int)
+    r = r.astype(int)
     
     cond_tot = np.zeros(ds, dtype=float)
     
@@ -383,7 +383,7 @@ def rescale_FFT_select_radii_angles(data, scale, center, **kwargs):
     rmax = np.max(r)*rstop
     r_ang = (np.angle(x - center[0]+1j*(y - center[1]), deg=True))
     
-    r = r.astype(np.int)  
+    r = r.astype(int)  
     newdata = data.copy()
     if symm>0:
         for i in np.arange(symm*2):

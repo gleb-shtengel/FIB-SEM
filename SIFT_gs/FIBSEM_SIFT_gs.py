@@ -11190,8 +11190,8 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
             frame_eval /= zbin_factor
         
         y = Ys[j]
-        xx = np.int(x)
-        yy = np.int(y)
+        xx = int(x)
+        yy = int(y)
         subset = frame_eval[yy-dx2:yy+dx2, xx-dx2:xx+dx2]
         ax_maps[j].imshow(subset, cmap='Greys')#, vmin=0, vmax=160)
         ax_maps[j].grid(False)

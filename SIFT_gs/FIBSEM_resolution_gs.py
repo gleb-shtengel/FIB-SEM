@@ -434,8 +434,8 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
     subset_mags = []
     for j, blob in enumerate(tqdm(blobs_LoG, desc='Sortings blobs by magnitude', display=verbose)):
         y, x, r = blob
-        xc = np.int(x)
-        yc = np.int(y)
+        xc = int(x)
+        yc = int(y)
         subset_mags.append(np.mean(image[yc-1:yc+1, xc-1:xc+1]))
     
     subset_mags = np.array(subset_mags)
@@ -444,8 +444,8 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
     
     for j, blob in enumerate(tqdm(blobs_LoG, desc='Analyzing blobs', display=verbose)):
         y, x, r = blob
-        xc = np.int(x)
-        yc = np.int(y)
+        xc = int(x)
+        yc = int(y)
         error_flag = 0
         subset = image[yc-dx2:yc+dx2, xc-dx2:xc+dx2]
         if shape(subset)==(subset_size, subset_size):
@@ -1291,8 +1291,8 @@ def plot_blob_examples_single_image(image, results_xlsx, **kwargs):
 
     for j, x in enumerate(Xs):
         y = Ys[j]
-        xx = np.int(x)
-        yy = np.int(y)
+        xx = int(x)
+        yy = int(y)
         subset = image[yy-dx2:yy+dx2, xx-dx2:xx+dx2]
         #print(np.mean(subset))
         ax_maps[j].imshow(subset, cmap='Greys')#, vmin=0, vmax=160)
