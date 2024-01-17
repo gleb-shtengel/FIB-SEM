@@ -30,6 +30,9 @@ Then install the contrib version of OpenCV:
 pip install opencv-contrib-python
 ```
 
+Finally, you need to have Git installed, you get gere it here:
+https://git-scm.com/download/win
+
 Then use pip to install the repository directly
 ```bash
 pip install git+https://github.com/gleb-shtengel/FIB-SEM.git#egg=FIBSEM_gs
