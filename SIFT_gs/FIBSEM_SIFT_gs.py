@@ -2019,7 +2019,7 @@ def bin_crop_frames(bin_crop_parameters):
     if mode == 'mean':
         zbinnd_fr = np.mean(mrc_obj.data[start_frame_ID:stop_frame_ID, yi:ya, xi:xa], axis=0)
     else:
-        zbinnd_fr = np.sum(mrc_obj.data[startstart_frame_ID_frame:stop_frame_ID, yi:ya, xi:xa], axis=0)
+        zbinnd_fr = np.sum(mrc_obj.data[start_frame_ID:stop_frame_ID, yi:ya, xi:xa], axis=0)
     if (xbin_factor > 1) or (ybin_factor > 1):
         if mode == 'mean':
             zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
