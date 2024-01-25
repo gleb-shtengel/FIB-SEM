@@ -8173,11 +8173,15 @@ def save_data_stack(FIBSEMstack, **kwargs):
                 '''
                 mode 0 -> uint8
                 mode 1 -> int16
+                mode 6 -> uint16
                 '''
+                mrc_mode = 0
                 if dtp==int16:
                     mrc_mode = 1
-                else:
-                    mrc_mode = 0
+                if dtp==uint16:
+                    mrc_mode = 6
+
+                    
                 # Make a new, empty memory-mapped MRC file
                 mrc = mrcfile.new_mmap(fpath_reg, shape=(nz, ny, nx), mrc_mode=mrc_mode, overwrite=True)
                 voxel_size_angstr = voxel_size.copy()
