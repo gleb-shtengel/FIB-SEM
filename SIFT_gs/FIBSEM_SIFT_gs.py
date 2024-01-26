@@ -5534,8 +5534,7 @@ class FIBSEM_frame:
                               'Working Dist.', WD_text, '',
                               'FIB Focus', ''],
                              ['Bit Depth', '{:d}'.format(8 *(2 - self.EightBit)), '',
-                             'EHT Voltage\n\nSEM Current', EHT_text, ' \n\n', SEMCurr_text, '',
-                             #'EHT Voltage', EHT_text, '',
+                             'EHT Voltage\n\nSEM Current', EHT_text+' \n\n'+SEMCurr_text, '',
                              'FIB Probe', '']]
         llw0=0.3
         llw1=0.18
