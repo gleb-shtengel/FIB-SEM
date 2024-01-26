@@ -4781,7 +4781,7 @@ class FIBSEM_frame:
             except:
                 pass
             try:
-                tif_tags['helios_metadata']['Scan']['PixelWidth']
+                self.PixelSize = tif_tags['helios_metadata']['Scan']['PixelWidth']
             except:
                 self.PixelSize = kwargs.get("PixelSize", 8.0)
             try:
