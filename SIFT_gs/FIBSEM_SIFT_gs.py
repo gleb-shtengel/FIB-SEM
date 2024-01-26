@@ -4788,6 +4788,10 @@ class FIBSEM_frame:
                 self.ScanRate = 1.0 / tif_tags['helios_metadata']['Scan']['Dwelltime']
             except:
                 pass
+            try:
+                self.MachineID = tif_tags['helios_metadata']['System']['SystemType'] + ' ' + tif_tags['helios_metadata']['System']['Dnumber']
+            except:
+                pass
             self.Sample_ID = kwargs.get("Sample_ID", '')
             self.YResolution, self.XResolution = self.RawImageA.shape
             self.Scaling = np.array([[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]).T
