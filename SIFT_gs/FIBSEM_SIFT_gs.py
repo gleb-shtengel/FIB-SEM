@@ -4769,11 +4769,11 @@ class FIBSEM_frame:
                 self.header = ''
                 self.EightBit = int(type(self.RawImageA[0,0])==np.uint8)
             try:
-                self.WD = tif_tagstif_tags['helios_metadata']['EBeam']['WD']*1000.00 # working distance in mm
+                self.WD = tif_tags['helios_metadata']['EBeam']['WD']*1000.00 # working distance in mm
             except:
                 pass
             try:
-                self.EHT = tif_tagstif_tags['helios_metadata']['EBeam']['HV']/1000.00 # EHT in kV
+                self.EHT = tif_tags['helios_metadata']['EBeam']['HV']/1000.00 # EHT in kV
             except:
                 pass
             try:
@@ -4789,7 +4789,7 @@ class FIBSEM_frame:
             except:
                 pass
             try:
-                self.MachineID = tif_tags['helios_metadata']['System']['SystemType'] + ' ' + tif_tags['helios_metadata']['System']['Dnumber']
+                self.MachineID = tif_tags['helios_metadata']['System']['SystemType'] + ' ' + str(tif_tags['helios_metadata']['System']['Dnumber'])
             except:
                 pass
             self.Sample_ID = kwargs.get("Sample_ID", '')
