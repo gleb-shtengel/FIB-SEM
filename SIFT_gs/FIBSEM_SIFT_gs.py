@@ -4781,11 +4781,11 @@ class FIBSEM_frame:
             except:
                 pass
             try:
-                self.PixelSize = tif_tags['helios_metadata']['Scan']['PixelWidth']
+                self.PixelSize = float(tif_tags['helios_metadata']['Scan']['PixelWidth']) * 1.0e9
             except:
                 self.PixelSize = kwargs.get("PixelSize", 8.0)
             try:
-                self.ScanRate = 1.0 / tif_tags['helios_metadata']['Scan']['Dwelltime']
+                self.ScanRate = 1.0 / float(tif_tags['helios_metadata']['Scan']['Dwelltime'])
             except:
                 pass
             try:
@@ -5474,6 +5474,23 @@ class FIBSEM_frame:
             ax.set_title(ttls[j], fontsize=10)
         fig.suptitle(self.fname)
         
+        if hasattr(self, 'EHT'):
+            EHT_text = '{:.3f} kV'.format(self.EHT)
+        else:
+            EHT_text = ''
+        if hasattr(self, 'ScanRate'):
+            ScanRate_text = '{:.3f} MHz'.format(self.ScanRate/1.0e6)
+        else:
+            ScanRate_text = ''
+        if hasattr(self, 'WD'):
+            WD_text = '{:.3f} mm'.format(self.WD)
+        else:
+            WD_text = ''
+        if hasattr(self, 'Machine ID'):
+            MachineID_text = '{:s}'.format(self.MachineID.strip('\x00'))
+        else:
+            MachineID_text = ''
+
         if self.FileVersion > 8:
             cell_text = [['Sample ID', '{:s}'.format(self.Sample_ID.strip('\x00')), '',
                           'Frame Size', '{:d} x {:d}'.format(self.XResolution, self.YResolution), '',
@@ -5504,15 +5521,15 @@ class FIBSEM_frame:
             else:
                 cell_text = [['', '', '',
                               'Frame Size', '{:d} x {:d}'.format(self.XResolution, self.YResolution), '',
-                              'Scan Rate', ''],
-                            ['Machine ID', '', '',
+                              'Scan Rate', ScanRate_text],
+                            ['Machine ID', MachineID_text, '',
                               'Pixel Size', '{:.1f} nm'.format(self.PixelSize), '',
                               'Oversampling', ''],
                              ['FileVersion', '{:d}'.format(self.FileVersion), '',
-                              'Working Dist.', ' ', '',
+                              'Working Dist.', WD_text, '',
                               'FIB Focus', ''],
                              ['Bit Depth', '{:d}'.format(8 *(2 - self.EightBit)), '',
-                             'EHT Voltage', '', '',
+                             'EHT Voltage', EHT_text, '',
                              'FIB Probe', '']]
         llw0=0.3
         llw1=0.18
