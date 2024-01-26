@@ -4752,11 +4752,14 @@ class FIBSEM_frame:
             self.DetA = 'Detector A'     # Name of detector A
             self.DetB = 'None'     # Name of detector B
             try:
-                with PILImage.open(self.fname) as img:
-                    tif_header = {TAGS[key] : img.tag[key] for key in img.tag_v2}
-                    self.header = tif_header
+                with tiff.TiffFile(fname) as tif:
+                    tif_tags = {}
+                    for tag in tif.pages[0].tags.values():
+                        name, value = tag.name, tag.value
+                        tif_tags[name] = value
+                    self.header = tif_tags
                 try:
-                    if tif_header['BitsPerSample'][0]==8:
+                    if tif_tags['bits_per_sample'][0]==8:
                         self.EightBit = 1
                     else:
                         self.EightBit = 0
@@ -4765,8 +4768,26 @@ class FIBSEM_frame:
             except:
                 self.header = ''
                 self.EightBit = int(type(self.RawImageA[0,0])==np.uint8)
-
-            self.PixelSize = kwargs.get("PixelSize", 8.0)
+            try:
+                self.WD = tif_tagstif_tags['helios_metadata']['EBeam']['WD']*1000.00 # working distance in mm
+            except:
+                pass
+            try:
+                self.EHT = tif_tagstif_tags['helios_metadata']['EBeam']['HV']/1000.00 # EHT in kV
+            except:
+                pass
+            try:
+                self.SEMCurr = tif_tagstif_tags['helios_metadata']['EBeam']['BeamCurrent'] # SEM probe current in A                  
+            except:
+                pass
+            try:
+                tif_tags['helios_metadata']['Scan']['PixelWidth']
+            except:
+                self.PixelSize = kwargs.get("PixelSize", 8.0)
+            try:
+                self.ScanRate = 1.0 / tif_tags['helios_metadata']['Scan']['Dwelltime']
+            except:
+                pass
             self.Sample_ID = kwargs.get("Sample_ID", '')
             self.YResolution, self.XResolution = self.RawImageA.shape
             self.Scaling = np.array([[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]).T
@@ -8180,7 +8201,6 @@ def save_data_stack(FIBSEMstack, **kwargs):
                     mrc_mode = 1
                 if dtp==uint16:
                     mrc_mode = 6
-
                     
                 # Make a new, empty memory-mapped MRC file
                 mrc = mrcfile.new_mmap(fpath_reg, shape=(nz, ny, nx), mrc_mode=mrc_mode, overwrite=True)
