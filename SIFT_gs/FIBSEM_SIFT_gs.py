@@ -4777,7 +4777,7 @@ class FIBSEM_frame:
             except:
                 pass
             try:
-                self.SEMCurr = tif_tagstif_tags['helios_metadata']['EBeam']['BeamCurrent'] # SEM probe current in A                  
+                self.SEMCurr = tif_tags['helios_metadata']['EBeam']['BeamCurrent'] # SEM probe current in A                  
             except:
                 pass
             try:
@@ -5478,6 +5478,11 @@ class FIBSEM_frame:
             EHT_text = '{:.3f} kV'.format(self.EHT)
         else:
             EHT_text = ''
+        if hasattr(self, 'SEMCurr'):
+            SEMCurr_text = '{:.3f} nA'.format(self.SEMCurr*1.0e9)
+        else:
+            SEMCurr_text = ''
+
         if hasattr(self, 'ScanRate'):
             ScanRate_text = '{:.3f} MHz'.format(self.ScanRate/1.0e6)
         else:
@@ -5529,7 +5534,8 @@ class FIBSEM_frame:
                               'Working Dist.', WD_text, '',
                               'FIB Focus', ''],
                              ['Bit Depth', '{:d}'.format(8 *(2 - self.EightBit)), '',
-                             'EHT Voltage', EHT_text, '',
+                             'EHT Voltage\n\nSEM Current', EHT_text, ' \n\n', SEMCurr_text, '',
+                             #'EHT Voltage', EHT_text, '',
                              'FIB Probe', '']]
         llw0=0.3
         llw1=0.18
