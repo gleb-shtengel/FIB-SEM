@@ -5486,7 +5486,7 @@ class FIBSEM_frame:
             WD_text = '{:.3f} mm'.format(self.WD)
         else:
             WD_text = ''
-        if hasattr(self, 'Machine ID'):
+        if hasattr(self, 'MachineID'):
             MachineID_text = '{:s}'.format(self.MachineID.strip('\x00'))
         else:
             MachineID_text = ''
