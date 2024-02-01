@@ -65,6 +65,10 @@ import pickle
 import webbrowser
 from IPython.display import IFrame
 
+import warnings
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", np.RankWarning)
+
 EPS = np.finfo(float).eps
 
 sys.path.append('/SIFT_gs/')
@@ -514,6 +518,8 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
 
     if verbose:
         print('Step2: Analyzed Blobs/Transitions, selected {:d}'.format(len(blobs_LoG)))
+        print('Step2: Analyzed {:d} Blobs, selected {:d} good ones'.format(len(error_flags), len(error_flags[error_flags==0])))
+        print('Step3: Saving the results into file:  ' + results_file_xlsx)
         
     if save_data_xlsx:
     	xlsx_writer = pd.ExcelWriter(results_file_xlsx, engine='xlsxwriter')
@@ -529,9 +535,7 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
     		trans_str + ' Y-slp2',
     		'error_flag']
     	blobs_LoG_arr = np.array(blobs_LoG)
-
-    	if verbose:
-    		print('Step3: Saving the results into file:  ' + results_file_xlsx)
+    		
     	transition_results = pd.DataFrame(np.column_stack((blobs_LoG_arr, tr_results_arr, np.array(error_flags))), columns = columns, index = None)
     	transition_results.to_excel(xlsx_writer, index=None, sheet_name='Transition analysis results')
     	kwargs_info = pd.DataFrame([kwargs]).T # prepare to be save in transposed format
