@@ -77,8 +77,8 @@ except:
     raise RuntimeError("Unable to load FIBSEM_help_functions_gs")
 
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-warnings.simplefilter('ignore', np.RankWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=np.RankWarning)
 
 
 

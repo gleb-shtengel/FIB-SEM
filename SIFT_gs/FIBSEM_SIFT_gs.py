@@ -66,8 +66,8 @@ from IPython.display import IFrame
 EPS = np.finfo(float).eps
 
 import warnings
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-warnings.filterwarnings('ignore', np.RankWarning)
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=np.RankWarning)
 
 import SIFT_gs
 print('SIFT_gs version: ', SIFT_gs.__version__)
