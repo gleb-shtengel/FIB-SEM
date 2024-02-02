@@ -2217,161 +2217,6 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     return fnms_saved
 
 
-def bin_crop_mrc_stack_old(mrc_filename, **kwargs):
-    '''
-    Bins and crops a 3D mrc stack along X-, Y-, or Z-directions and saves it into MRC or HDF5 format. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
-
-    Parameters:
-        mrc_filename : str
-            name (full path) of the mrc file to be binned
-    **kwargs:
-        fnm_types : list of strings.
-            File type(s) for output data. Options are: ['h5', 'mrc'].
-            Defauls is ['mrc']. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
-        zbin_factor : int
-            binning factor in z-direction
-        xbin_factor : int
-            binning factor in x-direction
-        ybin_factor : int
-            binning factor in y-direction
-        mode  : str
-            Binning mode. Default is 'mean', other option is 'sum'
-        frmax : int
-            Maximum frame to bin. If not present, the entire file is binned
-        binned_copped_filename : str
-            name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
-        xi : int
-            left edge of the crop
-        xa : int
-            right edge of the crop
-        yi : int
-            top edge of the crop
-        ya : int
-            bottom edge of the crop
-        fri : int
-            start frame
-        fra : int
-            stop frame
-        voxel_size_new : rec array
-            new voxel size in nm. Will be converted into Angstroms for MRC header.
-    Returns:
-        fnms_saved : list of str
-            Names of the new (binned and cropped) data files.
-    '''
-    mrc_filename  = os.path.normpath(mrc_filename)
-
-    fnm_types = kwargs.get("fnm_types", ['mrc'])
-    xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
-    ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
-    zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
-
-    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
-    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
-    header = mrc_obj.header
-    '''
-        mode 0 -> uint8
-        mode 1 -> int16
-        mode 2 -> float32
-        mode 4 -> complex64
-        mode 6 -> uint16
-    '''
-    mrc_mode = mrc_obj.header.mode
-    voxel_size_angstr = mrc_obj.voxel_size
-    voxel_size_angstr_new = voxel_size_angstr.copy()
-    voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
-    voxel_size_angstr_new.y = voxel_size_angstr.y * ybin_factor
-    voxel_size_angstr_new.z = voxel_size_angstr.z * zbin_factor
-    voxel_size_new = voxel_size_angstr.copy()
-    voxel_size_new.x = voxel_size_angstr_new.x / 10.0
-    voxel_size_new.y = voxel_size_angstr_new.y / 10.0
-    voxel_size_new.z = voxel_size_angstr_new.z / 10.0
-    try:
-        voxel_size_new = kwargs.get('voxel_size_new', voxel_size_new)
-        voxel_size_angstr_new.x = voxel_size_new.x * 10.0
-        voxel_size_angstr_new.y = voxel_size_new.y * 10.0
-        voxel_size_angstr_new.z = voxel_size_new.z * 10.0
-    except:
-        print('Incorrect voxel size entry')
-        print('will use : ', voxel_size_new)
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
-    frmax = kwargs.get('frmax', nz)
-    xi = kwargs.get('xi', 0)
-    xa = kwargs.get('xa', nx)
-    yi = kwargs.get('yi', 0)
-    ya = kwargs.get('ya', ny)
-    fri = kwargs.get('fri', 0)
-    fra = kwargs.get('fra', nz)
-    nx_binned = (xa-xi)//xbin_factor
-    ny_binned = (ya-yi)//ybin_factor
-    xa = xi + nx_binned * xbin_factor
-    ya = yi + ny_binned * ybin_factor
-    binned_copped_filename_default = os.path.splitext(mrc_filename)[0] + '_binned_croped.mrc'
-    binned_copped_filename = kwargs.get('binned_copped_filename', binned_copped_filename_default)
-    binned_mrc_filename = os.path.splitext(binned_copped_filename)[0] + '.mrc'
-    binned_mrc_filename = os.path.normpath(binned_mrc_filename)
-    dt = type(mrc_obj.data[0,0,0])
-    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
-    if mode == 'sum':
-        mrc_mode = 1
-        dt = int16
-    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    st_frames = np.arange(fri, fra, zbin_factor)
-    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
-
-    fnms_saved = []
-    if 'mrc' in fnm_types:
-        fnms_saved.append(binned_mrc_filename)
-        mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
-        mrc_new.voxel_size = voxel_size_angstr_new
-        #mrc_new.header.cella = voxel_size_angstr_new
-        print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
-        desc = 'Saving the data stack into MRC file'
-
-    if 'h5' in fnm_types:
-        binned_h5_filename = os.path.splitext(binned_mrc_filename)[0] + '.h5'
-        try:
-            os.remove(binned_h5_filename)
-        except:
-            pass
-        fnms_saved.append(binned_h5_filename)
-        bdv_writer = npy2bdv.BdvWriter(binned_h5_filename, nchannels=1, blockdim=((1, 256, 256),))
-        bdv_writer.append_view(stack=None, virtual_stack_dim=(len(st_frames),ny_binned,nx_binned),
-                    time=0, channel=0,
-                    voxel_size_xyz=(voxel_size_new.x, voxel_size_new.y, voxel_size_new.z), voxel_units='nm')
-        if 'mrc' in fnm_types:
-            desc = 'Saving the data stack into MRC and H5 files'
-        else:
-            desc = 'Saving the data stack into H5 file'
-
-    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
-        # need to fix this
-        if mode == 'mean':
-            zbinnd_fr = np.mean(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
-        else:
-            zbinnd_fr = np.sum(mrc_obj.data[st_frame:min(st_frame+zbin_factor, nz-1), yi:ya, xi:xa], axis=0)
-        if (xbin_factor > 1) or (ybin_factor > 1):
-            if mode == 'mean':
-                zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
-            else:
-                zbinnd_fr = np.sum(np.sum(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
-        if 'mrc' in fnm_types:
-            mrc_new.data[j,:,:] = zbinnd_fr.astype(dt)
-        if 'h5' in fnm_types:
-            bdv_writer.append_plane(plane=zbinnd_fr, z=j, time=0, channel=0)
-
-    if 'mrc' in fnm_types:
-        mrc_new.close()
-
-    if 'h5' in fnm_types:
-        bdv_writer.write_xml()
-        bdv_writer.close()
-
-    mrc_obj.close()
-
-    return fnms_saved
-
-
 def destreak_single_frame_kernel_shared(destreak_kernel, params):
     '''
     Read a single frame from MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT.
@@ -2534,91 +2379,6 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
             mrc_new.data[target_frame_ID,:,:] = transformed_frame
     mrc_new.close()
     
-    return save_filename
-
-
-def destreak_mrc_stack_with_kernel_old(mrc_filename, destreak_kernel, data_min, data_max, **kwargs):
-    '''
-    Read MRC stack and destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT.
-    ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
-
-    Parameters
-    ---------
-    mrc_filename : str
-        File name (full path) of the mrc stack to be analyzed
-    destreak_kernel : 2D array - to multiply the FFT
-    data_min, data_max : floats
-        In case if the data has been padded by constant values at the edges during the previous registrations steps,
-        it will need to be replaced temporarily by a fake "real" data - otherwise FFT will be distorted.
-        The padded values (that should out of range data_min-data_max) will be:
-         - identified by comparing to data_min and data_max
-         - if ouside the above range - replaced by mirror imaged adjacent data
-         - after FFT, kernel multiplication, and reverse FFT, they will be replaced by zeros.
-
-    kwargs:
-    frame_inds : array
-        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
-    invert_data : boolean
-        If True, the data will be inverted
-    fri : int
-        start frame
-    fra : int
-        stop frame
-    save_filename : str
-        Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used
-    
-    Returns the name of the destreaked MRC stack
-    '''
-    mrc_filename  = os.path.normpath(mrc_filename)
-    save_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_destreaked.mrc'))
-
-    mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
-    header = mrc_obj.header
-    '''
-        mode 0 -> uint8
-        mode 1 -> int16
-        mode 2 -> float32
-        mode 4 -> complex64
-        mode 6 -> uint16
-    '''
-    mrc_mode = mrc_obj.header.mode
-    voxel_size_angstr = mrc_obj.voxel_size
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
-    fri = kwargs.get('fri', 0)
-    fra = kwargs.get('fra', nz)
-
-    dt = type(mrc_obj.data[0,0,0])
-    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
-    mrc_mode = 1
-    dt = int16
-    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    st_frames = np.arange(fri, fra)
-    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
-
-    mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
-    mrc_new.voxel_size = voxel_size_angstr
-    #mrc_new.header.cella = voxel_size_angstr
-    print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
-    desc = 'Saving the destreaked data stack into MRC file'
-
-    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
-        read_fr = mrc_obj.data[st_frame, :, :]
-        clip_mask = (read_fr>data_min)*(read_fr<data_max)
-        ny, nx = np.shape(clip_mask)
-        yi = np.min(np.where(clip_mask[:, nx//2]))
-        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
-        xi = np.min(np.where(clip_mask[ny//2, :]))
-        xa = nx-np.max(np.where(clip_mask[nx//2, :]))
-        #print(xi, xa, yi, ya)
-        pad_width = np.max((xi, xa, yi, ya))
-        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
-        destreaked_fft = fftshift(fftn(ifftshift(padded_fr))) * destreak_kernel
-        mrc_new.data[j,:,:] = np.real(fftshift(ifftn(ifftshift(destreaked_fft)))).astype(dt) * clip_mask
-        
-    mrc_new.close()
-    mrc_obj.close()
-
     return save_filename
 
 
@@ -2875,6 +2635,608 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
     mrc_obj.close()
 
     return save_destreak_filename, save_destreak_smooth_filename
+
+
+def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
+    '''
+    Estimate transitions in the images inside mrc_stack, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs). gleb.shtengel@gmail.com  06/2023 
+    Parameters
+    ---------
+    mrc_filename : str
+        File name (full path) of the mrc stack to be analyzed
+        
+    kwargs
+    ---------
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    DASK_client_retries : int (default is 3)
+        Number of allowed automatic retries if a task fails
+    frame_inds : list of int
+        List oif frame indecis to use to display the evaluation box.
+        Default are [nfrs//10, nfrs//2, nfrs//10*9]
+    evaluation_box : list of 4 int
+        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
+        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+    sliding_evaluation_box : boolean
+        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+    start_evaluation_box : list of 4 int
+        see above
+    stop_evaluation_box : list of 4 int
+        see above
+    data_dir : str
+        data directory (path)
+    Sample_ID : str
+        Sample ID
+    invert_data : boolean
+        If True - the data is inverted
+    flipY : boolean
+        If True, the data will be flipped along Y-axis. Default is False.
+    zbin_factor : int
+
+    min_sigma : float
+        min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.0
+    max_sigma : float
+        min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.5
+    threshold : float
+        threshold for LoG search. Default is 0.005. The absolute lower bound for scale space maxima. Local maxima smaller
+        than threshold are ignored. Reduce this to detect blobs with less intensities. 
+    overlap : float
+        A value between 0 and 1. Defaults is 0.1. If the area of two blobs overlaps by a
+        fraction greater than 'overlap', the smaller blob is eliminated.    
+    pixel_size : float
+        pixel size in nm. Default is 4.0
+    subset_size : int
+        subset size (pixels) for blob / transition analysis
+        Default is 16.
+    bounds : lists
+        List of of transition limits Deafault is [0.37, 0.63].
+        Example of multiple lists: [[0.33, 0.67], [0.20, 0.80]].
+    bands : list of 3 ints
+        list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
+        Deafault is [5 ,3, 5].
+    min_thr : float
+        threshold for identifying a 'good' transition (bottom < min_thr* top)
+    transition_low_limit : float
+        error flag is incremented by 4 if the determined transition distance is below this value. Default is 0.0
+    transition_high_limit : float
+        error flag is incremented by 8 if the determined transition distance is above this value. Default is 10.0
+    verbose : boolean
+        print the outputs. Default is False
+    disp_res : boolean
+        display results. Default is False
+    title : str
+        title.
+    nbins : int
+        bins for histogram
+    save_data_xlsx : boolean
+        save the data into Excel workbook. Default is True.
+    results_file_xlsx : file name for Excel workbook to save the results
+
+    Returns: XY_transitions ; array[len(frame_inds), 4]
+        array consists of lines - one line for each frame in frame_inds
+        each line has 4 elements: [Xpt1, Xpt2, Ypt1, Ypt2]
+    '''
+    kwargs['mrc_filename'] = mrc_filename
+    DASK_client = kwargs.get('DASK_client', '')
+    DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    try:
+        client_services = DASK_client.scheduler_info()['services']
+        if client_services:
+            try:
+                dport = client_services['dashboard']
+            except:
+                dport = client_services['bokeh']
+            status_update_address = 'http://localhost:{:d}/status'.format(dport)
+            print('DASK client exists. Will perform distributed computations')
+            print('Use ' + status_update_address +' to monitor DASK progress')
+            use_DASK = True
+        else:
+            print('DASK client does not exist. Will perform local computations')
+            use_DASK = False
+    except:
+        print('DASK client does not exist. Will perform local computations')
+        use_DASK = False
+    evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
+    start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
+    stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
+
+    data_dir = kwargs.get("data_dir", os.path.dirname(mrc_filename))
+    Sample_ID = kwargs.get("Sample_ID", '')
+
+    invert_data = kwargs.get("invert_data", False)
+    kwargs['invert_data'] = invert_data
+    flipY = kwargs.get("flipY", False)
+    kwargs['flipY'] = flipY
+    zbin_factor = kwargs.get("zbin_factor", 1)
+    kwargs['zbin_factor'] = zbin_factor
+    min_sigma = kwargs.get('min_sigma', 1.0)
+    max_sigma = kwargs.get('max_sigma', 1.0)
+
+    overlap = kwargs.get('overlap', 0.1)
+    subset_size = kwargs.get('subset_size', 16)     # blob analysis window size in pixels
+    dx2=subset_size//2
+    pixel_size = kwargs.get('pixel_size', 4.0)
+    bounds = kwargs.get('bounds', [0.37, 0.63])
+    bands = kwargs.get('bands', [5, 5, 5])        # bands for finding left minimum, mid (peak), and right minimum
+    min_thr = kwargs.get('min_thr', 0.4)        #threshold for identifying 'good' transition (bottom < min_thr* top)
+    transition_low_limit = kwargs.get('transition_low_limit', 0.0)
+    transition_high_limit = kwargs.get('transition_high_limit', 10.0)
+    save_data_xlsx = kwargs.get('save_data_xlsx', True)
+
+    default_results_file_xlsx = os.path.join(data_dir, 'Dataset_2D_blob_analysis_results.xlsx')
+    results_file_xlsx = kwargs.get('results_file_xlsx', default_results_file_xlsx)
+
+    if use_DASK:
+        verbose = False
+        disp_res = False
+    else:
+        verbose = kwargs.get('verbose', False)
+        disp_res = kwargs.get('disp_res', False)
+
+    title = kwargs.get('title', '')
+    nbins = kwargs.get('nbins', 64)
+    if verbose:
+        if sliding_evaluation_box:
+            print('Will use sliding (linearly) evaluation box')
+            print('   Starting with box:  ', start_evaluation_box)
+            print('   Finishing with box: ', stop_evaluation_box)
+        else:
+            print('Will use fixed evaluation box: ', evaluation_box)
+
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
+    header = mrc_obj.header
+    mrc_mode = header.mode
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    header_dict = {}
+    for record in header.dtype.names: # create dictionary from the header data
+        if ('extra' not in record) and ('label' not in record):
+            header_dict[record] = header[record]
+    '''
+    mode 0 -> uint8
+    mode 1 -> int16
+    mode 2 -> float32
+    mode 4 -> complex64
+    mode 6 -> uint16
+    '''
+    if mrc_mode==0:
+        dt_mrc=uint8
+    if mrc_mode==1:
+        dt_mrc=int16
+    if mrc_mode==2:
+        dt_mrc=float32
+    if mrc_mode==4:
+        dt_mrc=complex64
+    if mrc_mode==6:
+        dt_mrc=uint16
+    #print('mrc_mode={:d} '.format(mrc_mode), ', dt_mrc=', dt_mrc)
+
+    xi_eval = evaluation_box[2]
+    if evaluation_box[3] > 0:
+        xa_eval = xi_eval + evaluation_box[3]
+    else:
+        xa_eval = nx
+    yi_eval = evaluation_box[0]
+    if evaluation_box[1] > 0:
+        ya_eval = yi_eval + evaluation_box[1]
+    else:
+        ya_eval = ny
+    evals = [xi_eval, xa_eval, yi_eval, ya_eval]
+    
+    frame_inds_default = np.arange(nz-1)+1
+    frame_inds = np.array(kwargs.get("frame_inds", frame_inds_default))
+    nf = frame_inds[-1]-frame_inds[0]+1
+    if frame_inds[0]==0:
+        frame_inds = frame_inds+1
+    sample_frame_inds = [frame_inds[nf//10], frame_inds[nf//2], frame_inds[nf//10*9]]
+    if verbose:
+        print('Will analyze 2D Blobs in {:d} frames'.format(len(frame_inds)))
+        print('Will save the data into ' + results_file_xlsx)
+    if sliding_evaluation_box:
+        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
+        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
+    else:
+        dx_eval = 0
+        dy_eval = 0
+
+    shape = np.shape(mrc_obj.data[frame_inds[nf//2], :, :])
+
+    vmin, vmax = get_min_max_thresholds((mrc_obj.data[frame_inds[nf//2], yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float), thr_min=0.2, disp_res=False, save_res=False)
+    threshold = kwargs.get('threshold', vmin/10.0)
+    if verbose:
+        print('Will use threshold : {:.4f}'.format(threshold))
+
+    eval_bounds = set_eval_bounds(shape, evaluation_box,
+        start_evaluation_box = start_evaluation_box,
+        stop_evaluation_box = stop_evaluation_box,
+        sliding_evaluation_box = sliding_evaluation_box,
+        pad_edges = False,
+        perform_transformation = False,
+        tr_matr =  np.eye(3,3),
+        frame_inds = frame_inds)
+    
+    padx = 0
+    pady = 0
+    xi = 0
+    yi = 0
+    shift_matrix = np.eye(3,3)
+    inv_shift_matrix = np.eye(3,3)
+    offsets = [xi, yi, padx, pady]
+    kwargs['offsets'] = offsets
+
+    mrc_papams_blob_analysis = []
+    results_2D = []
+    eval_bounds_df = pd.DataFrame(np.array(eval_bounds), columns = ['xi_eval', 'xa_eval', 'yi_eval', 'ya_eval'], index = None)
+    eval_bounds_df.insert(0, 'Frame', frame_inds)
+
+    for j, frame_ind in enumerate(tqdm(frame_inds, desc='Building the Parameter Sets Analyzing Resolution using Blobs ', display=verbose)):
+        mrc_params_single = [mrc_filename, frame_ind, eval_bounds[j], offsets, invert_data, flipY, zbin_factor, min_sigma, max_sigma, threshold,  overlap, pixel_size, subset_size, bounds, bands, min_thr, transition_low_limit, transition_high_limit, nbins, verbose, disp_res, False]
+        mrc_papams_blob_analysis.append(mrc_params_single)
+
+    if use_DASK:
+        print('Blob Analysis, Using DASK distributed')
+        futures = DASK_client.map(select_blobs_LoG_analyze_transitions_2D_mrc_stack, mrc_papams_blob_analysis, retries = DASK_client_retries)
+        results_2D = DASK_client.gather(futures)
+
+    else:
+        print('Blob Analysis, Using Local Computation')
+        for j, mrc_params_single in enumerate(tqdm(mrc_papams_blob_analysis, desc='Analyzing Resolution using Blobs', display = True)):
+            results_2D.append(select_blobs_LoG_analyze_transitions_2D_mrc_stack(mrc_params_single))
+
+    frame_inds = np.concatenate(np.array(results_2D, dtype=object)[:, 0], axis=0)
+    error_flags = np.concatenate(np.array(results_2D, dtype=object)[:, 1], axis=0)
+    blobs_LoG = np.concatenate(np.array(results_2D, dtype=object)[:, 2], axis=0)
+    tr_results = np.concatenate(np.array(results_2D, dtype=object)[:, 3], axis=0)
+
+    if save_data_xlsx:
+        xlsx_writer = pd.ExcelWriter(results_file_xlsx, engine='xlsxwriter')
+        trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
+        columns=['Frame', 'Y', 'X', 'R', 'Amp',
+            trans_str + ' X-pt1',
+            trans_str + ' X-pt2',
+            trans_str + ' Y-pt1',
+            trans_str + ' Y-pt2',
+            trans_str + ' X-slp1',
+            trans_str + ' X-slp2',
+            trans_str + ' Y-slp1',
+            trans_str + ' Y-slp2',
+            'error_flag']
+        blobs_LoG_arr = np.array(blobs_LoG)
+
+        if verbose:
+            print('Saving the results into file:  ' + results_file_xlsx)
+
+        transition_results = pd.DataFrame(np.column_stack((frame_inds, blobs_LoG, tr_results, error_flags)), columns = columns, index = None)
+        transition_results.to_excel(xlsx_writer, index=None, sheet_name='Transition analysis results')
+        kwargs_info = pd.DataFrame([kwargs]).T # prepare to be save in transposed format
+        kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
+        eval_bounds_df.to_excel(xlsx_writer, index=None, sheet_name='Eval Bounds Info')
+        fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
+        sheet_names = ['{:.0f}%-{:.0f}% summary (pts)'.format(bounds[0]*100, bounds[1]*100),
+            '{:.0f}%-{:.0f}% summary (slopes)'.format(bounds[0]*100, bounds[1]*100)]
+        xlsx_writer.save()
+
+    # return results_2D
+    return results_file_xlsx, frame_inds, error_flags, blobs_LoG, tr_results
+
+
+def select_blobs_LoG_analyze_transitions_2D_mrc_stack(params):
+    '''
+    DASK wrapper for select_blobs_LoG_analyze_transitions
+    Finds blobs in the given grayscale image using Laplasian of Gaussians (LoG). gleb.shtengel@gmail.com 02/2024
+    
+    Parameters:
+    params = list of: [mrc_filename, frame_ind, eval_bounds_single_frame, offsets, invert_data, flipY, zbin_factor, min_sigma, max_sigma, threshold,  overlap, pixel_size, subset_size, bounds, bands,
+        min_thr, transition_low_limit, transition_high_limit, nbins, verbose, disp_res, save_data]
+    mrc_filename
+    frame_ind : index of frame
+    eval_bounds_single_frame
+    offsets = [xi, yi, padx, pady]
+    invert_data : boolean
+        If True - the data is inverted
+    flipY
+    zbin_factor
+    min_sigma : float
+        min sigma (in pixel units) for Gaussian kernel in LoG search.
+    max_sigma : float
+        min sigma (in pixel units) for Gaussian kernel in LoG search.
+    threshold : float
+        threshold for LoG search. The absolute lower bound for scale space maxima. Local maxima smaller
+        than threshold are ignored. Reduce this to detect blobs with less intensities. 
+    overlap : float
+        A value between 0 and 1. If the area of two blobs overlaps by a
+        fraction greater than 'overlap', the smaller blob is eliminated.    
+    pixel_size : float
+        pixel size in nm.
+    subset_size : int
+        subset size (pixels) for blob / transition analysis
+    bounds : lists
+        List of of transition limits.
+    bands : list of 3 ints
+        list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
+    min_thr : float
+        threshold for identifying a 'good' transition (bottom < min_thr* top)
+    transition_low_limit : float
+        error flag is incremented by 4 if the determined transition distance is below this value.
+    transition_high_limit : float
+        error flag is incremented by 8 if the determined transition distance is above this value.
+    title : str
+        title.
+    nbins : int
+        bins for histogram
+    verbose
+    disp_res
+    save_data
+    
+    Returns: XY_transitions
+        XY_transitions with error_flag=0
+    '''
+    [mrc_filename, frame_ind, eval_bounds_single_frame, offsets, invert_data, flipY, zbin_factor, min_sigma, max_sigma, threshold,  overlap, pixel_size, subset_size, bounds, bands, min_thr, transition_low_limit, transition_high_limit, nbins, verbose, disp_res, save_data] = params
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
+    header = mrc_obj.header
+    mrc_mode = header.mode
+    if mrc_mode==0:
+        dt_mrc=uint8
+    if mrc_mode==1:
+        dt_mrc=int16
+    if mrc_mode==2:
+        dt_mrc=float32
+    if mrc_mode==4:
+        dt_mrc=complex64
+    if mrc_mode==6:
+        dt_mrc=uint16
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    
+    frame = mrc_obj.data[frame_ind, :, :].astype(dt_mrc).astype(float)            
+    shape = np.shape(frame)
+
+    padx = 0
+    pady = 0
+    xi = 0
+    yi = 0
+    shift_matrix = np.eye(3,3)
+    inv_shift_matrix = np.eye(3,3)
+    xsz = shape[1] + padx
+    ysz = shape[0] + pady
+
+    xa = xi+shape[1]
+    ya = yi+shape[0]
+    xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds_single_frame
+    
+    frame_img = np.zeros((ysz, xsz), dtype=float)
+    frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)), dtype=float)
+
+    if verbose:
+        print('Will analyze a subset of ', mrc_filename)
+
+    for j in np.arange(zbin_factor):
+        if j>0:
+            frame = mrc_obj.data[frame_inds[frame_ind+j], :, :].astype(dt_mrc).astype(float)
+        if invert_data:
+            frame_img[yi:ya, xi:xa] = np.negative(frame)
+        else:
+            frame_img[yi:ya, xi:xa]  = frame
+
+        if flipY:
+            frame_img = np.flip(frame_img, axis=0)
+
+        frame_eval += frame_img[yi_eval:ya_eval, xi_eval:xa_eval]
+    if zbin_factor > 1:
+        frame_eval /= zbin_factor
+    if verbose:
+        print('Subset shape: ', np.shape(frame_eval))
+
+    fname_root = os.path.splitext(os.path.split(mrc_filename)[1])[0]
+    fname_base = os.path.split(mrc_filename)[0]
+    res_png_fname = os.path.join(fname_base, fname_root + '_resolution_results.png')
+    examples_png_fname = os.path.join(fname_base, fname_root + '_blob_examples.png')
+    results_file_xlsx = os.path.join(fname_base, fname_root + '_resolution_results.xlsx')
+
+    kwargs = {'min_sigma' : min_sigma,
+    'max_sigma' : max_sigma,
+    'threshold' : threshold,
+    'overlap' : overlap,
+    'subset_size' : subset_size,
+    'pixel_size' : pixel_size,
+    'bounds' : bounds,
+    'bands' : bands,
+    'min_thr' : min_thr,
+    'transition_low_limit' : transition_low_limit,
+    'transition_high_limit' : transition_high_limit,
+    'verbose' : verbose,
+    'disp_res' : disp_res,
+    'title' : ' ',
+    'nbins' : nbins,
+    'save_data_xlsx' : save_data,
+    'results_file_xlsx' : results_file_xlsx}
+
+    results_file_xlsx, blobs_LoG, error_flags, tr_results, hst_datas =  select_blobs_LoG_analyze_transitions(frame_eval, **kwargs)
+    if save_data and disp_res:
+        res = plot_blob_map_and_results_single_image(frame_eval, results_file_xlsx, save_png=True)
+        res = plot_blob_examples_single_image(frame_eval, results_file_xlsx, save_png=True)
+
+    tr_results_arr = np.array(tr_results)
+    frame_ind_arr = np.full(len(error_flags), frame_ind, dtype=int)
+    Xpt1 = tr_results_arr[error_flags==0, 1]
+    Xpt2 = tr_results_arr[error_flags==0, 2]
+    Ypt1 = tr_results_arr[error_flags==0, 3]
+    Ypt2 = tr_results_arr[error_flags==0, 4]
+    XY_transitions = np.array([Xpt1, Xpt2, Ypt1, Ypt2]).T
+    return  frame_ind_arr, error_flags, blobs_LoG, tr_results_arr
+
+
+def mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
+    save_png = kwargs.get('save_png', False)
+    save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_examples.png'))
+    verbose = kwargs.get('verbose', False)
+
+    eval_bounds_info = pd.read_excel(results_xlsx, sheet_name='Eval Bounds Info')
+    saved_kwargs = read_kwargs_xlsx(results_xlsx, 'kwargs Info')
+    pixel_size = saved_kwargs.get("pixel_size", 1.0)
+    subset_size = saved_kwargs.get("subset_size", 2.0)
+    dx2 = subset_size//2
+    top_text = saved_kwargs.get("top_text", '')
+    bounds = saved_kwargs.get("bounds", [0.0, 0.0])
+    bands = saved_kwargs.get("bands", [3, 2, 3])
+    image_name = saved_kwargs.get("image_name", 'ImageA')
+    perform_transformation =  saved_kwargs.get("perform_transformation", False)
+    pad_edges =  saved_kwargs.get("pad_edges", True)
+    ftype =  saved_kwargs.get("ftype", 0)
+    zbin_factor =  saved_kwargs.get("zbin_factor", 1)
+    flipY = saved_kwargs.get("flipY", False)
+    invert_data = saved_kwargs.get("invert_data", False)
+    int_order =  saved_kwargs.get("int_order", 1)
+    offsets =  saved_kwargs.get("offsets", [0, 0, 0, 0])
+    mrc_filename = saved_kwargs['mrc_filename']
+    mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
+    header = mrc_obj.header
+    mrc_mode = header.mode
+    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    header_dict = {}
+    for record in header.dtype.names: # create dictionary from the header data
+        if ('extra' not in record) and ('label' not in record):
+            header_dict[record] = header[record]
+    '''
+    mode 0 -> uint8
+    mode 1 -> int16
+    mode 2 -> float32
+    mode 4 -> complex64
+    mode 6 -> uint16
+    '''
+    if mrc_mode==0:
+        dt_mrc=uint8
+    if mrc_mode==1:
+        dt_mrc=int16
+    if mrc_mode==2:
+        dt_mrc=float32
+    if mrc_mode==4:
+        dt_mrc=complex64
+    if mrc_mode==6:
+        dt_mrc=uint16
+    #print('mrc_mode={:d} '.format(mrc_mode), ', dt_mrc=', dt_mrc)
+    
+    xs=16.0
+    ys = xs*5.0/4.0
+    text_col = 'brown'
+    fst = 40
+    fs = 12
+    fs_legend = 10
+    fs_labels = 12
+    caption_fs = 8
+    
+    trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
+    int_results = pd.read_excel(results_xlsx, sheet_name='Transition analysis results')
+    error_flags = int_results['error_flag']
+    X = int_results['X']
+    Y = int_results['Y']
+    X_selected = np.array(X)[error_flags==0]
+    Y_selected = np.array(Y)[error_flags==0]
+    frames = int_results['Frame']
+    frames_selected = np.array(frames)[error_flags==0]
+    Xs = np.concatenate((X_selected[0:3], X_selected[-3:]))
+    Ys = np.concatenate((Y_selected[0:3], Y_selected[-3:]))
+    Fs = np.concatenate((frames_selected[0:3], frames_selected[-3:]))
+
+    xt = 0.0
+    yt = 1.5 
+    clr_x = 'green'
+    clr_y = 'blue'
+    fig, axs = subplots(4,3, figsize=(xs, ys))
+    fig.subplots_adjust(left=0.02, bottom=0.04, right=0.99, top=0.99, wspace=0.15, hspace=0.12)
+
+    ax_maps = [axs[0,0], axs[0,1], axs[0,2], axs[2,0], axs[2,1], axs[2,2]]
+    ax_profiles = [axs[1,0], axs[1,1], axs[1,2], axs[3,0], axs[3,1], axs[3,2]]
+
+    for j, x in enumerate(tqdm(Xs, desc='Generating images/plots for the sample 2D blobs')):
+        local_ind = int(np.argwhere(np.array(eval_bounds_info['Frame']) == Fs[j]))
+        local_eval_bounds_info = eval_bounds_info[eval_bounds_info['Frame'] == Fs[j]]
+        #print(Fs[j], fl, local_ind)
+        yi_eval = local_eval_bounds_info['yi_eval'].values[0]
+        ya_eval = local_eval_bounds_info['ya_eval'].values[0]
+        xi_eval = local_eval_bounds_info['xi_eval'].values[0]
+        xa_eval = local_eval_bounds_info['xa_eval'].values[0]
+
+        frame = mrc_obj.data[Fs[j], :, :].astype(dt_mrc).astype(float)
+        shape = np.shape(frame)
+        
+        xi=0
+        yi=0
+        xsz = shape[1]
+        ysz = shape[0]
+        xa = xi+xsz
+        ya = yi+ysz
+  
+        frame_img = np.zeros((ysz, xsz), dtype=float)
+        frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)), dtype=float)
+
+        for jk in np.arange(zbin_factor):
+            if jk>0:
+                local_ind = int(np.squeeze(np.argwhere(np.array(fls_info['Frame']) == Fs[j+jk])))
+                local_eval_bounds_info = eval_bounds_info[eval_bounds_info['Frame'] ==Fs[j+jk]]
+                frame = mrc_obj.data[Fs[j+jk], :, :].astype(dt_mrc).astype(float)
+                yi_eval = local_eval_bounds_info['yi_eval'].values[0]
+                ya_eval = local_eval_bounds_info['ya_eval'].values[0]
+                xi_eval = local_eval_bounds_info['xi_eval'].values[0]
+                xa_eval = local_eval_bounds_info['xa_eval'].values[0]
+            if invert_data:
+                frame_img[yi:ya, xi:xa] = np.negative(frame)
+            else:
+                frame_img[yi:ya, xi:xa]  = frame
+            if flipY:
+                frame_img = np.flip(frame_img, axis=0)
+
+            frame_eval += frame_img[yi_eval:ya_eval, xi_eval:xa_eval]
+        if zbin_factor > 1:
+            frame_eval /= zbin_factor
+        
+        y = Ys[j]
+        xx = int(x)
+        yy = int(y)
+        subset = frame_eval[yy-dx2:yy+dx2, xx-dx2:xx+dx2]
+        ax_maps[j].imshow(subset, cmap='Greys')#, vmin=0, vmax=160)
+        ax_maps[j].grid(False)
+        ax_maps[j].axis(False)
+        crop_x = patches.Rectangle((-0.5,dx2-0.5),subset_size,1, linewidth=1, edgecolor=clr_x , facecolor='none')
+        crop_y = patches.Rectangle((dx2-0.5, -0.5),1,subset_size, linewidth=1, edgecolor=clr_y, facecolor='none')
+        ax_maps[j].add_patch(crop_x)
+        ax_maps[j].add_patch(crop_y)
+        ax_maps[j].text(xt,yt,'X-Y', color='black',  bbox=dict(facecolor='white', edgecolor='none'), fontsize=fst)
+        amp_x = subset[dx2, :]
+        amp_y = subset[:, dx2]
+
+        a0 = np.min(np.array((amp_x, amp_y)))
+        a1 = np.max(np.array((amp_x, amp_y)))
+        amp_scale = (a0-(a1-a0)/10.0, a1+(a1-a0)/10.0)
+        #print(amp_scale)
+        #print(shape(amp_x), shape(amp_y), shape(amp_z))
+        tr_x = analyze_blob_transitions(amp_x, pixel_size=pixel_size,
+                                col = clr_x,
+                                cols=['green', 'green', 'black'],
+                                bounds=bounds,
+                                bands = bands,
+                                y_scale = amp_scale,
+                                disp_res=True, ax=ax_profiles[j], pref = 'X-',
+                                fs_labels = fs_labels, fs_legend = fs_legend,
+                                verbose = verbose)
+        ax_profiles[j].legend(loc='upper left', fancybox=False, edgecolor="w", fontsize = fs_legend)
+
+        ax2 = ax_profiles[j].twinx()
+        tr_y = analyze_blob_transitions(amp_y, pixel_size=pixel_size,
+                                col = clr_y,
+                                cols=['blue', 'blue', 'black'],
+                                bounds=bounds,
+                                bands = bands,
+                                y_scale = amp_scale,
+                                disp_res=True, ax=ax2, pref = 'Y-',
+                                fs_labels = fs_labels, fs_legend = fs_legend,
+                                       verbose = verbose)
+        ax2.legend(loc='upper right', fancybox=False, edgecolor="w", fontsize = fs_legend)
+        ax_profiles[j].tick_params(labelleft=False)
+        ax2.tick_params(labelright=False)
+        ax2.get_yaxis().set_visible(False)
+
+    if save_png:
+        axs[3,0].text(0.00, -0.15, save_fname, transform=axs[3,0].transAxes, fontsize=caption_fs)
+        fig.savefig(save_fname, dpi=300)
 
 
 ##########################################
@@ -11099,8 +11461,6 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     if save_png:
         ax2.text(-0.1, -0.15, save_fname, transform=ax2.transAxes, fontsize=caption_fs)
         fig.savefig(save_fname, dpi=300)
-
-
 
 
 def plot_2D_blob_examples(results_xlsx, **kwargs):
