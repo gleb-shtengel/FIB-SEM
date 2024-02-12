@@ -754,14 +754,34 @@ def estimate_edge_transition(image, center, gradient, **kwargs):
         
     # check min and max
     error_flag = 0
-    section_min = np.min(img_val[0:(section_length-1)//2+1])
-    section_max = np.max(img_val[(section_length-1)//2:])
-    if section_min > min_criterion:# + (max_criterion-min_criterion)/10.0:
+    #
+    # THAT IS WHAT I HAD INITIALLY - BUT THIS IS NOISY
+    #section_min = np.min(img_val[0:(section_length-1)//2+1])
+    #section_max = np.max(img_val[(section_length-1)//2:])
+    #
+    loc_min = np.argmin(img_val[0:(section_length-1)//2+1])
+    loc_max = (section_length-1)//2 + np.argmax(img_val[(section_length-1)//2:])
+    delta_pix = np.arange(-min_max_aperture//2+1,min_max_aperture//2+1)
+    min_pix_ind = loc_min + delta_pix
+    if np.min(min_pix_ind) < 0:
+        min_pix_ind = min_pix_ind - np.min(min_pix_ind)
+    min_pix = dist_pix[min_pix_ind]
+    min_val_mean = np.mean(img_val[min_pix_ind])
+    min_val = img_val[min_pix_ind]*0.0 + min_val_mean
+    
+    max_pix_ind = loc_max + delta_pix
+    if np.max(max_pix_ind) > len(img_val)-1:
+        max_pix_ind = max_pix_ind - (np.max(max_pix_ind)-len(img_val))-1
+    max_pix = dist_pix[max_pix_ind]
+    max_val_mean = np.mean(img_val[max_pix_ind])
+    max_val = img_val[max_pix_ind]*0.0 + max_val_mean
+   
+    if min_val_mean > min_criterion:# + (max_criterion-min_criterion)/10.0:
         if verbose:
             print('Section_min = {:.2f}'.format(section_min))
             print('Min criterion = {:.2f}'.format(min_criterion))
         error_flag += 1
-    if section_max < max_criterion:# - (max_criterion-min_criterion)/10.0:
+    if max_val_mean < max_criterion:# - (max_criterion-min_criterion)/10.0:
         if verbose:
             print('Section_max = {:.2f}'.format(section_max))
             print('Max criterion = {:.2f}'.format(max_criterion))
@@ -1444,7 +1464,13 @@ def plot_edge_transition_analysis_details(image, results_xlsx, **kwargs):
     axs[0,1].set_xlabel('Transition Distance (pix)')
     axs[0,1].set_ylabel('Count')
 
-    axs[1,1].scatter(cosXs_selected*transition_distances_selected, cosYs_selected*transition_distances_selected)
+    tr_x_to_plot = cosXs_selected*transition_distances_selected
+    tr_y_to_plot = cosYs_selected*transition_distances_selected
+    tr_plot_min = np.min((tr_x_to_plot, tr_y_to_plot))
+    tr_plot_max = np.max((tr_x_to_plot, tr_y_to_plot))
+    axs[1,1].scatter(tr_x_to_plot, tr_y_to_plot)
+    #axs[1,1].set_xlim((tr_plot_min, tr_plot_max))
+    #axs[1,1].set_ylim((tr_plot_min, tr_plot_max))
     axs[1,1].axis('scaled')
     axs[1,1].grid(True)
     axs[1,1].set_title('Transition Distribution over Directions')

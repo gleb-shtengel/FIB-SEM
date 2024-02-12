@@ -130,3 +130,4 @@ Notebooks/Evaluate_FIB-SEM_MRC_stack_registrations_large.ipynb
 SIFT_gs/SNR_analysis_functions.py
 Notebooks/Register_FIB-SEM_stack_DASK_v4_Hydra.ipynb
 Notebooks/Register_FIB-SEM_stack_DASK_v4_LID594_ROI1b_J1.ipynb
+Notebooks/FIB-SEM_resolution_Tin_on_C_transitions_example6.ipynb
