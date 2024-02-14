@@ -42,7 +42,9 @@ from scipy.ndimage import gaussian_filter
 from sklearn.linear_model import (LinearRegression,
     TheilSenRegressor,
     RANSACRegressor,
-    HuberRegressor)
+    HuberRegressor,
+    RidgeCV,
+    LassoCV)
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
@@ -771,7 +773,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
 
 def Perform_2D_fit(img, estimator, **kwargs):
     '''
-    Bin the image and then perform 2D polynomial (currently only 2D parabolic) fit on the binned image.
+    Bin the image and then perform 2D polynomial fit on the binned image.
     ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
     
     Parameters
@@ -781,22 +783,28 @@ def Perform_2D_fit(img, estimator, **kwargs):
     estimator : RANSACRegressor(),
                 LinearRegression(),
                 TheilSenRegressor(),
-                HuberRegressor()
+                HuberRegressor(),
+                RidgeCV(),
+    			LassoCV()
     kwargs:
     image_name : str
         Image name (for display purposes)
+    degree : int 
+        The maximal degree of the polynomial features for sklearn.preprocessing.PolynomialFeatures. Default is 2.
     bins : int
         binsize for image binning. If not provided, bins=10
     Analysis_ROIs : list of lists: [[left, right, top, bottom]]
         list of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the parabolic fit.
     calc_corr : boolean
-        If True - the full image correction is calculated
+        If True - the full image correction is calculated.
     ignore_Y  : boolean
-        If True - the parabolic fit to only X is perfromed
+        If True - the polynomial fit to only X is perfromed.
+    linear_Y  : boolean
+        If True - the only linear terms in Y are allowed. This kwarg is ignored if ignore_Y is True. 
     disp_res : boolean
-        (default is False) - to plot/ display the results
+        (default is False) - to plot/ display the results.
     save_res_png : boolean
-        save the analysis output into a PNG file (default is False)
+        save the analysis output into a PNG file (default is False).
     res_fname : string
         filename for the result image ('Image_Flattening.png')
     Xsect : int
@@ -809,9 +817,11 @@ def Perform_2D_fit(img, estimator, **kwargs):
     intercept, coefs, mse, img_correction_array
     '''
     image_name = kwargs.get("image_name", 'RawImageA')
+    degree = kwargs.get("degree", 2)
     ysz, xsz = img.shape
     calc_corr = kwargs.get("calc_corr", False)
     ignore_Y = kwargs.get("ignore_Y", False)
+    linear_Y = kwargs.get("linear_Y", False)
     Xsect = kwargs.get("Xsect", xsz//2)
     Ysect = kwargs.get("Ysect", ysz//2)
     disp_res = kwargs.get("disp_res", True)
@@ -820,6 +830,17 @@ def Perform_2D_fit(img, estimator, **kwargs):
     save_res_png = kwargs.get("save_res_png", False)
     res_fname = kwargs.get("res_fname", 'Image_Flattening.png')
     dpi = kwargs.get("dpi", 300)
+
+    # generate coefficient names
+    data00 = pd.DataFrame({
+        'x': np.random.randint(low=1, high=10, size=2),
+        'y': np.random.randint(low=-1, high=1, size=2)})
+    PolyFeats00 = PolynomialFeatures(degree=degree)
+    dfPoly = pd.DataFrame(
+        data=PolyFeats00.fit_transform(data00), 
+        columns=PolyFeats00.get_feature_names(data00.columns))
+    coeff_columns=', '.join(PolyFeats00.get_feature_names(data00.columns))
+    # end of name generation
     
     img_binned = img[0:ysz//bins*bins, 0:xsz//bins*bins].astype(float).reshape(ysz//bins, bins, xsz//bins, bins).sum(3).sum(1)/bins/bins
     if len(Analysis_ROIs)>0:
@@ -856,8 +877,11 @@ def Perform_2D_fit(img, estimator, **kwargs):
     yf_1d = yf.ravel()/bins
     Xf = np.vstack((xf_1d, yf_1d)).T
 
-    model = make_pipeline(PolynomialFeatures(2), estimator)
+    model = make_pipeline(PolynomialFeatures(degree), estimator)
 
+    ymean = np.mean(yb_1d)
+    model.fit(X, img_1D)
+    '''
     if ignore_Y:
         ymean = np.mean(yb_1d)
         yb_1d_flat = yb_1d*0.0+ymean
@@ -866,25 +890,89 @@ def Perform_2D_fit(img, estimator, **kwargs):
 
     else:
         model.fit(X, img_1D)
-    
-    model = make_pipeline(PolynomialFeatures(2), estimator)
+    '''
+
+    model = make_pipeline(PolynomialFeatures(degree), estimator)
     model.fit(X, img_1D)
     if hasattr(model[-1], 'estimator_'):
         if ignore_Y:
-            model[-1].estimator_.coef_[0] = model[-1].estimator_.coef_[0] + model[-1].estimator_.coef_[2]*ymean + model[-1].estimator_.coef_[5]*ymean*ymean
-            model[-1].estimator_.coef_[1] = model[-1].estimator_.coef_[1] + model[-1].estimator_.coef_[4]*ymean
-            model[-1].estimator_.coef_[2] = 0.0
-            model[-1].estimator_.coef_[4] = 0.0
-            model[-1].estimator_.coef_[5] = 0.0
+            if degree == 2:
+                # Estimator coefficients (1  x  y  x^2  x*y  y^2)
+                model[-1].estimator_.coef_[0] = model[-1].estimator_.coef_[0] + model[-1].estimator_.coef_[2]*ymean + model[-1].estimator_.coef_[5]*ymean*ymean
+                model[-1].estimator_.coef_[1] = model[-1].estimator_.coef_[1] + model[-1].estimator_.coef_[4]*ymean
+                model[-1].estimator_.coef_[2] = 0.0
+                model[-1].estimator_.coef_[4:6] = 0.0
+            if degree == 4:
+                # Estimator coeff. inds:  0  1  2  3    4    5    6    7      8      9    10   11      12       13    14
+                # Estimator coefficients (1  x  y x^2  x*y  y^2  x^3  x^2*y  x*y^2  y^3  x^4  x^3*y  x^2*y^2  x*y^3  y^4)
+                model[-1].estimator_.coef_[0] = model[-1].estimator_.coef_[0] + model[-1].estimator_.coef_[2]*ymean + model[-1].estimator_.coef_[5]*ymean*ymean
+                + model[-1].estimator_.coef_[9]*ymean*ymean*ymean + model[-1].estimator_.coef_[14]*ymean*ymean*ymean*ymean
+                model[-1].estimator_.coef_[1] = model[-1].estimator_.coef_[1] + model[-1].estimator_.coef_[4]*ymean + model[-1].estimator_.coef_[8]*ymean*ymean + model[-1].estimator_.coef_[13]*ymean*ymean*ymean
+                model[-1].estimator_.coef_[3] = model[-1].estimator_.coef_[3] + model[-1].estimator_.coef_[7]*ymean + model[-1].estimator_.coef_[12]*ymean*ymean
+                model[-1].estimator_.coef_[6] = model[-1].estimator_.coef_[6] + model[-1].estimator_.coef_[11]*ymean
+                model[-1].estimator_.coef_[2] = 0.0
+                model[-1].estimator_.coef_[4:6] = 0.0
+                model[-1].estimator_.coef_[7:10] = 0.0
+                model[-1].estimator_.coef_[11:] = 0.0
+        else:
+            if linear_Y:
+                if degree == 2:
+                    # Estimator coefficients (1  x  y  x^2  x*y  y^2)
+                    model[-1].estimator_.coef_[2] = model[-1].estimator_.coef_[2] + model[-1].estimator_.coef_[5]*ymean
+                    model[-1].estimator_.coef_[5] = 0.0
+                if degree == 4:
+                    # Estimator coeff. inds:  0  1  2  3    4    5    6    7      8      9    10   11      12       13    14
+                    # Estimator coefficients (1  x  y x^2  x*y  y^2  x^3  x^2*y  x*y^2  y^3  x^4  x^3*y  x^2*y^2  x*y^3  y^4)
+                    model[-1].estimator_.coef_[2] = model[-1].estimator_.coef_[2] + model[-1].estimator_.coef_[5]*ymean + model[-1].estimator_.coef_[9]*ymean*ymean + model[-1].estimator_.coef_[14]*ymean*ymean*ymean
+                    model[-1].estimator_.coef_[4] = model[-1].estimator_.coef_[4] + model[-1].estimator_.coef_[8]*ymean + model[-1].estimator_.coef_[13]*ymean*ymean
+                    model[-1].estimator_.coef_[7] = model[-1].estimator_.coef_[7] + model[-1].estimator_.coef_[12]*ymean
+                    model[-1].estimator_.coef_[5] = 0.0
+                    model[-1].estimator_.coef_[8] = 0.0
+                    model[-1].estimator_.coef_[9] = 0.0
+                    model[-1].estimator_.coef_[12] = 0.0
+                    model[-1].estimator_.coef_[13] = 0.0
+                    model[-1].estimator_.coef_[14] = 0.0
         coefs = model[-1].estimator_.coef_
         intercept = model[-1].estimator_.intercept_
     else:
         if ignore_Y:
-            model[-1].coef_[0] = model[-1].coef_[0] + model[-1].coef_[2]*ymean + model[-1].coef_[5]*ymean*ymean
-            model[-1].coef_[1] = model[-1].coef_[1] + model[-1].coef_[4]*ymean
-            model[-1].coef_[2] = 0.0
-            model[-1].coef_[4] = 0.0
-            model[-1].coef_[5] = 0.0
+            if degree==2:
+                # Estimator coefficients (1  x  y  x^2  x*y  y^2)
+                model[-1].coef_[0] = model[-1].coef_[0] + model[-1].coef_[2]*ymean + model[-1].coef_[5]*ymean*ymean
+                model[-1].coef_[1] = model[-1].coef_[1] + model[-1].coef_[4]*ymean
+                model[-1].coef_[2] = 0.0
+                model[-1].coef_[4] = 0.0
+                model[-1].coef_[5] = 0.0
+            if degree == 4:
+                # Estimator coeff. inds:  0  1  2  3    4    5    6    7      8      9    10   11      12       13    14
+                # Estimator coefficients (1  x  y x^2  x*y  y^2  x^3  x^2*y  x*y^2  y^3  x^4  x^3*y  x^2*y^2  x*y^3  y^4)
+                model[-1].coef_[0] = model[-1].coef_[0] + model[-1].coef_[2]*ymean + model[-1].coef_[5]*ymean*ymean
+                + model[-1].coef_[9]*ymean*ymean*ymean + model[-1].coef_[14]*ymean*ymean*ymean*ymean
+                model[-1].coef_[1] = model[-1].coef_[1] + model[-1].coef_[4]*ymean + model[-1].coef_[8]*ymean*ymean + model[-1].coef_[13]*ymean*ymean*ymean
+                model[-1].coef_[3] = model[-1].coef_[3] + model[-1].coef_[7]*ymean + model[-1].coef_[12]*ymean*ymean
+                model[-1].coef_[6] = model[-1].coef_[6] + model[-1].coef_[11]*ymean
+                model[-1].coef_[2] = 0.0
+                model[-1].coef_[4:6] = 0.0
+                model[-1].coef_[7:10] = 0.0
+                model[-1].coef_[11:] = 0.0
+        else:
+            if linear_Y:
+                if degree == 2:
+                    # Estimator coefficients (1  x  y  x^2  x*y  y^2)
+                    model[-1].coef_[2] = model[-1].coef_[5] *ymean
+                    model[-1].coef_[5] = 0.0
+                if degree == 4:
+                    # Estimator coeff. inds:  0  1  2  3    4    5    6    7      8      9    10   11      12       13    14
+                    # Estimator coefficients (1  x  y x^2  x*y  y^2  x^3  x^2*y  x*y^2  y^3  x^4  x^3*y  x^2*y^2  x*y^3  y^4)
+                    model[-1].coef_[2] = model[-1].coef_[2] + model[-1].coef_[5]*ymean + model[-1].coef_[9]*ymean*ymean + model[-1].coef_[14]*ymean*ymean*ymean
+                    model[-1].coef_[4] = model[-1].coef_[4] + model[-1].coef_[8]*ymean + model[-1].coef_[13]*ymean*ymean
+                    model[-1].coef_[7] = model[-1].coef_[7] + model[-1].coef_[12]*ymean
+                    model[-1].coef_[5] = 0.0
+                    model[-1].coef_[8] = 0.0
+                    model[-1].coef_[9] = 0.0
+                    model[-1].coef_[12] = 0.0
+                    model[-1].coef_[13] = 0.0
+                    model[-1].coef_[14] = 0.0
         coefs = model[-1].coef_
         intercept = model[-1].intercept_
     img_fit_1d = model.predict(X)
@@ -897,7 +985,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
         img_correction_array = img * 0.0
         
     if disp_res:
-        print('Estimator coefficients ( 1  x  y  x^2  x*y  y^2): ', coefs)
+        print('Estimator coefficients ' + coeff_columns + ' : ', coefs)
         print('Estimator intercept: ', intercept)
         
         fig, axs = subplots(2,2, figsize = (12, 8))
@@ -5096,7 +5184,7 @@ class FIBSEM_frame:
         Show the box used for evaluating the noise
 
     determine_field_fattening_parameters(**kwargs):
-        Perfrom 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
+        Perfrom 2D polynomial fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
 
     flatten_image(**kwargs):
         Flatten the image
@@ -6307,7 +6395,7 @@ class FIBSEM_frame:
 
     def determine_field_fattening_parameters(self, **kwargs):
         '''
-        Perfrom 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
+        Perfrom 2D polynomial fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
         
         Parameters
         ----------
@@ -6324,8 +6412,12 @@ class FIBSEM_frame:
             list of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the parabolic fit.
         calc_corr : boolean
             If True - the full image correction is calculated
+        degree : int 
+            The maximal degree of the polynomial features for sklearn.preprocessing.PolynomialFeatures. Default is 2.
         ignore_Y  : boolean
-            If True - the parabolic fit to only X is perfromed
+            If True - the polynomial fit to only X is perfromed
+        liear_Y  : boolean
+            If True - the polynomial fit to only X is perfromed, only linear variation along Y is allowed
         Xsect : int
             X - coordinate for Y-crossection
         Ysect : int
@@ -6392,7 +6484,7 @@ class FIBSEM_frame:
                 print('Image Flattening Info saved into the binary file: ', self.image_correction_file)
         #self.intercept = intercept
         self.img_correction_coeffs = img_correction_coeffs
-        return intercept, img_correction_coeffs, img_correction_arrays
+        return img_correction_intercepts, img_correction_coeffs, img_correction_arrays
 
         
     def flatten_image(self, **kwargs):
