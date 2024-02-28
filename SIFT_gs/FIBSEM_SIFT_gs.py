@@ -2094,11 +2094,11 @@ def bin_crop_frames(bin_crop_parameters):
         target_frame_ID : int
             frame to save
         xbin_factor, ybin_factor, zbin_factor,
-        mode,
+        mode, flipY
         xi, xa, yi, ya
     Returns : target_frame_ID, transformed_frame
     '''
-    mrc_filename, dtp, start_frame_ID, stop_frame_ID, target_frame_ID, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya = bin_crop_parameters
+    mrc_filename, dtp, start_frame_ID, stop_frame_ID, target_frame_ID, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya = bin_crop_parameters
     nx_binned = (xa-xi)//xbin_factor
     ny_binned = (ya-yi)//ybin_factor
     xa = xi + nx_binned * xbin_factor
@@ -2115,6 +2115,8 @@ def bin_crop_frames(bin_crop_parameters):
         else:
             zbinnd_fr = np.sum(np.sum(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
     mrc_obj.close()
+    if flipY:
+        zbinnd_fr = np.flip(zbinnd_fr, axis = 0)
     return target_frame_ID, zbinnd_fr.astype(dtp)
 
 
@@ -2140,6 +2142,10 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
             binning factor in y-direction
         mode  : str
             Binning mode. Default is 'mean', other option is 'sum'
+        flipY : boolean
+            If Trye, the data will be flipped along Y axis (0 index) AFTER cropping.
+        invert_data : boolean
+            If True, invert the data
         frmax : int
             Maximum frame to bin. If not present, the entire file is binned
         binned_copped_filename : str
@@ -2190,6 +2196,8 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
 
     mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
+    flipY = kwargs.get('flipY', False)
+    invert_data = kwargs.get('invert_data', False)
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     header = mrc_obj.header
     '''
@@ -2246,7 +2254,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     desc = 'Building Parameters Sets'
     params_mult = []
     for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
-        params = [mrc_filename, dt, st_frame, (min(st_frame+zbin_factor, nz-1)), j, xbin_factor, ybin_factor, zbin_factor, mode, xi, xa, yi, ya]
+        params = [mrc_filename, dt, st_frame, (min(st_frame+zbin_factor, nz-1)), j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya]
         params_mult.append(params)
     
     print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
@@ -2282,6 +2290,13 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
         for future in as_completed(futures):
             j, binned_cropped_fr = future.result()
             if 'mrc' in fnm_types:
+                if invert_data:
+                    if mrc_mode == 0:  # uint8
+                        binned_cropped_fr = 255 - binned_cropped_fr
+                    if mrc_mode == 6:  # uint16
+                        binned_cropped_fr = 65535 - binned_cropped_fr
+                    if mrc_mode != 0 and mrc_mode != 6:
+                        binned_cropped_fr = np.invert(binned_cropped_fr)
                 mrc_new.data[j,:,:] = binned_cropped_fr
             if 'h5' in fnm_types:
                 bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
@@ -2291,6 +2306,13 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
         for params in tqdm(params_mult, desc = desc):
             j, binned_cropped_fr = bin_crop_frames(params)
             if 'mrc' in fnm_types:
+                if invert_data:
+                    if mrc_mode == 0:  # uint8
+                        binned_cropped_fr = 255 - binned_cropped_fr
+                    if mrc_mode == 6:  # uint16
+                        binned_cropped_fr = 65535 - binned_cropped_fr
+                    if mrc_mode != 0 and mrc_mode != 6:
+                        binned_cropped_fr = np.invert(binned_cropped_fr)
                 mrc_new.data[j,:,:] = binned_cropped_fr
             if 'h5' in fnm_types:
                 bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
