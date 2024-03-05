@@ -1501,7 +1501,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     save_sample_frames_png : bolean
         If True, sample frames with superimposed eval box and registration analysis data will be saved into png files. Default is True
 
-    Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX workbook
+    Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX spreadsheet file
     '''
     mrc_filename  = os.path.normpath(mrc_filename)
 
@@ -3564,7 +3564,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     save_filename : str
         Path to the filename to save the results. If empty, tif_filename+'_RegistrationQuality.csv' will be used
 
-    Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX workbook
+    Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX spreadsheet file
     '''
     tif_filename = os.path.normpath(tif_filename)
     
@@ -3897,7 +3897,7 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     
     Parameters:
     Mill_Rate_Data_xlsx : str
-        Path to the xlsx workbook containing the Working Distance (WD), Milling Y Voltage (MV), and FOV center shifts data.
+        Path to the XLSX spreadsheet file containing the Working Distance (WD), Milling Y Voltage (MV), and FOV center shifts data.
     
     kwargs:
     Mill_Volt_Rate_um_per_V : float
@@ -3963,7 +3963,7 @@ def generate_report_ScanRate_EHT_xlsx(ScanRate_EHT_Data_xlsx, **kwargs):
     
     Parameters:
     ScanRate_EHT_Data_xlsx : str
-        Path to the xlsx workbook containing the Scan Rate and EHT data.
+        Path to the XLSX spreadsheet file containing the Scan Rate and EHT data.
     
     kwargs:
     '''
@@ -4017,7 +4017,7 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     
     Parameters:
     Mill_Rate_Data_xlsx : str
-        Path to the xlsx workbook containing the Working Distance (WD), Milling Y Voltage (MV), and FOV center shifts data.
+        Path to the XLSX spreadsheet file containing the Working Distance (WD), Milling Y Voltage (MV), and FOV center shifts data.
     
     kwargs:
     Mill_Volt_Rate_um_per_V : float
@@ -4081,7 +4081,7 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     
     Parameters:
     minmax_xlsx_file : str
-        Path to the xlsx workbook containing Min-Max data
+        Path to the XLSX spreadsheet file containing Min-Max data
     '''
     disp_res = kwargs.get('disp_res', False)
     if disp_res:
@@ -4169,7 +4169,7 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     
     Parameters:
     transf_matrix_xlsx_file : str
-        Path to the xlsx workbook containing Transformation Matrix data
+        Path to the XLSX spreadsheet file containing Transformation Matrix data
 
     '''
     disp_res = kwargs.get('disp_res', False)
@@ -4575,7 +4575,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
 
     Parameters:
     xlsx_fname : str
-        full path to the XLSX workbook file
+        full path to the XLSX spreadsheet file
     
     kwargs
     ---------
@@ -8376,7 +8376,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
     reg_summary, reg_summary_xlsx
         reg_summary : pandas DataFrame
         reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
-        reg_summary_xlsx : name of the XLSX workbook containing the data
+        reg_summary_xlsx : name of the XLSX spreadsheet file containing the data
     '''
 
     use_DASK = kwargs.get("use_DASK", True)  # do not use DASK the data is to be saved
@@ -10262,7 +10262,7 @@ class FIBSEM_dataset:
         reg_summary, reg_summary_xlsx
             reg_summary : pandas DataFrame
             reg_summary = pd.DataFrame(np.vstack((npts, error_abs_mean, image_nsad, image_ncc, image_mi)
-            reg_summary_xlsx : name of the XLSX workbook containing the data
+            reg_summary_xlsx : name of the XLSX spreadsheet file containing the data
         '''
 
         DASK_client = kwargs.get('DASK_client', '')
