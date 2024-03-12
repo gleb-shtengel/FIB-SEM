@@ -1184,6 +1184,18 @@ def Two_Image_FSC(img1, img2, **kwargs):
     kwargs:
     SNRt : float
         SNR threshold for determining the resolution bandwidth
+    fit_data : boolean
+        If True the BW will be extracted fron inverse power fit.
+        If False, the BW will be extracted from the smoothed FSC data
+    smooth_aperture : int
+        Smoothing aperture. Default is 20.
+    fit_data : boolean
+        If True the BW will be extracted fron inverse power fit.
+        If False, the BW will be extracted from the data
+    fit_power : int
+        parameter for FSC data fitting: FSC_fit  = a/(x**fit_power+a)
+    fr_cutoff : float
+        The fractional value between 0.0 and 1.0. The data points within the frequency range [0 : max_frequency*cutoff]  will be used.
     astart : float
         Start angle for radial averaging. Default is 0
     astop : float
@@ -1208,6 +1220,9 @@ def Two_Image_FSC(img1, img2, **kwargs):
     xrange : [float, float]
         range of x axis in FSC plot in inverse pixels
         if not provided [0, 0.5] range will be used
+    verbose : boolean
+        print the outputs. Default is False
+
     
     Returns FSC_sp_frequencies, FSC_data, x2, T, FSC_bw
         FSC_sp_frequencies : float array 
@@ -1223,6 +1238,10 @@ def Two_Image_FSC(img1, img2, **kwargs):
     [1]. M. van Heela, and M. Schatzb, "Fourier shell correlation threshold criteria," Journal of Structural Biology 151, 250-262 (2005)
     '''   
     SNRt = kwargs.get("SNRt", 0.1)
+    smooth_aperture = kwargs.get("smooth_aperture", 20)
+    fit_data = kwargs.get("fit_data", False)
+    fit_power = kwargs.get("fit_power", 3)
+    fr_cutoff = kwargs.get("fr_cutoff", 0.9)
     astart = kwargs.get("astart", 0.0)
     astop = kwargs.get("astop", 90.0)
     symm = kwargs.get("symm", 4)
@@ -1233,6 +1252,8 @@ def Two_Image_FSC(img1, img2, **kwargs):
     img_labels = kwargs.get("img_labels", ['Image 1', 'Image 2'])
     dpi = kwargs.get("dpi", 300)
     pixel = kwargs.get("pixel", 0.0)
+    verbose = kwargs.get('verbose', False)
+    cmap = kwargs.get('cmap', 'Greys_r')
     xrange = kwargs.get("xrange", [0, 0.5])
     
     #Check whether the inputs dimensions match and the images are square
@@ -1270,8 +1291,16 @@ def Two_Image_FSC(img1, img2, **kwargs):
     #x2 = r/(np.shape(img1)[0]/sqrt(2.0))
     FSC_sp_frequencies = np.arange(np.shape(C)[0])/(np.shape(img1)[0])
     x2 = r/(np.shape(img1)[0])
-    FSC_data_smooth = smooth(FSC_data, 20)
-    FSC_bw = find_BW(FSC_sp_frequencies, FSC_data_smooth, SNRt)
+    FSC_data_smooth = smooth(FSC_data, smooth_aperture)
+    FSC_bw, fr_fit, FSC_fit, fitOK = find_BW(FSC_sp_frequencies, FSC_data_smooth,
+                              SNRt = SNRt,
+                              verbose = verbose,
+                              fit_data = fit_data,
+                              fit_power = fit_power,
+                              fr_cutoff = fr_cutoff)
+    if fitOK > 0:
+        if verbose:
+                print('Cannot determine BW accurately: not enough points')
     '''
     If the disp_res input is set to True, an output plot is generated. 
     '''
@@ -1286,8 +1315,8 @@ def Two_Image_FSC(img1, img2, **kwargs):
             fig.subplots_adjust(left=0.01, bottom=0.06, right=0.99, top=0.975, wspace=0.25, hspace=0.10)
             vmin1, vmax1 = get_min_max_thresholds(img1, disp_res=False)
             vmin2, vmax2 = get_min_max_thresholds(img2, disp_res=False)
-            axs0.imshow(img1, cmap='Greys', vmin=vmin1, vmax=vmax1)
-            axs1.imshow(img2, cmap='Greys', vmin=vmin2, vmax=vmax2)
+            axs0.imshow(img1, cmap=cmap, vmin=vmin1, vmax=vmax1)
+            axs1.imshow(img2, cmap=cmap, vmin=vmin2, vmax=vmax2)
             x = np.linspace(0, 1.41, 500)
             axs2.set_xlim(-1,1)
             axs2.set_ylim(-1,1)
@@ -1313,12 +1342,20 @@ def Two_Image_FSC(img1, img2, **kwargs):
     if disp_res or ax != '':
         ax.plot(FSC_sp_frequencies, FSC_data, label = 'FSC data', color='r')
         ax.plot(FSC_sp_frequencies, FSC_data_smooth, label = 'FSC data smoothed', color='b')
-        ax.plot(x2, x2*0.0+SNRt, '--', label = 'Threshold SNR = {:.3f}'.format(SNRt), color='m')
         if pixel>1e-6:
             label = 'FSC BW = {:.3f} inv.pix., or {:.2f} nm'.format(FSC_bw, pixel/FSC_bw)
         else:
             label = 'FSC BW = {:.3f}'.format(FSC_bw)
         ax.plot(np.array((FSC_bw,FSC_bw)), np.array((0.0,1.0)), '--', label = label, color = 'g')
+        if fit_data:
+            ax.plot(fr_fit, FSC_fit, label = 'a/(x**{:d}+a) Fit'.format(fit_power), linewidth=1, color='g')
+            ax.plot(fr_fit, fr_fit*0.0+SNRt, '--', label = 'Threshold SNR = {:.3f}'.format(SNRt), color='m')
+        else:
+            ax.plot(FSC_sp_frequencies, FSC_sp_frequencies*0.0+SNRt, '--', label = 'Threshold SNR = {:.3f}'.format(SNRt), color='m')
+
+        ax.plot([FSC_bw, FSC_bw], [0, 1], '--', label = 'BW = {:.3f}'.format(FSC_bw), color='brown')
+        ax.legend()
+        ax.set_ylim(0, 1.05)
         ax.set_xlim(xrange)
         ax.legend()
         ax.set_xlabel('Spatial Frequency (inverse pixels)')

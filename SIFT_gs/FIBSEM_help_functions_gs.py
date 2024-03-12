@@ -195,13 +195,78 @@ def argmax2d(X):
     return np.unravel_index(X.argmax(), X.shape)
 
 
-def find_BW(fr, FSC, SNRt):
-    npts = np.shape(FSC)[0]*0.75
-    j = 15
-    while (j<npts-1) and FSC[j]>SNRt:
-        j = j+1
-    BW = fr[j-1] + (fr[j]-fr[j-1])*(SNRt-FSC[j-1])/(FSC[j]-FSC[j-1])
-    return BW
+def find_BW(fr, FSC, **kwargs):
+    '''
+    Find Cutoff Bandwidth using threshold parameter OSNRt. ©G.Shtengel 03/2024 gleb.shtengel@gmail.com
+    Parameters
+    ---------
+    fr : array of Frequency points
+    FSC : array of FSC data points
+    
+    kwargs
+    ---------
+    SNRt : float
+        SNR threshold for determining the resolution bandwidth
+    verbose : boolean
+        print the outputs. Default is False
+    fit_data : boolean
+        If True the BW will be extracted fron inverse power fit.
+        If False, the BW will be extracted from the data
+    fit_power : int
+        parameter for FSC data fitting: FSC_fit  = a/(x**fit_power+a)
+    fr_cutoff : float
+        The fractional value between 0.0 and 1.0. The data points within the frequency range [0 : max_frequency*cutoff]  will be used.
+
+    Returns
+        BW, fr_fit, FSC_fit
+    
+    '''
+    SNRt = kwargs.get('SNRt', 0.143)
+    verbose = kwargs.get('verbose', False)
+    fit_data = kwargs.get('fit_data', False)
+    fit_power = kwargs.get('fit_power', 3)
+    fr_cutoff = kwargs.get('fr_cutoff', 0.9)
+    def inverse_power(x, a):
+        return a / (x**fit_power + a)
+    
+    ind_cutoff = int(np.shape(FSC)[0] * fr_cutoff)
+    inds = np.arange(np.shape(FSC)[0])
+    valid_inds = (np.isnan(FSC)==False) * (inds < ind_cutoff)
+    
+    fr_limited = fr[valid_inds]
+    FSC_limited = FSC[valid_inds]
+    
+    if fit_data:
+        if verbose:
+            print('Using a/(x**{:d}+a) Fit of the Raw Data to determine BW'.format(fit_power))
+        pguess = [1.0]
+        # Fit the data
+        popt, pcov = curve_fit(inverse_power, fr_limited, FSC_limited, p0 = pguess)
+        a = popt[0]
+        BW = (a/SNRt - a)**(1.0/fit_power)
+        fr_fit = np.linspace(fr_limited[0], BW*1.1, 25)
+        FSC_fit = inverse_power(fr_fit, popt)
+        fitOK = 0
+    else:
+        if verbose:
+            print('Using Raw Data to determine BW')
+        fr_fit = fr_limited
+        FSC_fit = FSC_limited
+        npts = len(fr_fit)
+        j = 1
+        while (j<npts-1) and FSC_limited[j]>SNRt:
+            j = j+1
+        if j >= npts-1:
+            if verbose:
+                print('Cannot determine BW accurately: not enough points')
+            BW = fr_limited[j]
+            fitOK = 1
+        else:
+            BW = fr_limited[j-1] + (fr_limited[j]-fr_limited[j-1])*(SNRt-FSC_limited[j-1])/(FSC_limited[j]-FSC_limited[j-1])
+            fitOK = 0
+    if verbose:
+        print('BW = {:.3f}'.format(BW))
+    return BW, fr_fit, FSC_fit, fitOK
 
 
 def radial_profile(data, center):
