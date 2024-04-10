@@ -1759,7 +1759,8 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     #Stack_info = Stack_info.append(header_info)  append has been removed from pandas as of 2.0.0, use concat instead
     Stack_info = pd.concat([Stack_info, header_info], axis=1)
     Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
-    xlsx_writer.save()
+    #xlsx_writer.save()
+    xlsx_writer.close()
 
     return reg_summary, registration_summary_xlsx
 
@@ -3061,7 +3062,8 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
         fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
         sheet_names = ['{:.0f}%-{:.0f}% summary (pts)'.format(bounds[0]*100, bounds[1]*100),
             '{:.0f}%-{:.0f}% summary (slopes)'.format(bounds[0]*100, bounds[1]*100)]
-        xlsx_writer.save()
+        #xlsx_writer.save()
+        xlsx_writer.close()
 
     # return results_2D
     return results_file_xlsx, frame_inds, error_flags, blobs_LoG, tr_results
@@ -3756,7 +3758,8 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     #Stack_info = Stack_info.append(header_info)  append has been removed from pandas as of 2.0.0, use concat instead
     Stack_info = pd.concat([Stack_info, header_info], axis=1)
     Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
-    xlsx_writer.save()
+    #xlsx_writer.save()
+    xlsx_writer.close()
 
     return reg_summary, registration_summary_xlsx
 
@@ -5164,7 +5167,8 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         for reg_data, label in zip(tqdm(reg_datas, desc='saving the data into xlsx file'), labels):
             data_fn = label[0:31]
             reg_data.to_excel(writer, sheet_name=data_fn)
-        writer.save()
+        #writer.save()
+        writer.close()
     return xlsx_fname
 
 
@@ -6903,7 +6907,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     minmax_df.to_excel(xlsx_writer, index=None, sheet_name='FIBSEM Data')
     kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
     kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
-    xlsx_writer.save()
+    #xlsx_writer.save()
+    xlsx_writer.close()
            
     return [FIBSEM_Data_xlsx_path, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y, ScanRate, EHT, SEMSpecimenI]
 
@@ -7588,7 +7593,8 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
     kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
 
-    xlsx_writer.save()
+    #xlsx_writer.save()
+    xlsx_writer.close()
 
     DumpObject = [kwargs, npts, error_abs_mean,
               transformation_matrix, s00_cum_orig, s11_cum_orig, s00_fit, s11_fit,
@@ -8510,7 +8516,8 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
         #Stack_info = Stack_info.append(SIFT_info)  append has been removed from pandas as of 2.0.0, use concat instead
         Stack_info = pd.concat([Stack_info, SIFT_info], axis=1)
         Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
-        xlsx_writer.save()
+        #xlsx_writer.save()
+        xlsx_writer.close()
     else:
         registration_summary_xlsx = 'Registration data not saved'
 
@@ -11498,7 +11505,8 @@ class FIBSEM_dataset:
             fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
             sheet_names = ['{:.0f}%-{:.0f}% summary (pts)'.format(bounds[0]*100, bounds[1]*100),
                 '{:.0f}%-{:.0f}% summary (slopes)'.format(bounds[0]*100, bounds[1]*100)]
-            xlsx_writer.save()
+            #xlsx_writer.save()
+            xlsx_writer.close()
         
         # return results_2D
         return results_file_xlsx, frame_inds, error_flags, blobs_LoG, tr_results
