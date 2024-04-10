@@ -1757,7 +1757,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     Stack_info = pd.DataFrame([{'Stack Filename' : mrc_filename, 'Sample_ID' : Sample_ID, 'invert_data' : invert_data}]).T # prepare to be save in transposed format
     header_info = pd.DataFrame([header_dict]).T
     #Stack_info = Stack_info.append(header_info)  append has been removed from pandas as of 2.0.0, use concat instead
-    Stack_info = pd.concat(Stack_info, header_info)
+    Stack_info = pd.concat([Stack_info, header_info], axis=1)
     Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
     xlsx_writer.save()
 
@@ -3754,7 +3754,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     Stack_info = pd.DataFrame([{'Stack Filename' : tif_filename, 'Sample_ID' : Sample_ID, 'invert_data' : invert_data}]).T # prepare to be save in transposed format
     header_info = pd.DataFrame([header_dict]).T
     #Stack_info = Stack_info.append(header_info)  append has been removed from pandas as of 2.0.0, use concat instead
-    Stack_info = pd.concat(Stack_info, header_info)
+    Stack_info = pd.concat([Stack_info, header_info], axis=1)
     Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
     xlsx_writer.save()
 
@@ -8508,7 +8508,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
             pass
         SIFT_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
         #Stack_info = Stack_info.append(SIFT_info)  append has been removed from pandas as of 2.0.0, use concat instead
-        Stack_info = pd.concat(Stack_info, SIFT_info)
+        Stack_info = pd.concat([Stack_info, SIFT_info], axis=1)
         Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
         xlsx_writer.save()
     else:
