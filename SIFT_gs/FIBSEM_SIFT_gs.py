@@ -1756,7 +1756,8 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
     Stack_info = pd.DataFrame([{'Stack Filename' : mrc_filename, 'Sample_ID' : Sample_ID, 'invert_data' : invert_data}]).T # prepare to be save in transposed format
     header_info = pd.DataFrame([header_dict]).T
-    Stack_info = Stack_info.append(header_info)
+    #Stack_info = Stack_info.append(header_info)  append has been removed from pandas as of 2.0.0, use concat instead
+    Stack_info = pd.concat(Stack_info, header_info)
     Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
     xlsx_writer.save()
 
@@ -3752,7 +3753,8 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
     Stack_info = pd.DataFrame([{'Stack Filename' : tif_filename, 'Sample_ID' : Sample_ID, 'invert_data' : invert_data}]).T # prepare to be save in transposed format
     header_info = pd.DataFrame([header_dict]).T
-    Stack_info = Stack_info.append(header_info)
+    #Stack_info = Stack_info.append(header_info)  append has been removed from pandas as of 2.0.0, use concat instead
+    Stack_info = pd.concat(Stack_info, header_info)
     Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
     xlsx_writer.save()
 
@@ -4907,6 +4909,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         # data = pd.read_csv(fl)
         data = pd.read_excel(data_file, sheet_name='Registration Quality Statistics')
         reg_datas.append(data)
+
 
     lw0 = 0.5
     lw1 = 1
@@ -8504,7 +8507,8 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
         except:
             pass
         SIFT_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
-        Stack_info = Stack_info.append(SIFT_info)
+        #Stack_info = Stack_info.append(header_info)  append has been removed from pandas as of 2.0.0, use concat instead
+        Stack_info = pd.concat(Stack_info, header_info)
         Stack_info.to_excel(xlsx_writer, header=False, sheet_name='Stack Info')
         xlsx_writer.save()
     else:
