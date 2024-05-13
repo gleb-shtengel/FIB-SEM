@@ -832,8 +832,8 @@ def Perform_2D_fit(img, estimator, **kwargs):
     PolyFeats00 = PolynomialFeatures(degree=degree)
     dfPoly = pd.DataFrame(
         data=PolyFeats00.fit_transform(data00), 
-        columns=PolyFeats00.get_feature_names(data00.columns))
-    coeff_columns=', '.join(PolyFeats00.get_feature_names(data00.columns))
+        columns=PolyFeats00.get_feature_names_out(data00.columns))
+    coeff_columns=', '.join(PolyFeats00.get_feature_names_out(data00.columns))
     # end of name generation
     
     img_binned = img[0:ysz//bins*bins, 0:xsz//bins*bins].astype(float).reshape(ysz//bins, bins, xsz//bins, bins).sum(3).sum(1)/bins/bins
@@ -3783,7 +3783,7 @@ def analyze_transformation_matrix(transformation_matrix, xf_filename):
 
     prev_mt = np.eye(3,3)
     for j, cur_mt in enumerate(tqdm(transformation_matrix, desc='Calculating Cummilative Transformation Matrix')):
-        if any(np.isnan(cur_mt)):
+        if np.any(np.isnan(cur_mt)):
             print('Frame: {:d} has ill-defined transformation matrix, will use identity transformation instead:'.format(j))
             print(cur_mt)
         else:
@@ -7464,7 +7464,7 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     tr_matr_cum = transformation_matrix.copy()   
     prev_mt = np.eye(3,3)
     for j, cur_mt in enumerate(tqdm(transformation_matrix, desc='Calculating Cummilative Transformation Matrix')):
-        if any(np.isnan(cur_mt)):
+        if np.any(np.isnan(cur_mt)):
             print('Frame: {:d} has ill-defined transformation matrix, will use identity transformation instead:'.format(j))
             print(cur_mt)
         else:
