@@ -7840,7 +7840,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     axs[1].set_xlim(xi, xa)
     axs[1].legend(loc='center', fontsize=fsz)
     axs[0].set_title('Data Min and Max with thr_min={:.0e},  thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize = fsz)
-    for ax in ravel(axs):
+    for ax in axs.ravel():
         ax.grid(True)
         
     t0 = time.time()
@@ -8071,7 +8071,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     axt.text(0.55, 0.7, '{:.4f} {:.4f} {:.4f}'.format(transform_matrix[0,0], transform_matrix[0,1], transform_matrix[0,2]), transform=axt.transAxes, fontsize=fsz-1)
     axt.text(0.55, 0.6, '{:.4f} {:.4f} {:.4f}'.format(transform_matrix[1,0], transform_matrix[1,1], transform_matrix[1,2]), transform=axt.transAxes, fontsize=fsz-1)
     
-    for ax in ravel(axs):
+    for ax in axs.ravel():
         ax.grid(True)
     
     fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, kp_max_num={:d}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, kp_max_num, comp_time), fontsize=fszl)
