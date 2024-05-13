@@ -16,7 +16,7 @@ from IPython.core.pylabtools import figsize, getfigs
 from PIL import Image as PILImage
 from PIL.TiffTags import TAGS
 
-from struct import *
+from struct import unpack
 #from tqdm import tqdm_notebook as tqdm
 from tqdm.notebook import tqdm
 
