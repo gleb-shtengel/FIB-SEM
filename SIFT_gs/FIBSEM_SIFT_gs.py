@@ -438,7 +438,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
             hist_patch.set_facecolor('lime')
         for hist_patch in np.array(hist_patches)[bin_centers>range_analysis[1]]:
             hist_patch.set_facecolor('red')
-        ylim3=array(axs3.get_ylim())
+        ylim3=np.array(axs3.get_ylim())
         I_min, I_max = range_analysis 
         axs3.plot([I_min, I_min],[ylim3[0]-1000, ylim3[1]], color='lime', linestyle='dashed', label='$I_{min}$' +'={:.1f}'.format(I_min))
         axs3.plot([I_max, I_max],[ylim3[0]-1000, ylim3[1]], color='red', linestyle='dashed', label='$I_{max}$' +'={:.1f}'.format(I_max))
@@ -482,7 +482,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         axs4.set_ylabel('ROI Image Intensity Variance', fontsize=fs)
         axs4.plot(mean_val_fit, var_val_fit, color='orange', label='Fit:  y = (x {:.1f}) * {:.2f}'.format(DarkCount, NF_slope))
         axs4.legend(loc = 'upper left', fontsize=fs)
-        ylim4=array(axs4.get_ylim())
+        ylim4=np.array(axs4.get_ylim())
         V_min = (I_min-DarkCount)*NF_slope
         V_max = (I_max-DarkCount)*NF_slope
         V_peak = (I_peak-DarkCount)*NF_slope
@@ -673,7 +673,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
             patch.set_facecolor('lime')
         for patch in np.array(patches)[bin_centers>range_analysis[1]]:
             patch.set_facecolor('red')
-        ylim4=array(axs[4].get_ylim())
+        ylim4=np.array(axs[4].get_ylim())
         axs[4].plot([range_analysis[0], range_analysis[0]],[ylim4[0]-1000, ylim4[1]], color='lime', linestyle='dashed', label='Ilow')
         axs[4].plot([range_analysis[1], range_analysis[1]],[ylim4[0]-1000, ylim4[1]], color='red', linestyle='dashed', label='Ihigh')
         axs[4].set_ylim(ylim4)
@@ -729,7 +729,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         axs[3].set_title('Noise Distribution', fontsize=fs+1)
         axs[3].set_xlabel('Image Intensity Mean', fontsize=fs+1)
         axs[3].set_ylabel('Image Intensity Variance', fontsize=fs+1)
-        ylim3=array(axs[3].get_ylim())
+        ylim3=np.array(axs[3].get_ylim())
         lbl_low = '$I_{low}$'+', thr={:.1e}'.format(thresholds_analysis[0])
         lbl_high = '$I_{high}$'+', thr={:.1e}'.format(thresholds_analysis[1])
         axs[3].plot([range_analysis[0], range_analysis[0]],[ylim3[0]-1000, ylim3[1]], color='lime', linestyle='dashed', label=lbl_low)
@@ -1072,50 +1072,6 @@ def mutual_information_2d(x, y, sigma=1, bin=256, normalized=False):
     else:
         mi = ( np.sum(jh * np.log(jh)) - np.sum(s1 * np.log(s1))
                - np.sum(s2 * np.log(s2)))
-    return mi
-
-
-def mutual_information_2d_cp(x, y, sigma=1, bin=256, normalized=False):
-    """
-    Computes (normalized) mutual information between two 1D variate from a
-    joint histogram using CUPY package.
-    Parameters
-    ----------
-    x : 1D array
-        first variable
-    y : 1D array
-        second variable
-    sigma: float
-        sigma for Gaussian smoothing of the joint histogram
-    Returns
-    -------
-    mi: float
-        the computed similarity measure
-    """
-    bins = (bin, bin)
-
-    jhf = cp.histogram2d(x, y, bins=bins)
-
-    # smooth the jh with a gaussian filter of given sigma
-    #ndimage.gaussian_filter(jh, sigma=sigma, mode='constant',
-    #                             output=jh)
-    # compute marginal histograms
-    jh = jhf[0] + EPS
-    sh = cp.sum(jh)
-    jh = jh / sh
-    s1 = cp.sum(jh, axis=0).reshape((-1, jh.shape[0]))
-    s2 = cp.sum(jh, axis=1).reshape((jh.shape[1], -1))
-
-    # Normalised Mutual Information of:
-    # Studholme,  jhill & jhawkes (1998).
-    # "A normalized entropy measure of 3-D medical image alignment".
-    # in Proc. Medical Imaging 1998, vol. 3338, San Diego, CA, pp. 132-143.
-    if normalized:
-        mi = ((cp.sum(s1 * cp.log(s1)) + cp.sum(s2 * cp.log(s2)))
-                / cp.sum(jh * cp.log(jh))) - 1
-    else:
-        mi = ( cp.sum(jh * cp.log(jh)) - np.sum(s1 * cp.log(s1))
-               - cp.sum(s2 * cp.log(s2)))
     return mi
 
 
@@ -1702,22 +1658,14 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
                 curr_frame = -1.0 * ((mrc_obj.data[frame_ind, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float))
             else:
                 curr_frame = (mrc_obj.data[frame_ind, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
-            if use_cp:
-                curr_frame_cp = cp.array(curr_frame)
-                prev_frame_cp = cp.array(prev_frame)
-                fr_mean = cp.abs(curr_frame_cp/2.0 + prev_frame_cp/2.0)
-            else:
-                fr_mean = abs(curr_frame/2.0 + prev_frame/2.0)
+
+            fr_mean = abs(curr_frame/2.0 + prev_frame/2.0)
 
             image_ncc[j-1] = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
-            if use_cp:
-                image_nsad[j-1] =  cp.asnumpy(cp.mean(cp.abs(curr_frame_cp-prev_frame_cp))/(cp.mean(fr_mean)-cp.amin(fr_mean)))
-                image_mi[j-1] = cp.asnumpy(mutual_information_2d_cp(prev_frame_cp.ravel(), curr_frame_cp.ravel(), sigma=1.0, bin=2048, normalized=True))
-            else:
-                image_nsad[j-1] =  mean(abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
-                image_mi[j-1] = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
+
+            image_nsad[j-1] =  mean(abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
+            image_mi[j-1] = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
             prev_frame = curr_frame.copy()
-            del curr_frame_cp, prev_frame_cp
             if (frame_ind in sample_frame_inds) and save_sample_frames_png:
                 filename_frame_png = os.path.splitext(save_filename)[0]+'_sample_image_frame{:d}.png'.format(j)
                 fr_img = (mrc_obj.data[frame_ind, :, :].astype(dt_mrc)).astype(float)
