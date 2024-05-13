@@ -43,7 +43,6 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 
-
 import dask
 import dask.array as da
 from dask.distributed import Client, progress, get_task_stream
@@ -143,9 +142,9 @@ def Single_Image_SNR(img, **kwargs):
     ysz, xsz = img.shape
 
     xy_ratio = xsz/ysz
-    data_FT = fftshift(fftn(ifftshift(img-img.mean())))
+    data_FT = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img-img.mean())))
     data_FC = (np.multiply(data_FT,np.conj(data_FT)))/xsz/ysz
-    data_ACR = np.abs(fftshift(fftn(ifftshift(data_FC))))
+    data_ACR = np.abs(np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(data_FC))))
     data_ACR_peak = data_ACR[ysz//2, xsz//2]
     data_ACR_log = np.log(data_ACR)
     data_ACR = data_ACR / data_ACR_peak
@@ -1212,8 +1211,8 @@ def Two_Image_FSC(img1, img2, **kwargs):
             print('input images must have the same dimensions')
         if ( np.shape(img1)[0] != np.shape(img1)[1]) :
             print('input images must be squares')
-    I1 = fftshift(fftn(ifftshift(img1)))  # I1 and I2 store the FFT of the images to be used in the calcuation for the FSC
-    I2 = fftshift(fftn(ifftshift(img2)))
+    I1 = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img1)))  # I1 and I2 store the FFT of the images to be used in the calcuation for the FSC
+    I2 = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img2)))
 
     C_imre = np.multiply(I1,np.conj(I2))
     C12_ar = abs(np.multiply((I1+I2),np.conj(I1+I2)))
@@ -2381,8 +2380,8 @@ def destreak_single_frame_kernel_shared(destreak_kernel, params):
         padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
     else:
         padded_fr = read_fr
-    destreaked_fft = fftshift(fftn(ifftshift(padded_fr))) * destreak_kernel
-    transformed_frame = np.real(fftshift(ifftn(ifftshift(destreaked_fft)))).astype(dt) * clip_mask
+    destreaked_fft = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(padded_fr))) * destreak_kernel
+    transformed_frame = np.real(np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(destreaked_fft)))).astype(dt) * clip_mask
     
     return target_frame_ID, transformed_frame
 
@@ -2746,8 +2745,8 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
         #print(xi, xa, yi, ya)
         pad_width = np.max((xi, xa, yi, ya))
         padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
-        destreaked_fft = fftshift(fftn(ifftshift(padded_fr))) * destreak_kernel
-        destreaked_data = np.real(fftshift(ifftn(ifftshift(destreaked_fft)))).astype(dt)
+        destreaked_fft = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(padded_fr))) * destreak_kernel
+        destreaked_data = np.real(np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(destreaked_fft)))).astype(dt)
         mrc_new_destreaked.data[j,:,:] = destreaked_data * clip_mask       
         mrc_new_destreaked_smoothed.data[j,:,:] = convolve2d(destreaked_data, smooth_kernel, mode='same').astype(dt) * clip_mask
         
