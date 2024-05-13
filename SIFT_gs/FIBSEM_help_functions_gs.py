@@ -18,7 +18,6 @@ from IPython.core.pylabtools import figsize, getfigs
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-sys.path.append('/SIFT_gs/')
 try:
     from SIFT_gs.FIBSEM_custom_transforms_gs import *
 except:
