@@ -460,7 +460,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         var_vals[j+1] = y
         
         if disp_res:
-            patch_col = get_cmap("gist_rainbow_r")((j)/(n_ROIs))
+            patch_col = plt.get_cmap("gist_rainbow_r")((j)/(n_ROIs))
             rect_patch = patches.Rectangle((xi,yi),abs(xa-xi)-2,abs(ya-yi)-2, linewidth=0.5, edgecolor=patch_col,facecolor='none')
             axs0.add_patch(rect_patch)
             axs4.plot(x, y, 'd', color = patch_col) #, label='patch {:d}'.format(j))
@@ -4902,7 +4902,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     ax_nmi.set_xlabel('Frame', fontsize=fs)
 
     spreads=[]
-    my_cols = [get_cmap("gist_rainbow_r")((nfls-j)/(nfls)) for j in np.arange(nfls)]
+    my_cols = [plt.get_cmap("gist_rainbow_r")((nfls-j)/(nfls)) for j in np.arange(nfls)]
     my_cols[0] = 'grey'
     my_cols[-1] = 'red'
     my_cols = kwargs.get("colors", my_cols)
@@ -4914,7 +4914,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     image_nmis = []
     frame_inds_glob = []
     for j, reg_data in enumerate(tqdm(reg_datas, desc='generating the registration quality summary plots')):
-        #my_col = get_cmap("gist_rainbow_r")((nfls-j)/(nfls))
+        #my_col = plt.get_cmap("gist_rainbow_r")((nfls-j)/(nfls))
         #my_cols.append(my_col)
         my_col = my_cols[j]
         pf = labels[j]
@@ -11112,7 +11112,7 @@ class FIBSEM_dataset:
         SNRs = []
 
         for j, (ImgB_fraction, br_result) in enumerate(zip(ImgB_fractions, br_results)):
-            my_col = get_cmap("gist_rainbow_r")((nbr-j)/(nbr-1))
+            my_col = plt.get_cmap("gist_rainbow_r")((nbr-j)/(nbr-1))
             try:
                 ncc = br_result['NCC']
             except:
