@@ -1,7 +1,4 @@
 import numpy as np
-use_cp = False
-if use_cp:
-    import cupy as cp
 import pandas as pd
 import os
 from pathlib import Path
@@ -13,12 +10,9 @@ from copy import deepcopy
 
 import matplotlib
 import matplotlib.image as mpimg
-from matplotlib import pylab, mlab, pyplot
-plt = pyplot
-from IPython.core.pylabtools import figsize, getfigs
-from pylab import *
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from IPython.core.pylabtools import figsize, getfigs
 from PIL import Image as PILImage
 from PIL.TiffTags import TAGS
 
@@ -234,7 +228,7 @@ def Single_Image_SNR(img, **kwargs):
         fs=12
         
         if xy_ratio < 2.5:
-            fig, axs = subplots(1,4, figsize = (20, 5))
+            fig, axs = plt.subplots(1,4, figsize = (20, 5))
         else:
             fig = plt.figure(figsize = (20, 5))
             ax0 = fig.add_subplot(2, 2, 1)
@@ -633,7 +627,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
 
     if disp_res:
         fs=11
-        fig, axss = subplots(2,3, figsize=(xsz,ysz),  gridspec_kw={"height_ratios" : [yx_ratio, 1.0]})
+        fig, axss = plt.subplots(2,3, figsize=(xsz,ysz),  gridspec_kw={"height_ratios" : [yx_ratio, 1.0]})
         fig.subplots_adjust(left=0.07, bottom=0.08, right=0.99, top=0.90, wspace=0.15, hspace=0.10)
         axs = axss.ravel()
         axs[0].text(-0.1, (0.98 + 0.1/yx_ratio), res_fname + ',       ' +  Notes, transform=axs[0].transAxes, fontsize=fs-2)
@@ -988,7 +982,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
         print('Estimator coefficients ' + coeff_columns + ' : ', coefs)
         print('Estimator intercept: ', intercept)
         
-        fig, axs = subplots(2,2, figsize = (12, 8))
+        fig, axs = plt.subplots(2,2, figsize = (12, 8))
         axs[0, 0].imshow(img_binned, cmap='Greys', vmin=vmin, vmax=vmax)
         axs[0, 0].grid(True)
         axs[0, 0].plot([Xsect//bins, Xsect//bins], [0, yszb], 'lime', linewidth = 0.5)
@@ -1728,7 +1722,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
                 filename_frame_png = os.path.splitext(save_filename)[0]+'_sample_image_frame{:d}.png'.format(j)
                 fr_img = (mrc_obj.data[frame_ind, :, :].astype(dt_mrc)).astype(float)
                 yshape, xshape = fr_img.shape
-                fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
+                fig, ax = plt.subplots(1,1, figsize=(3.0*xshape/yshape, 3))
                 fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
                 dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
                 if invert_data:
@@ -1874,7 +1868,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
                 ya_eval = ny
 
         if plot_internal:
-            fig, ax = subplots(1,1, figsize = (10.0, 11.0*ny/nx))
+            fig, ax = plt.subplots(1,1, figsize = (10.0, 11.0*ny/nx))
         dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
         if invert_data:
             ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
@@ -2170,6 +2164,8 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
         DASK_client : DASK client. If set to empty string '' (default), local computations are performed
         DASK_client_retries : int (default is 3)
             Number of allowed automatic retries if a task fails
+        max_futures : int
+            max number of running futures. Default is 5000.
         fnm_types : list of strings.
             File type(s) for output data. Options are: ['h5', 'mrc'].
             Defauls is ['mrc']. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
@@ -2209,6 +2205,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     '''
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    max_futures = kwargs.get('max_futures', 5000)
     try:
         client_services = DASK_client.scheduler_info()['services']
         if client_services:
@@ -2325,21 +2322,48 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     
     if use_DASK:
         print('Using DASK distributed')
-        futures = DASK_client.map(bin_crop_frames, params_mult, retries = DASK_client_retries)       
-        for future in as_completed(futures):
-            j, binned_cropped_fr = future.result()
-            if 'mrc' in fnm_types:
-                if invert_data:
-                    if mrc_mode == 0:  # uint8
-                        binned_cropped_fr = 255 - binned_cropped_fr
-                    if mrc_mode == 6:  # uint16
-                        binned_cropped_fr = 65535 - binned_cropped_fr
-                    if mrc_mode != 0 and mrc_mode != 6:
-                        binned_cropped_fr = np.invert(binned_cropped_fr)
-                mrc_new.data[j,:,:] = binned_cropped_fr
-            if 'h5' in fnm_types:
-                bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
-            future.cancel()
+        #futures = DASK_client.map(bin_crop_frames, params_mult, retries = DASK_client_retries)
+        # In case of a large source file, need to stadge the DASK jobs - cannot start all at once.
+        DASK_batch = 0
+        while len(params_mult) > max_futures:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting DASK batch {:d} with {:d} jobs, {:d} jobs remaining'.format(DASK_batch, max_futures, (len(params_mult)-max_futures)))
+            futures = [DASK_client.submit(bin_crop_frames, params) for params in params_mult[0:max_futures]]
+            params_mult = params_mult[max_futures:]
+            DASK_batch += 1
+        
+            for future in as_completed(futures):
+                j, binned_cropped_fr = future.result()
+                if 'mrc' in fnm_types:
+                    if invert_data:
+                        if mrc_mode == 0:  # uint8
+                            binned_cropped_fr = 255 - binned_cropped_fr
+                        if mrc_mode == 6:  # uint16
+                            binned_cropped_fr = 65535 - binned_cropped_fr
+                        if mrc_mode != 0 and mrc_mode != 6:
+                            binned_cropped_fr = np.invert(binned_cropped_fr)
+                    mrc_new.data[j,:,:] = binned_cropped_fr
+                if 'h5' in fnm_types:
+                    bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
+                future.cancel()
+
+        if len(params_mult) > 0:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting DASK batch {:d} with {:d} jobs'.format(DASK_batch, len(params_mult)))
+            futures = [DASK_client.submit(bin_crop_frames, params) for params in params_mult]
+            for future in as_completed(futures):
+                j, binned_cropped_fr = future.result()
+                if 'mrc' in fnm_types:
+                    if invert_data:
+                        if mrc_mode == 0:  # uint8
+                            binned_cropped_fr = 255 - binned_cropped_fr
+                        if mrc_mode == 6:  # uint16
+                            binned_cropped_fr = 65535 - binned_cropped_fr
+                        if mrc_mode != 0 and mrc_mode != 6:
+                            binned_cropped_fr = np.invert(binned_cropped_fr)
+                    mrc_new.data[j,:,:] = binned_cropped_fr
+                if 'h5' in fnm_types:
+                    bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
+                future.cancel()
+
     else:
         desc = 'Performing local computations'
         for params in tqdm(params_mult, desc = desc):
@@ -3290,7 +3314,7 @@ def mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
     yt = 1.5 
     clr_x = 'green'
     clr_y = 'blue'
-    fig, axs = subplots(4,3, figsize=(xs, ys))
+    fig, axs = plt.subplots(4,3, figsize=(xs, ys))
     fig.subplots_adjust(left=0.02, bottom=0.04, right=0.99, top=0.99, wspace=0.15, hspace=0.12)
 
     ax_maps = [axs[0,0], axs[0,1], axs[0,2], axs[2,0], axs[2,1], axs[2,2]]
@@ -3498,7 +3522,7 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
                 ya_eval = ny
 
         if plot_internal:
-            fig, ax = subplots(1,1, figsize = (10.0, 11.0*ny/nx))
+            fig, ax = plt.subplots(1,1, figsize = (10.0, 11.0*ny/nx))
         dmin, dmax = get_min_max_thresholds(eval_frame[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
         if invert_data:
             ax.imshow(eval_frame, cmap='Greys_r', vmin=dmin, vmax=dmax)
@@ -3553,7 +3577,7 @@ def evaluate_registration_two_frames_tif(params_tif):
     image_mi = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
     if save_frame_png:
         yshape, xshape = frame0.shape
-        fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
+        fig, ax = plt.subplots(1,1, figsize=(3.0*xshape/yshape, 3))
         fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
         dmin, dmax = get_min_max_thresholds(frame0[yi_eval:ya_eval, xi_eval:xa_eval])
         if invert_data:
@@ -3875,7 +3899,7 @@ def analyze_transformation_matrix(transformation_matrix, xf_filename):
     tr_matr_cum_residual[:, 1, 0] = s10_cum_new
 
     fs = 12
-    fig5, axs5 = subplots(3,3, figsize=(18, 12), sharex=True)
+    fig5, axs5 = plt.subplots(3,3, figsize=(18, 12), sharex=True)
     fig5.subplots_adjust(left=0.15, bottom=0.08, right=0.99, top=0.94)
 
     # plot scales
@@ -3970,7 +3994,7 @@ def generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs):
     fs = 12
     Mill_Volt_Rate_um_per_V = 31.235258870176065
 
-    fig, axs = subplots(2,1, figsize = (6,7), sharex=True)
+    fig, axs = plt.subplots(2,1, figsize = (6,7), sharex=True)
     fig.subplots_adjust(left=0.12, bottom=0.06, right=0.99, top=0.96, wspace=0.05, hspace=0.05)
     axs[0].plot(fr, WD, label='WD, Exp. Data', color='blue')
     axs[0].grid(True)
@@ -4034,7 +4058,7 @@ def generate_report_ScanRate_EHT_xlsx(ScanRate_EHT_Data_xlsx, **kwargs):
         print('Generating Plot')
     fs = 12
 
-    fig, axs = subplots(2,1, figsize = (6,7), sharex=True)
+    fig, axs = plt.subplots(2,1, figsize = (6,7), sharex=True)
     fig.subplots_adjust(left=0.12, bottom=0.06, right=0.88, top=0.96, wspace=0.05, hspace=0.05)
     axs[0].plot(ScanRate/1000.0, 'b', label='Scan Rate')
     ax2 = axs[0].twinx()
@@ -4092,7 +4116,7 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
         print('Generating Plot')
     fs = 12
 
-    fig, axs = subplots(2,1, figsize = (6,7), sharex=True)
+    fig, axs = plt.subplots(2,1, figsize = (6,7), sharex=True)
     fig.subplots_adjust(left=0.12, bottom=0.06, right=0.99, top=0.96, wspace=0.05, hspace=0.05)
     axs[0].plot(fr, center_x, label='FOV X center, Data', color='red')
     axs[0].plot(fr, center_y, label='FOV Y center, Data', color='blue')
@@ -4166,7 +4190,7 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     if disp_res:
         print('Generating Plot')
     fs = 12
-    fig0, ax0 = subplots(1,1,figsize=(6,4))
+    fig0, ax0 = plt.subplots(1,1,figsize=(6,4))
     fig0.subplots_adjust(left=0.14, bottom=0.11, right=0.99, top=0.94)
     ax0.plot(frame_min, 'b', linewidth=1, label='Frame Minima')
     ax0.plot(sliding_min, 'b', linewidth=2, linestyle = 'dotted', label='Sliding Minima')
@@ -4301,7 +4325,7 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     fs = 14
     lwf = 2
     lwl = 1
-    fig5, axs5 = subplots(4,3, figsize=(18, 16), sharex=True)
+    fig5, axs5 = plt.subplots(4,3, figsize=(18, 16), sharex=True)
     fig5.subplots_adjust(left=0.07, bottom=0.03, right=0.99, top=0.95)
     # display the info
     axs5[0,0].axis(False)
@@ -4479,7 +4503,7 @@ def generate_report_transf_matrix_details(transf_matrix_bin_file, *kwarrgs):
     fs = 14
     lwf = 2
     lwl = 1
-    fig5, axs5 = subplots(4,3, figsize=(18, 16), sharex=True)
+    fig5, axs5 = plt.subplots(4,3, figsize=(18, 16), sharex=True)
     fig5.subplots_adjust(left=0.07, bottom=0.03, right=0.99, top=0.95)
     # display the info
     axs5[0,0].axis(False)
@@ -4692,7 +4716,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     
     heights = [0.8]*3 + [1.5]*num_metrics
     gs_kw = dict(height_ratios=heights)
-    fig, axs = subplots((num_metrics+3), 1, figsize=(6, 2*(num_metrics+2)), gridspec_kw=gs_kw)
+    fig, axs = plt.subplots((num_metrics+3), 1, figsize=(6, 2*(num_metrics+2)), gridspec_kw=gs_kw)
     fig.subplots_adjust(left=0.14, bottom=0.04, right=0.99, top=0.98, wspace=0.18, hspace=0.04)
     for ax in axs[0:3]:
         ax.axis('off')
@@ -4919,7 +4943,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     
     fs=12
     fs2=10
-    fig1, axs1 = subplots(3,1, figsize=(7, 11), sharex=True)
+    fig1, axs1 = plt.subplots(3,1, figsize=(7, 11), sharex=True)
     fig1.subplots_adjust(left=0.1, bottom=0.05, right=0.99, top=0.96, wspace=0.2, hspace=0.1)
 
     ax_nsad = axs1[0]
@@ -5036,7 +5060,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         fig2_data.append([mean[0], spread[0], mean[1], spread[1], mean[2], mean[3], spread[3]])
         
     # Generate the table
-    fig2, ax = subplots(1, 1, figsize=(9.5,1.3))
+    fig2, ax = plt.subplots(1, 1, figsize=(9.5,1.3))
     fig2.subplots_adjust(left=0.32, bottom=0.01, right=0.98, top=0.86, wspace=0.05, hspace=0.05)
     ax.axis(False)
     ax.text(-0.30, 1.07, 'SIFT Registration Comparisons:  ' + data_dir, fontsize=fst)
@@ -5079,7 +5103,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     ysize_fig = 4
     ysize_tbl = 0.25 * nfls
     fst3 = 8
-    fig3, axs3 = subplots(2, 1, figsize=(7, ysize_fig+ysize_tbl),  gridspec_kw={"height_ratios" : [ysize_tbl, ysize_fig]})
+    fig3, axs3 = plt.subplots(2, 1, figsize=(7, ysize_fig+ysize_tbl),  gridspec_kw={"height_ratios" : [ysize_tbl, ysize_fig]})
     fig3.subplots_adjust(left=0.10, bottom=0.10, right=0.98, top=0.96, wspace=0.05, hspace=0.05)
 
     for j, reg_data in enumerate(reg_datas):
@@ -5752,7 +5776,7 @@ class FIBSEM_frame:
         Display auto-scaled detector images without saving the figure into the file.
 
         '''
-        fig, axs = subplots(2, 1, figsize=(10,5))
+        fig, axs = plt.subplots(2, 1, figsize=(10,5))
         axs[0].imshow(self.RawImageA, cmap='Greys')
         axs[1].imshow(self.RawImageB, cmap='Greys')
         ttls = ['Detector A: '+self.DetA.strip('\x00'), 'Detector B: '+self.DetB.strip('\x00')]
@@ -5974,12 +5998,12 @@ class FIBSEM_frame:
         if ifDetB:
             try:
                 dminB, dmaxB = self.get_image_min_max(image_name ='RawImageB', thr_min=thr_min, thr_max=thr_max, nbins=nbins, disp_res=False)
-                fig, axs = subplots(3, 1, figsize=(11,8))
+                fig, axs = plt.subplots(3, 1, figsize=(11,8))
             except:
                 ifDetB = False
                 pass
         if not ifDetB:
-            fig, axs = subplots(2, 1, figsize=(7,8))
+            fig, axs = plt.subplots(2, 1, figsize=(7,8))
         fig.subplots_adjust(left=0.01, bottom=0.01, right=0.99, top=0.90, wspace=0.15, hspace=0.1)
         dminA, dmaxA = self.get_image_min_max(image_name ='RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins, disp_res=False)
         axs[1].imshow(self.RawImageA, cmap='Greys', vmin=dminA, vmax=dmaxA)
@@ -6448,7 +6472,7 @@ class FIBSEM_frame:
 
         range_disp = get_min_max_thresholds(img[yi_eval:ya_eval, xi_eval:xa_eval], thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res=False)
 
-        fig, ax = subplots(1,1, figsize = (10.0, 11.0*ysz/xsz))
+        fig, ax = plt.subplots(1,1, figsize = (10.0, 11.0*ysz/xsz))
         ax.imshow(img, cmap='Greys', vmin = range_disp[0], vmax = range_disp[1])
         ax.grid(True, color = "cyan")
         ax.set_title(self.fname)
@@ -7843,7 +7867,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     xi = dmin-(np.abs(dmax-dmin)/10)
     xa = dmax+(np.abs(dmax-dmin)/10)
 
-    fig, axs = subplots(2,1, figsize=(6,6))
+    fig, axs = plt.subplots(2,1, figsize=(6,6))
     fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, contrastThreshold={:.3f}, kp_max_num={:d}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, SIFT_contrastThreshold, kp_max_num, comp_time), fontsize=fszl)
     
     hist, bins, patches = axs[0].hist(img, bins = nbins)
@@ -7881,7 +7905,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
        
     xfsz = 3 * (int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1)
     yfsz = 3 * (int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2)
-    fig2, ax = subplots(1,1, figsize=(xfsz,yfsz))
+    fig2, ax = plt.subplots(1,1, figsize=(xfsz,yfsz))
     fig2.subplots_adjust(left=0.0, bottom=0.25*(1-frame.YResolution/frame.XResolution), right=1.0, top=1.0)
     symsize = 2
     fsize = 12  
@@ -8028,7 +8052,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     xi = dmin-(np.abs(dmax-dmin)/10)
     xa = dmax+(np.abs(dmax-dmin)/10)
 
-    fig, axs = subplots(2,2, figsize=(12,8))
+    fig, axs = plt.subplots(2,2, figsize=(12,8))
     fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, contrastThreshold={:.3f}, kp_max_num={:d}'.format(threshold_min, threshold_max, SIFT_contrastThreshold, kp_max_num), fontsize=fszl)
 
     hist, bins, patches = axs[0,0].hist(img, bins = nbins)
@@ -8117,7 +8141,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
             
     xfsz = int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1
     yfsz = int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2
-    fig2, ax = subplots(1,1, figsize=(xfsz,yfsz))
+    fig2, ax = plt.subplots(1,1, figsize=(xfsz,yfsz))
     fig2.subplots_adjust(left=0.0, bottom=0.25*(1-frame.YResolution/frame.XResolution), right=1.0, top=1.0)
     symsize = 2
     fsize = 12  
@@ -8476,7 +8500,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
             filename_frame_png = os.path.splitext(fpath_reg)[0]+'_sample_image_frame{:d}.png'.format(frame_ind)
             fr_img = tiff.imread(frame_filenames[frame_ind]).astype(float)
             yshape, xshape = fr_img.shape
-            fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
+            fig, ax = plt.subplots(1,1, figsize=(3.0*xshape/yshape, 3))
             fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
             xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[frame_ind]
             dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
@@ -10707,7 +10731,7 @@ class FIBSEM_dataset:
                 xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[j, :]
             #print(xi_eval, xa_eval, yi_eval, ya_eval)
             vmin, vmax = get_min_max_thresholds(frame_img_reg[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
-            fig, ax = subplots(1,1, figsize=(10.0, 11.0*ysz/xsz))
+            fig, ax = plt.subplots(1,1, figsize=(10.0, 11.0*ysz/xsz))
             if invert_data:
                 cmap = 'Greys_r'
             else:
@@ -10883,7 +10907,7 @@ class FIBSEM_dataset:
                 ySNRBs.append(ImageB_ySNR)
                 rSNRBs.append(ImageB_rSNR)
 
-        fig, ax = subplots(1,1, figsize = (6,4))
+        fig, ax = plt.subplots(1,1, figsize = (6,4))
         ax.plot(frame_inds, xSNRAs, 'r+', label='Image A x-SNR')
         ax.plot(frame_inds, ySNRAs, 'b+', label='Image A y-SNR')
         ax.plot(frame_inds, rSNRAs, 'g+', label='Image A r-SNR')
@@ -11130,7 +11154,7 @@ class FIBSEM_dataset:
             ySNRFs.append(ImageF_ySNR)
             rSNRFs.append(ImageF_rSNR)
 
-        fig, axs = subplots(4,1, figsize=(6,11))
+        fig, axs = plt.subplots(4,1, figsize=(6,11))
         fig.subplots_adjust(left=0.12, bottom=0.06, right=0.99, top=0.96, wspace=0.25, hspace=0.24)
         try:
             ncc0 = (br_results[0])['NCC']
@@ -11552,7 +11576,7 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     tr_mean = np.mean(XYpt_selected)
     tr_std = np.std(XYpt_selected)
     
-    fig, axs = subplots(2, 1, figsize=(xs,ys))
+    fig, axs = plt.subplots(2, 1, figsize=(xs,ys))
     fig.subplots_adjust(left=0.1, bottom=0.08, right=0.98, top=0.97, wspace=0.02, hspace=0.12)
     ax1, ax2 = axs
     ax1.set_title('Blobs determined by Laplasian of Gaussians', fontsize=text_fs)
@@ -11687,7 +11711,7 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
     yt = 1.5 
     clr_x = 'green'
     clr_y = 'blue'
-    fig, axs = subplots(4,3, figsize=(xs, ys))
+    fig, axs = plt.subplots(4,3, figsize=(xs, ys))
     fig.subplots_adjust(left=0.02, bottom=0.04, right=0.99, top=0.99, wspace=0.15, hspace=0.12)
 
     ax_maps = [axs[0,0], axs[0,1], axs[0,2], axs[2,0], axs[2,1], axs[2,2]]

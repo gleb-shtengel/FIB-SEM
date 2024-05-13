@@ -141,3 +141,8 @@ Notebooks/Gemini-500_testing_04.2024.ipynb
 Notebooks/Register_FIB-SEM_stack_DASK_v4_LID596_ROI3.ipynb
 Notebooks/Register_FIB-SEM_stack_DASK_v4_LID596_ROI3_J1.ipynb
 SIFT_gs/requirements.txt
+Notebooks/Convert_MRC_to_H5.ipynb
+Notebooks/FIBSEM_stack_line_correlation_analysis.ipynb
+Notebooks/Register_FIB-SEM_stack_DASK_v4_FlyBrain.ipynb
+Notebooks/Search_and_Remove_Duplicate_InLens_ESB_files.ipynb
+Notebooks/Search_and_Remove_Duplicate_InLens_ESB_files2.ipynb

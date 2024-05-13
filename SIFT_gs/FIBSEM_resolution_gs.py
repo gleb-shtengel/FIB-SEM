@@ -1,7 +1,4 @@
 import numpy as np
-use_cp = False
-if use_cp:
-    import cupy as cp
 import pandas as pd
 import os
 from pathlib import Path
@@ -11,12 +8,10 @@ import re
 
 import matplotlib
 import matplotlib.image as mpimg
-from matplotlib import pylab, mlab, pyplot
-plt = pyplot
-from IPython.core.pylabtools import figsize, getfigs
-from pylab import *
+from matplotlib import pylab, mlab
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from IPython.core.pylabtools import figsize, getfigs
 from PIL import Image as PILImage
 from PIL.TiffTags import TAGS
 
@@ -574,7 +569,7 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
     if verbose and disp_res:
         print('Step4: Displaying the blob map')
     if disp_res:
-        fig, ax = subplots(1, 1, figsize=(15, 15))
+        fig, ax = plt.subplots(1, 1, figsize=(15, 15))
         vmin, vmax = get_min_max_thresholds(image, disp_res=False)
         ax.imshow(image, cmap='Greys', vmin=vmin, vmax=vmax)
         ax.axis(False)
@@ -740,7 +735,7 @@ def estimate_edge_transition(image, center, gradient, **kwargs):
     if disp_res:
         axs = kwargs.get('axs', [False, False])
         if not axs[0]:
-            fig, axs = subplots(2,1, figsize=(6,6))
+            fig, axs = plt.subplots(2,1, figsize=(6,6))
         vmin, vmax = get_min_max_thresholds(image_subset, disp_res=False )
         axs[0].imshow(image_subset, cmap='Greys')
         axs[0].axis(False)
@@ -1185,7 +1180,7 @@ def plot_blob_map_and_results_single_image(image, results_xlsx, **kwargs):
     tr_mean = np.mean(XYpt_selected)
     tr_std = np.std(XYpt_selected)
     
-    fig, axs = subplots(1, 2, figsize=(2*xs,ys))
+    fig, axs = plt.subplots(1, 2, figsize=(2*xs,ys))
     ax = axs[0]
     ax.imshow(image, cmap='Greys')
     ax.scatter(X_unselected, Y_unselected, facecolors='none', color='blue', marker = 'o', s=10, linewidth=0.5)
@@ -1304,7 +1299,7 @@ def plot_blob_examples_single_image(image, results_xlsx, **kwargs):
     
     clr_x = 'green'
     clr_y = 'blue'
-    fig, axs = subplots(4,3, figsize=(xs, ys))
+    fig, axs = plt.subplots(4,3, figsize=(xs, ys))
     fig.subplots_adjust(left=0.02, bottom=0.04, right=0.99, top=0.99, wspace=0.15, hspace=0.12)
 
     ax_maps = [axs[0,0], axs[0,1], axs[0,2], axs[2,0], axs[2,1], axs[2,2]]
@@ -1426,7 +1421,7 @@ def plot_edge_transition_analysis_details(image, results_xlsx, **kwargs):
 
     ysz, xsz = image.shape
     
-    fig, axs = subplots(2, 2, figsize=(15,10))
+    fig, axs = plt.subplots(2, 2, figsize=(15,10))
     fig.subplots_adjust(left=0.01, bottom=0.05, right=0.99, top=0.90, wspace=0.10, hspace=0.20)
     axs[0,0].imshow(image, cmap='Greys_r')
     axs[0,0].plot(X, Y, linestyle='none', color='yellow', marker = 'o', markersize=1)
@@ -1527,7 +1522,7 @@ def plot_edge_transition_points_map(image, results_xlsx, **kwargs):
     ys = xs*ysz/xsz
     col = 'yellow'
     fs=12
-    fig, ax = subplots(1, 1, figsize=(xs,ys))
+    fig, ax = plt.subplots(1, 1, figsize=(xs,ys))
     fig.subplots_adjust(left=0.01, bottom=0.04, right=0.99, top=0.92, wspace=0.05, hspace=0.1)
     ax.imshow(image, cmap='Greys_r')
     dist_pix = np.arange(-section_length//2+1,section_length//2+1)
@@ -1579,7 +1574,7 @@ def plot_edge_transition_examples(image, results_xlsx, **kwargs):
     Y_grads_selected = Y_grads[error_flags==0]
     center_grads_selected = np.vstack((Y_grads_selected, X_grads_selected)).T
 
-    fig, axsf = subplots(4,3, figsize=(20, 15))
+    fig, axsf = plt.subplots(4,3, figsize=(20, 15))
     fig.subplots_adjust(left=0.05, bottom=0.05, right=0.99, top=0.90, wspace=0.10, hspace=0.15)
     for (j,center), center_grad in zip(enumerate(centers_selected[0:3]), center_grads_selected[0:3]):
         res = estimate_edge_transition(image, center, center_grad,

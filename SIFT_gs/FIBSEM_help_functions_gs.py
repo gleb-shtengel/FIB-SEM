@@ -10,12 +10,10 @@ import re
 
 import matplotlib
 import matplotlib.image as mpimg
-from matplotlib import pylab, mlab, pyplot
-plt = pyplot
-from IPython.core.pylabtools import figsize, getfigs
-from pylab import *
+from matplotlib import pylab, mlab
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from IPython.core.pylabtools import figsize, getfigs
 
 import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -157,7 +155,7 @@ def get_min_max_thresholds(image, **kwargs):
 
     if disp_res:
         fsz=11
-        fig, axs = subplots(2,1, figsize = (6,8))
+        fig, axs = plt.subplots(2,1, figsize = (6,8))
         hist, bins, patches = axs[0].hist(image.ravel(), bins=nbins, log=log)
     else:
         hist, bins = np.histogram(image.ravel(), bins=nbins)
