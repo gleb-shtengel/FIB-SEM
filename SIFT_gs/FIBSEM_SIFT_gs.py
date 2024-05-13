@@ -1351,7 +1351,7 @@ def Two_Image_Analysis(params):
     I2 = tiff.imread(os.path.normpath(frame2_filename))
     I2c = I2[yi_eval:ya_eval, xi_eval:xa_eval]
     fr_mean = abs(I1c/2.0 + I2c/2.0)
-    dy, dx = shape(I2c)
+    dy, dx = np.shape(I2c)
 
     results = []
     for metric in eval_metrics:
@@ -3329,7 +3329,7 @@ def mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
         a1 = np.max(np.array((amp_x, amp_y)))
         amp_scale = (a0-(a1-a0)/10.0, a1+(a1-a0)/10.0)
         #print(amp_scale)
-        #print(shape(amp_x), shape(amp_y), shape(amp_z))
+        #print(np.shape(amp_x), np.shape(amp_y), np.shape(amp_z))
         tr_x = analyze_blob_transitions(amp_x, pixel_size=pixel_size,
                                 col = clr_x,
                                 cols=['green', 'green', 'black'],
@@ -5511,7 +5511,7 @@ class FIBSEM_frame:
             # finish reading raw data
      
             Raw = np.array(Raw).reshape(self.YResolution, self.XResolution, self.ChanNum)
-            #print(shape(Raw), type(Raw), type(Raw[0,0]))
+            #print(np.shape(Raw), type(Raw), type(Raw[0,0]))
 
             #data = np.asarray(datab).reshape(self.YResolution,self.XResolution,ChanNum)
             if self.EightBit == 1:
@@ -8759,7 +8759,7 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
     inds_zeros = np.squeeze(np.argwhere(npts < thr_npt ))
     print('Frames with no matches to the next frame:  ', np.array(inds_zeros))
     frames_to_remove = []
-    if shape(inds_zeros)!=():
+    if np.shape(inds_zeros)!=():
         for ind0 in inds_zeros:
             if ind0 < (len(fls)-2) and npts[ind0+1] < thr_npt:
                 frames_to_remove.append(ind0+1)
@@ -11759,7 +11759,7 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
         a1 = np.max(np.array((amp_x, amp_y)))
         amp_scale = (a0-(a1-a0)/10.0, a1+(a1-a0)/10.0)
         #print(amp_scale)
-        #print(shape(amp_x), shape(amp_y), shape(amp_z))
+        #print(np.shape(amp_x), np.shape(amp_y), np.shape(amp_z))
         tr_x = analyze_blob_transitions(amp_x, pixel_size=pixel_size,
                                 col = clr_x,
                                 cols=['green', 'green', 'black'],
