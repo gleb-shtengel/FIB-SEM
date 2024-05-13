@@ -62,9 +62,6 @@ from IPython.display import IFrame
 
 EPS = np.finfo(float).eps
 
-sys.path.append('/SIFT_gs/')
-
-
 try:
     from SIFT_gs.FIBSEM_help_functions_gs import *
 except:
