@@ -407,7 +407,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         axs0.imshow(img, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs0.axis(False)
         axs0.set_title('Original Image: ' + img_label, color='r', fontsize=fs)
-        Hist_patch = patches.Rectangle((xi,yi),abs(xa-xi)-2,abs(ya-yi)-2, linewidth=1.0, edgecolor='white',facecolor='none')
+        Hist_patch = patches.Rectangle((xi,yi), np.abs(xa-xi)-2, np.abs(ya-yi)-2, linewidth=1.0, edgecolor='white',facecolor='none')
         axs1.add_patch(Hist_patch)
         
         axs2.imshow(img_hist_filtered, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
@@ -461,7 +461,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         
         if disp_res:
             patch_col = plt.get_cmap("gist_rainbow_r")((j)/(n_ROIs))
-            rect_patch = patches.Rectangle((xi,yi),abs(xa-xi)-2,abs(ya-yi)-2, linewidth=0.5, edgecolor=patch_col,facecolor='none')
+            rect_patch = patches.Rectangle((xi,yi), np.abs(xa-xi)-2, np.abs(ya-yi)-2, linewidth=0.5, edgecolor=patch_col,facecolor='none')
             axs0.add_patch(rect_patch)
             axs4.plot(x, y, 'd', color = patch_col) #, label='patch {:d}'.format(j))
     
@@ -992,7 +992,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
             for Analysis_ROI_binned in Analysis_ROIs_binned:
             #Analysis_ROI : list of [left, right, top, bottom]
                 xi, xa, yi, ya = Analysis_ROI_binned
-                ROI_patch = patches.Rectangle((xi,yi),abs(xa-xi)-2,abs(ya-yi)-2, linewidth=0.75, edgecolor=col_ROIs,facecolor='none')
+                ROI_patch = patches.Rectangle((xi,yi), np.abs(xa-xi)-2, np.abs(ya-yi)-2, linewidth=0.75, edgecolor=col_ROIs,facecolor='none')
                 axs[0, 0].add_patch(ROI_patch)
 
         axs[0, 0].set_xlim((0, xszb))
@@ -1215,13 +1215,13 @@ def Two_Image_FSC(img1, img2, **kwargs):
     I2 = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img2)))
 
     C_imre = np.multiply(I1,np.conj(I2))
-    C12_ar = abs(np.multiply((I1+I2),np.conj(I1+I2)))
+    C12_ar = np.abs(np.multiply((I1+I2),np.conj(I1+I2)))
     y0,x0 = argmax2d(C12_ar)
-    C1 = radial_profile_select_angles(abs(np.multiply(I1,np.conj(I1))), [x0,y0], astart=astart, astop=astop, symm=symm)
-    C2 = radial_profile_select_angles(abs(np.multiply(I2,np.conj(I2))), [x0,y0], astart=astart, astop=astop, symm=symm)
+    C1 = radial_profile_select_angles(np.abs(np.multiply(I1,np.conj(I1))), [x0,y0], astart=astart, astop=astop, symm=symm)
+    C2 = radial_profile_select_angles(np.abs(np.multiply(I2,np.conj(I2))), [x0,y0], astart=astart, astop=astop, symm=symm)
     C  = radial_profile_select_angles(np.real(C_imre), [x0,y0], astart=astart, astop=astop, symm=symm) + 1j * radial_profile_select_angles(np.imag(C_imre), [x0,y0], astart=astart, astop=astop, symm=symm)
 
-    FSC_data = abs(C)/np.sqrt(abs(np.multiply(C1,C2)))
+    FSC_data = np.abs(C)/np.sqrt(np.abs(np.multiply(C1,C2)))
     '''
     T is the SNR threshold calculated accoring to the input SNRt, if nothing is given
     a default value of 0.1 is used.
@@ -1269,10 +1269,10 @@ def Two_Image_FSC(img1, img2, **kwargs):
             x = np.linspace(0, 1.41, 500)
             axs2.set_xlim(-1,1)
             axs2.set_ylim(-1,1)
-            axs2.imshow(np.log(abs(I1)), extent=[-1, 1, -1, 1], cmap = 'Greys_r')
+            axs2.imshow(np.log(np.abs(I1)), extent=[-1, 1, -1, 1], cmap = 'Greys_r')
             axs3.set_xlim(-1,1)
             axs3.set_ylim(-1,1)
-            axs3.imshow(np.log(abs(I2)), extent=[-1, 1, -1, 1], cmap = 'Greys_r')
+            axs3.imshow(np.log(np.abs(I2)), extent=[-1, 1, -1, 1], cmap = 'Greys_r')
             for i in np.arange(symm):
                 ai = np.radians(astart + 360.0/symm*i)
                 aa = np.radians(astop + 360.0/symm*i)
@@ -1349,13 +1349,13 @@ def Two_Image_Analysis(params):
     I1c = I1[yi_eval:ya_eval, xi_eval:xa_eval]
     I2 = tiff.imread(os.path.normpath(frame2_filename))
     I2c = I2[yi_eval:ya_eval, xi_eval:xa_eval]
-    fr_mean = abs(I1c/2.0 + I2c/2.0)
+    fr_mean = np.abs(I1c/2.0 + I2c/2.0)
     dy, dx = np.shape(I2c)
 
     results = []
     for metric in eval_metrics:
         if metric == 'NSAD':
-            results.append(mean(abs(I1c-I2c))/(np.mean(fr_mean)-np.amin(fr_mean)))
+            results.append(np.mean(np.abs(I1c-I2c))/(np.mean(fr_mean)-np.amin(fr_mean)))
         if metric == 'NCC':
             results.append(Two_Image_NCC_SNR(I1c, I2c)[0])
         if metric == 'NMI':
@@ -1443,7 +1443,7 @@ def evaluate_registration_two_frames(params_mrc):
         else:
             ax.imshow(fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
         ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(fr, image_nsad, image_ncc, image_mi), color='red', transform=ax.transAxes, fontsize=12)
-        rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+        rect_patch = patches.Rectangle((xi_eval, yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
         ax.add_patch(rect_patch)
         ax.axis('off')
         fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
@@ -1658,11 +1658,11 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
             else:
                 curr_frame = (mrc_obj.data[frame_ind, yi_eval:ya_eval, xi_eval:xa_eval].astype(dt_mrc)).astype(float)
 
-            fr_mean = abs(curr_frame/2.0 + prev_frame/2.0)
+            fr_mean = np.abs(curr_frame/2.0 + prev_frame/2.0)
 
             image_ncc[j-1] = Two_Image_NCC_SNR(curr_frame, prev_frame)[0]
 
-            image_nsad[j-1] =  mean(abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
+            image_nsad[j-1] =  np.mean(np.abs(curr_frame-prev_frame))/(np.mean(fr_mean)-np.amin(fr_mean))
             image_mi[j-1] = mutual_information_2d(prev_frame.ravel(), curr_frame.ravel(), sigma=1.0, bin=2048, normalized=True)
             prev_frame = curr_frame.copy()
             if (frame_ind in sample_frame_inds) and save_sample_frames_png:
@@ -1677,7 +1677,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
                 else:
                     ax.imshow(fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
                 ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frame_ind, image_nsad[j-1], image_ncc[j-1], image_mi[j-1]), color='red', transform=ax.transAxes, fontsize=12)
-                rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+                rect_patch = patches.Rectangle((xi_eval, yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
                 ax.add_patch(rect_patch)
                 ax.axis('off')
                 fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
@@ -1823,7 +1823,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
             ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
         ax.grid(True, color = "cyan")
         ax.set_title(Sample_ID + ' '+mrc_filename +',  frame={:d}'.format(fr_ind))
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2,
+        rect_patch = patches.Rectangle((xi_eval,yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2,
             linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
         ax.add_patch(rect_patch)
         if save_res_png  and plot_internal:
@@ -3477,7 +3477,7 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
             ax.imshow(eval_frame, cmap='Greys', vmin=dmin, vmax=dmax)
         ax.grid(True, color = "cyan")
         ax.set_title(Sample_ID + ' '+tif_filename +',  frame={:d}'.format(fr_ind))
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2,
+        rect_patch = patches.Rectangle((xi_eval,yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2,
             linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
         ax.add_patch(rect_patch)
         if save_res_png  and plot_internal:
@@ -3532,7 +3532,7 @@ def evaluate_registration_two_frames_tif(params_tif):
         else:
             ax.imshow(frame0, cmap='Greys', vmin=dmin, vmax=dmax)
         ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(fr, image_nsad, image_ncc, image_mi), color='red', transform=ax.transAxes, fontsize=12)
-        rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+        rect_patch = patches.Rectangle((xi_eval, yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
         ax.add_patch(rect_patch)
         ax.axis('off')
         fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
@@ -4801,7 +4801,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                     ax.imshow(frame_img, cmap='Greys', vmin=dmin, vmax=dmax)
 
                 ax.text(0.03, 1.01, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frames[eval_ind], image_nsad[eval_ind], image_ncc[eval_ind], image_nmi[eval_ind]), color='red', transform=ax.transAxes)
-                rect_patch = patches.Rectangle((xi_evals[eval_ind], yi_evals[eval_ind]),abs(xa_evals[eval_ind]-xi_evals[eval_ind])-2,abs(ya_evals[eval_ind]-yi_evals[eval_ind])-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+                rect_patch = patches.Rectangle((xi_evals[eval_ind], yi_evals[eval_ind]), np.abs(xa_evals[eval_ind]-xi_evals[eval_ind])-2, np.abs(ya_evals[eval_ind]-yi_evals[eval_ind])-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
                 ax.add_patch(rect_patch)
             ax.axis('off')
 
@@ -6423,7 +6423,7 @@ class FIBSEM_frame:
         ax.imshow(img, cmap='Greys', vmin = range_disp[0], vmax = range_disp[1])
         ax.grid(True, color = "cyan")
         ax.set_title(self.fname)
-        rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2,
+        rect_patch = patches.Rectangle((xi_eval,yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2,
             linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
         ax.add_patch(rect_patch)
         if save_res_png :
@@ -8456,7 +8456,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
             for k, metric in enumerate(eval_metrics):
                 sample_text = sample_text + ',  '+ metric + '={:.3f}'.format(image_metrics[frame_ind, k])
             ax.text(0.06, 0.95, sample_text, color='red', transform=ax.transAxes, fontsize=12)
-            rect_patch = patches.Rectangle((xi_eval, yi_eval),abs(xa_eval-xi_eval)-2,abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
+            rect_patch = patches.Rectangle((xi_eval, yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
             ax.add_patch(rect_patch)
             ax.axis('off')
             fig.savefig(filename_frame_png, dpi=300, bbox_inches='tight', transparent=True, pad_inches=0)   # save the figure to file
@@ -10686,7 +10686,7 @@ class FIBSEM_dataset:
             ax.imshow(frame_img_reg, cmap=cmap, vmin=vmin, vmax=vmax)
             ax.grid(True, color = "cyan")
             ax.set_title(fls[fr_ind])
-            rect_patch = patches.Rectangle((xi_eval,yi_eval),abs(xa_eval-xi_eval),abs(ya_eval-yi_eval),
+            rect_patch = patches.Rectangle((xi_eval,yi_eval), np.abs(xa_eval-xi_eval), np.abs(ya_eval-yi_eval),
                 linewidth=box_linewidth, edgecolor=box_color, facecolor='none')
             ax.add_patch(rect_patch)
             if save_res_png :
