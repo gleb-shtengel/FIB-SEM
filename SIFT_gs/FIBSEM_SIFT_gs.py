@@ -207,15 +207,15 @@ def Single_Image_SNR(img, **kwargs):
     
     x_acr = data_ACR[ysz//2, xsz//2]
     x_noise_free_acr = xacr_right[0]
-    xedge = int32(xsz*edge_fraction)
+    xedge = np.int32(xsz*edge_fraction)
     x_mean_value = np.mean(data_ACR[ysz//2, 0:xedge])
     xx_mean_value = np.linspace(-xsz//2, (-xsz//2+xedge-1), xedge)
-    yedge = int32(ysz*edge_fraction)
+    yedge = np.int32(ysz*edge_fraction)
     y_acr = data_ACR[ysz//2, xsz//2]
     y_noise_free_acr = yacr_right[0]
     y_mean_value = np.mean(data_ACR[0:yedge, xsz//2])
     yy_mean_value = np.linspace(-ysz//2, (-ysz//2+yedge-1), yedge)
-    redge = int32(rsz*edge_fraction)
+    redge = np.int32(rsz*edge_fraction)
     r_acr = data_ACR[ysz//2, xsz//2]
     r_noise_free_acr = racr_right[0]
     r_mean_value = np.mean(r_ACR[0:redge])
@@ -1454,15 +1454,15 @@ def evaluate_registration_two_frames(params_mrc):
     '''
     mrc_mode = mrc_obj.header.mode
     if mrc_mode==0:
-        dt_mrc=uint8
+        dt_mrc=np.uint8
     if mrc_mode==1:
-        dt_mrc=int16
+        dt_mrc=np.int16
     if mrc_mode==2:
-        dt_mrc=float32
+        dt_mrc=np.float32
     if mrc_mode==4:
-        dt_mrc=complex64
+        dt_mrc=np.complex64
     if mrc_mode==6:
-        dt_mrc=uint16
+        dt_mrc=np.uint16
 
     xi_eval, xa_eval, yi_eval, ya_eval = evals
     if invert_data:
@@ -1576,7 +1576,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     mrc_mode = header.mode
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     header_dict = {}
     for record in header.dtype.names: # create dictionary from the header data
         if ('extra' not in record) and ('label' not in record):
@@ -1589,15 +1589,15 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     mode 6 -> uint16
     '''
     if mrc_mode==0:
-        dt_mrc=uint8
+        dt_mrc=np.uint8
     if mrc_mode==1:
-        dt_mrc=int16
+        dt_mrc=np.int16
     if mrc_mode==2:
-        dt_mrc=float32
+        dt_mrc=np.float32
     if mrc_mode==4:
-        dt_mrc=complex64
+        dt_mrc=np.complex64
     if mrc_mode==6:
-        dt_mrc=uint16
+        dt_mrc=np.uint16
     print('mrc_mode={:d} '.format(mrc_mode), ', dt_mrc=', dt_mrc)
 
     xi_eval = evaluation_box[2]
@@ -1628,10 +1628,10 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
         dy_eval = 0
     
     params_mrc_mult = []
-    xi_evals = np.zeros(nf, dtype=int16)
-    xa_evals = np.zeros(nf, dtype=int16)
-    yi_evals = np.zeros(nf, dtype=int16)
-    ya_evals = np.zeros(nf, dtype=int16)
+    xi_evals = np.zeros(nf, dtype=np.int16)
+    xa_evals = np.zeros(nf, dtype=np.int16)
+    yi_evals = np.zeros(nf, dtype=np.int16)
+    ya_evals = np.zeros(nf, dtype=np.int16)
     for j, fr in enumerate(frame_inds):
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
@@ -1812,7 +1812,7 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
 
     mrc = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc.header
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     '''
         mode 0 -> uint8
         mode 1 -> int16
@@ -1822,15 +1822,15 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     '''
     mrc_mode = header.mode
     if mrc_mode==0:
-        dt_mrc=uint8
+        dt_mrc=np.uint8
     if mrc_mode==1:
-        dt_mrc=int16
+        dt_mrc=np.int16
     if mrc_mode==2:
-        dt_mrc=float32
+        dt_mrc=np.float32
     if mrc_mode==4:
-        dt_mrc=complex64
+        dt_mrc=np.complex64
     if mrc_mode==6:
-        dt_mrc=uint16
+        dt_mrc=np.uint16
 
     frame_inds = kwargs.get("frame_inds", [nz//10,  nz//2, nz//10*9] )
     
@@ -1980,7 +1980,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     mrc_filename  = os.path.normpath(mrc_filename)
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     header = mrc_obj.header
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     voxel_size_angstr = mrc_obj.voxel_size # Angstrom per pixel
     voxel_size = np.array(kwargs.get('voxel_size', [voxel_size_angstr.x/1.0e4, voxel_size_angstr.y/1.0e4, voxel_size_angstr.z/1.0e4])) # in um per pixel
     stack_size = np.array([nx*voxel_size[0], ny*voxel_size[1], nz*voxel_size[2]])
@@ -2261,7 +2261,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     except:
         print('Incorrect voxel size entry')
         print('will use : ', voxel_size_new)
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     frmax = kwargs.get('frmax', nz)
     xi = kwargs.get('xi', 0)
     xa = kwargs.get('xa', nx)
@@ -2282,7 +2282,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     if mode == 'sum':
         mrc_mode = 1
-        dt = int16
+        dt = np.int16
     print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(fri, fra, zbin_factor)
     mrc_obj.close()
@@ -2508,7 +2508,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     '''
     mrc_mode = mrc_obj.header.mode
     voxel_size_angstr = mrc_obj.voxel_size
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
 
@@ -2519,7 +2519,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     print('Source Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, nz))
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     mrc_mode = 1
-    dt = int16
+    dt = np.int16
     print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(fri, fra)
     print('New Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
@@ -2672,7 +2672,7 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
     '''
     mrc_mode = mrc_obj.header.mode
     voxel_size_angstr = mrc_obj.voxel_size
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
 
@@ -2683,7 +2683,7 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
     print('Source Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, nz))
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     mrc_mode = 1
-    dt = int16
+    dt = np.int16
     print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(fri, fra)
     print('New Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
@@ -2765,7 +2765,7 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
     '''
     mrc_mode = mrc_obj.header.mode
     voxel_size_angstr = mrc_obj.voxel_size
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
 
@@ -2773,7 +2773,7 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
     print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     mrc_mode = 1
-    dt = int16
+    dt = np.int16
     print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(fri, fra)
     print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
@@ -2959,7 +2959,7 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     mrc_mode = header.mode
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     header_dict = {}
     for record in header.dtype.names: # create dictionary from the header data
         if ('extra' not in record) and ('label' not in record):
@@ -2972,15 +2972,15 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     mode 6 -> uint16
     '''
     if mrc_mode==0:
-        dt_mrc=uint8
+        dt_mrc=np.uint8
     if mrc_mode==1:
-        dt_mrc=int16
+        dt_mrc=np.int16
     if mrc_mode==2:
-        dt_mrc=float32
+        dt_mrc=np.float32
     if mrc_mode==4:
-        dt_mrc=complex64
+        dt_mrc=np.complex64
     if mrc_mode==6:
-        dt_mrc=uint16
+        dt_mrc=np.uint16
     #print('mrc_mode={:d} '.format(mrc_mode), ', dt_mrc=', dt_mrc)
 
     xi_eval = evaluation_box[2]
@@ -3149,16 +3149,16 @@ def select_blobs_LoG_analyze_transitions_2D_mrc_stack(params):
     header = mrc_obj.header
     mrc_mode = header.mode
     if mrc_mode==0:
-        dt_mrc=uint8
+        dt_mrc=np.uint8
     if mrc_mode==1:
-        dt_mrc=int16
+        dt_mrc=np.int16
     if mrc_mode==2:
-        dt_mrc=float32
+        dt_mrc=np.float32
     if mrc_mode==4:
-        dt_mrc=complex64
+        dt_mrc=np.complex64
     if mrc_mode==6:
-        dt_mrc=uint16
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+        dt_mrc=np.uint16
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     
     frame = mrc_obj.data[frame_ind, :, :].astype(dt_mrc).astype(float)            
     shape = np.shape(frame)
@@ -3264,7 +3264,7 @@ def mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     mrc_mode = header.mode
-    nx, ny, nz = int32(header['nx']), int32(header['ny']), int32(header['nz'])
+    nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     header_dict = {}
     for record in header.dtype.names: # create dictionary from the header data
         if ('extra' not in record) and ('label' not in record):
@@ -3277,15 +3277,15 @@ def mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
     mode 6 -> uint16
     '''
     if mrc_mode==0:
-        dt_mrc=uint8
+        dt_mrc=np.uint8
     if mrc_mode==1:
-        dt_mrc=int16
+        dt_mrc=np.int16
     if mrc_mode==2:
-        dt_mrc=float32
+        dt_mrc=np.float32
     if mrc_mode==4:
-        dt_mrc=complex64
+        dt_mrc=np.complex64
     if mrc_mode==6:
-        dt_mrc=uint16
+        dt_mrc=np.uint16
     #print('mrc_mode={:d} '.format(mrc_mode), ', dt_mrc=', dt_mrc)
     
     xs=16.0
@@ -3719,10 +3719,10 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
         dy_eval = 0
     
     params_tif_mult = []
-    xi_evals = np.zeros(nf, dtype=int16)
-    xa_evals = np.zeros(nf, dtype=int16)
-    yi_evals = np.zeros(nf, dtype=int16)
-    ya_evals = np.zeros(nf, dtype=int16)
+    xi_evals = np.zeros(nf, dtype=np.int16)
+    xa_evals = np.zeros(nf, dtype=np.int16)
+    yi_evals = np.zeros(nf, dtype=np.int16)
+    ya_evals = np.zeros(nf, dtype=np.int16)
     for j, fr in enumerate(frame_inds):
         if sliding_evaluation_box:
             xi_eval = start_evaluation_box[2] + dx_eval*(fr-frame_inds[0])//nf
@@ -4750,15 +4750,15 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 mode 6 -> uint16
                 '''
                 if mrc_mode==0:
-                    dt_mrc=uint8
+                    dt_mrc=np.uint8
                 if mrc_mode==1:
-                    dt_mrc=int16
+                    dt_mrc=np.int16
                 if mrc_mode==2:
-                    dt_mrc=float32
+                    dt_mrc=np.float32
                 if mrc_mode==4:
-                    dt_mrc=complex64
+                    dt_mrc=np.complex64
                 if mrc_mode==6:
-                    dt_mrc=uint16
+                    dt_mrc=np.uint16
         else:
             print('Will use sample images from the raw data')
             if os.path.exists(dump_filename):
@@ -5553,7 +5553,7 @@ class FIBSEM_frame:
                 else:
                     Raw = np.frombuffer(fid.read(n_elements), dtype=dt)
             else:
-                dt = np.dtype(int16)
+                dt = np.dtype(np.int16)
                 dt = dt.newbyteorder('>')
                 if self.use_dask_arrays:
                     Raw = da.from_array(np.frombuffer(fid.read(2*n_elements),dtype=dt))
@@ -5569,13 +5569,13 @@ class FIBSEM_frame:
             if self.EightBit == 1:
                 if self.AI1 == 1:
                     self.RawImageA = Raw[:,:,0]
-                    self.ImageA = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(int32)
+                    self.ImageA = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
                     if self.AI2 == 1:
                         self.RawImageB = Raw[:,:,1]
-                        self.ImageB = (Raw[:,:,1].astype(float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(int32)
+                        self.ImageB = (Raw[:,:,1].astype(float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(np.int32)
                 elif self.AI2 == 1:
                     self.RawImageB = Raw[:,:,0]
-                    self.ImageB = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(int32)
+                    self.ImageB = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
             else:
                 if self.FileVersion == 1 or self.FileVersion == 2 or self.FileVersion == 3 or self.FileVersion == 4 or self.FileVersion == 5 or self.FileVersion == 6:
                     if self.AI1 == 1:
@@ -7387,7 +7387,7 @@ def determine_transformations_files(params_dsf):
 
 def build_filename(fname, **kwargs):
     ftype = kwargs.get("ftype", 0)
-    dtp = kwargs.get("dtp", int16)                             #  int16 or uint8
+    dtp = kwargs.get("dtp", np.int16)                             #  int16 or uint8
     threshold_min = kwargs.get("threshold_min", 1e-3)
     threshold_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
@@ -7416,7 +7416,7 @@ def build_filename(fname, **kwargs):
     frame = FIBSEM_frame(fname, ftype=ftype)
     dformat_read = 'I8' if frame.EightBit else 'I16'
 
-    if dtp == int16:
+    if dtp == np.int16:
         dformat_save = 'I16'
         fnm_reg = 'Registered_I16.mrc'
     else:
@@ -8632,7 +8632,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     image_scales = kwargs.get("image_scales", np.full(len(fls), 1.0))
     image_offsets = kwargs.get("image_offsets", np.zeros(len(fls)))
     invert_data =  kwargs.get("invert_data", False)
-    dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
+    dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
     disp_res = kwargs.get("disp_res", False)
     nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
     end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
@@ -8739,7 +8739,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
     fnm_types = kwargs.get("fnm_types", ['mrc'])
     voxel_size_default = np.rec.array((8.0, 8.0, 8.0), dtype=[('x', '<f4'), ('y', '<f4'), ('z', '<f4')])
     voxel_size = kwargs.get("voxel_size", voxel_size_default)
-    dtp = kwargs.get("dtp", int16)
+    dtp = kwargs.get("dtp", np.int16)
     disp_res  = kwargs.get("disp_res", False )
     nz, ny, nx = FIBSEMstack.shape
     if disp_res:
@@ -8777,9 +8777,9 @@ def save_data_stack(FIBSEMstack, **kwargs):
                 mode 6 -> uint16
                 '''
                 mrc_mode = 0
-                if dtp==int16:
+                if dtp==np.int16:
                     mrc_mode = 1
-                if dtp==uint16:
+                if dtp==np.uint16:
                     mrc_mode = 6
                     
                 # Make a new, empty memory-mapped MRC file
@@ -9108,7 +9108,7 @@ class FIBSEM_dataset:
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
     dtp : Data Type
-        Python data type for saving. Deafult is int16, the other option currently is uint8.
+        Python data type for saving. Deafult is np.int16, the other option currently is np.uint8.
     zbin_factor : int
         binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
     flipY : boolean
@@ -9270,7 +9270,7 @@ class FIBSEM_dataset:
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         dtp : Data Type
-            Python data type for saving. Deafult is int16, the other option currently is uint8.
+            Python data type for saving. Deafult is np.int16, the other option currently is np.uint8.
         zbin_factor : int
             binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         preserve_scales : boolean
@@ -9990,7 +9990,7 @@ class FIBSEM_dataset:
             self.fnms_matches = [result[1] for result in results_s4]
             self.error_abs_mean = np.nan_to_num(np.array([result[3] for result in results_s4]))
             self.npts = np.nan_to_num(np.array([len(result[2][0])  for result in results_s4]))
-            print('Mean Number of Keypoints :', np.mean(self.npts).astype(int16))
+            print('Mean Number of Keypoints :', np.mean(self.npts).astype(np.int16))
         return results_s4
 
 
@@ -10447,7 +10447,7 @@ class FIBSEM_dataset:
         start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
         stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         disp_res  = kwargs.get("disp_res", True )
-        dtp = kwargs.get("dtp", int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
+        dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
         fill_value = kwargs.get('fill_value', 0.0) + offset
         
         save_kwargs = {'fnm_types' : fnm_types,
