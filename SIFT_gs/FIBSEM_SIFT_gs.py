@@ -1237,8 +1237,8 @@ def Two_Image_FSC(img1, img2, **kwargs):
     t2 = SNRt + 2*np.sqrt(SNRt)*t1 + np.divide(np.ones(np.shape(n)),np.sqrt(n))
     t3 = SNRt + 2*np.sqrt(SNRt)*t1 + 1
     T = np.divide(t2,t3)
-    #FSC_sp_frequencies = np.arange(np.shape(C)[0])/(np.shape(img1)[0]/sqrt(2.0))
-    #x2 = r/(np.shape(img1)[0]/sqrt(2.0))
+    #FSC_sp_frequencies = np.arange(np.shape(C)[0])/(np.shape(img1)[0]/np.sqrt(2.0))
+    #x2 = r/(np.shape(img1)[0]/np.sqrt(2.0))
     FSC_sp_frequencies = np.arange(np.shape(C)[0])/(np.shape(img1)[0])
     x2 = r/(np.shape(img1)[0])
     FSC_data_smooth = smooth(FSC_data, smooth_aperture)
@@ -8097,7 +8097,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
     x, y = dst_pts_filtered.T
-    M = sqrt(xshifts*xshifts+yshifts*yshifts)
+    M = np.sqrt(xshifts*xshifts+yshifts*yshifts)
     xs = xshifts
     ys = yshifts
 
