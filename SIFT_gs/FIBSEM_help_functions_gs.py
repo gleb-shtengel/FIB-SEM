@@ -97,8 +97,8 @@ def get_spread(data, window=501, porder=3):
     '''
 
     try:
-        #sm_data = savgol_filter(data.astype(double), window, porder)
-        sm_data = savgol_filter(data.astype(double), window, porder, mode='mirror')
+        #sm_data = savgol_filter(data.astype(np.double), window, porder)
+        sm_data = savgol_filter(data.astype(np.double), window, porder, mode='mirror')
         data_spread = np.std(data-sm_data)
     except :
         print('spread error')

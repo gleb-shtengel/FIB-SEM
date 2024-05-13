@@ -4128,12 +4128,12 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     if fit_params[0] != 'None':
         sv_apert = min([fit_params[1], len(frames)//8*2+1])
         print('Using fit_params: ', 'SG', sv_apert, fit_params[2])
-        sliding_min = savgol_filter(frame_min.astype(double), sv_apert, fit_params[2])
-        sliding_max = savgol_filter(frame_min.astype(double), sv_apert, fit_params[2])
+        sliding_min = savgol_filter(frame_min.astype(np.double), sv_apert, fit_params[2])
+        sliding_max = savgol_filter(frame_min.astype(np.double), sv_apert, fit_params[2])
     else:
         print('Not smoothing the Min/Max data')
-        sliding_min = frame_min.astype(double)
-        sliding_max = frame_min.astype(double)
+        sliding_min = frame_min.astype(np.double)
+        sliding_max = frame_min.astype(np.double)
 
     if disp_res:
         print('Generating Plot')
@@ -6846,12 +6846,12 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         if fit_params[0] != 'None':
             sv_apert = min([fit_params[1], len(frame_inds)//8*2+1])
             print('Using fit_params: ', 'SG', sv_apert, fit_params[2])
-            data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(double), sv_apert, fit_params[2])
-            data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(double), sv_apert, fit_params[2])
+            data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(np.double), sv_apert, fit_params[2])
+            data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(np.double), sv_apert, fit_params[2])
         else:
             print('Not smoothing the Min/Max data')
-            data_min_sliding = data_minmax_glob[:, 0].astype(double)
-            data_max_sliding = data_minmax_glob[:, 1].astype(double)
+            data_min_sliding = data_minmax_glob[:, 0].astype(np.double)
+            data_max_sliding = data_minmax_glob[:, 1].astype(np.double)
         mill_rate_WD = results_s2[:, 2]
         mill_rate_MV = results_s2[:, 3]
         center_x = results_s2[:, 4]
@@ -7396,21 +7396,21 @@ def find_fit(tr_matr_cum, fit_params):
     fit_method = fit_params[0]
     if fit_method == 'SG':  # perform Savitsky-Golay fitting with parameters
         ws, porder = fit_params[1:3]         # window size 701, polynomial order 3
-        s00_fit = savgol_filter(tr_matr_cum[:, 0, 0].astype(double), ws, porder)
-        s01_fit = savgol_filter(tr_matr_cum[:, 0, 1].astype(double), ws, porder)
-        s10_fit = savgol_filter(tr_matr_cum[:, 1, 0].astype(double), ws, porder)
-        s11_fit = savgol_filter(tr_matr_cum[:, 1, 1].astype(double), ws, porder)
+        s00_fit = savgol_filter(tr_matr_cum[:, 0, 0].astype(np.double), ws, porder)
+        s01_fit = savgol_filter(tr_matr_cum[:, 0, 1].astype(np.double), ws, porder)
+        s10_fit = savgol_filter(tr_matr_cum[:, 1, 0].astype(np.double), ws, porder)
+        s11_fit = savgol_filter(tr_matr_cum[:, 1, 1].astype(np.double), ws, porder)
     else:
         fr = np.arange(0, len(tr_matr_cum), dtype=np.double)
         if fit_method == 'PF':  # perform polynomial fitting with parameters
             porder = fit_params[1]         # polynomial order
-            s00_coeffs = np.polyfit(fr, tr_matr_cum[:, 0, 0].astype(double), porder)
+            s00_coeffs = np.polyfit(fr, tr_matr_cum[:, 0, 0].astype(np.double), porder)
             s00_fit = np.polyval(s00_coeffs, fr)
-            s01_coeffs = np.polyfit(fr, tr_matr_cum[:, 0, 1].astype(double), porder)
+            s01_coeffs = np.polyfit(fr, tr_matr_cum[:, 0, 1].astype(np.double), porder)
             s01_fit = np.polyval(s01_coeffs, fr)
-            s10_coeffs = np.polyfit(fr, tr_matr_cum[:, 1, 0].astype(double), porder)
+            s10_coeffs = np.polyfit(fr, tr_matr_cum[:, 1, 0].astype(np.double), porder)
             s10_fit = np.polyval(s10_coeffs, fr)
-            s11_coeffs = np.polyfit(fr, tr_matr_cum[:, 1, 1].astype(double), porder)
+            s11_coeffs = np.polyfit(fr, tr_matr_cum[:, 1, 1].astype(np.double), porder)
             s11_fit = np.polyval(s11_coeffs, fr)
         
         else:   # otherwise perform linear fit with origin point tied to 1 for Sxx and Syy and to 0 for Sxy and Syx
@@ -7424,10 +7424,10 @@ def find_fit(tr_matr_cum, fit_params):
             s10_fit = slp10 * fr
         
     tr_matr_cum_new = tr_matr_cum.copy()
-    tr_matr_cum_new[:, 0, 0] = tr_matr_cum[:, 0, 0].astype(double) + 1.0 - s00_fit
-    tr_matr_cum_new[:, 0, 1] = tr_matr_cum[:, 0, 1].astype(double) - s01_fit
-    tr_matr_cum_new[:, 1, 0] = tr_matr_cum[:, 1, 0].astype(double) - s10_fit
-    tr_matr_cum_new[:, 1, 1] = tr_matr_cum[:, 1, 1].astype(double) + 1.0 - s11_fit
+    tr_matr_cum_new[:, 0, 0] = tr_matr_cum[:, 0, 0].astype(np.double) + 1.0 - s00_fit
+    tr_matr_cum_new[:, 0, 1] = tr_matr_cum[:, 0, 1].astype(np.double) - s01_fit
+    tr_matr_cum_new[:, 1, 0] = tr_matr_cum[:, 1, 0].astype(np.double) - s10_fit
+    tr_matr_cum_new[:, 1, 1] = tr_matr_cum[:, 1, 1].astype(np.double) + 1.0 - s11_fit
     s_fits = [s00_fit, s01_fit, s10_fit, s11_fit]
     return tr_matr_cum_new, s_fits
 
