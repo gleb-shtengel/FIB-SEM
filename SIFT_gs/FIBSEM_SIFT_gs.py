@@ -5362,7 +5362,7 @@ class FIBSEM_frame:
                 self.ScalingS = unpack('>'+str(4*self.ChanNum)+'f',self.header[36:(36+self.ChanNum*16)])
             else:
                 self.ScalingS = unpack('>8f',self.header[36:68])
-                self.Scaling = transpose(np.asarray(self.ScalingS).reshape(2,4))
+                self.Scaling = np.transpose(np.asarray(self.ScalingS).reshape(2,4))
             
             if self.FileVersion > 8 :
                 self.RestartFlag = unpack('b',self.header[68:69])[0]              # Read in restart flag
