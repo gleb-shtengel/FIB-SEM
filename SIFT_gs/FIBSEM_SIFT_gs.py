@@ -76,7 +76,6 @@ try:
 except:
     raise RuntimeError("Unable to load FIBSEM_custom_transforms_gs")
 
-
 try:
     from SIFT_gs.FIBSEM_resolution_gs import *
 except:
@@ -280,7 +279,7 @@ def Single_Image_SNR(img, **kwargs):
             #print('R:   ACR peak = {:.4f}, Noise-Free ACR Peak = {:.4f}, Squared Mean = {:.4f}'.format(r_acr, r_noise_free_acr, r_mean_value ))
             #print('rSNR = {:.4f}'.format(rSNR))
             fig.savefig(res_fname, dpi=dpi)
-            print('Saved the results into the file: ', res_fname)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saved the results into the file: ', res_fname)
     
     return xSNR, ySNR, rSNR
 
@@ -374,7 +373,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
     
     range_analysis = get_min_max_thresholds(img_hist_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res=False)
     if disp_res:
-        print('The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
     
     yx_ratio = img.shape[0]/img.shape[1]
@@ -496,7 +495,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
         axs4.text(0.05, 0.35, txt3, transform=axs4.transAxes, fontsize=fs)
         if save_res_png:
             fig.savefig(res_fname, dpi=dpi)
-            print('results saved into the file: '+res_fname)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   results saved into the file: '+res_fname)
 
     return mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR
 
@@ -606,10 +605,10 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     
     range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = False)
     if disp_res:
-        print('The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
     range_analysis = get_min_max_thresholds(img_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res = False)
     if disp_res:
-        print('The EM data range for noise analysis:     {:.1f} - {:.1f}'.format(range_analysis[0], range_analysis[1]))
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   The EM data range for noise analysis:     {:.1f} - {:.1f}'.format(range_analysis[0], range_analysis[1]))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
 
     imdiff = (img-img_filtered)
@@ -757,7 +756,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
 
         if save_res_png:
             fig.savefig(res_fname, dpi=300)
-            print('results saved into the file: '+res_fname)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   results saved into the file: '+res_fname)
     return mean_vals, var_vals, I0, PSNR, DSNR, popt, result
 
 
@@ -1019,7 +1018,7 @@ def Perform_2D_fit(img, estimator, **kwargs):
         axs[1, 1].set_xlabel('Y-coordinate')
         if save_res_png:
             fig.savefig(res_fname, dpi=dpi)
-            print('results saved into the file: '+res_fname)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   results saved into the file: '+res_fname)
     return intercept, coefs, mse, img_correction_array
 
 
@@ -1499,14 +1498,14 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
     except:
-        print('DASK client does not exist. Will perform local computations')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
         use_DASK = False
     invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
@@ -1519,11 +1518,11 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
 
     if sliding_evaluation_box:
-        print('Will use sliding (linearly) evaluation box')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will use sliding (linearly) evaluation box')
         print('   Starting with box:  ', start_evaluation_box)
         print('   Finishing with box: ', stop_evaluation_box)
     else:
-        print('Will use fixed evaluation box: ', evaluation_box)
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will use fixed evaluation box: ', evaluation_box)
 
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
@@ -1570,7 +1569,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     if frame_inds[0]==0:
         frame_inds = frame_inds+1
     sample_frame_inds = [frame_inds[nf//10], frame_inds[nf//2], frame_inds[nf//10*9]]
-    print('Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
     print('Will save the data into ' + registration_summary_xlsx)
     if sliding_evaluation_box:
         dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
@@ -1611,14 +1610,14 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
         
     if use_DASK:
         mrc_obj.close()
-        print('Using DASK distributed')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
         futures = DASK_client.map(evaluate_registration_two_frames, params_mrc_mult, retries = DASK_client_retries)
         dask_results = DASK_client.gather(futures)
         image_nsad = np.array([res[0] for res in dask_results])
         image_ncc = np.array([res[1] for res in dask_results])
         image_mi = np.array([res[2] for res in dask_results])
     else:
-        print('Using Local Computation')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
         image_nsad = np.zeros(nf, dtype=float)
         image_ncc = np.zeros(nf, dtype=float)
         image_mi = np.zeros(nf, dtype=float)
@@ -1687,7 +1686,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
     nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
 
-    print('Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
     xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
     columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Image NSAD', 'Image NCC', 'Image MI']
     reg_summary = pd.DataFrame(np.vstack((frame_inds, xi_evals, xa_evals, yi_evals, ya_evals, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
@@ -1928,7 +1927,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     voxel_size_angstr = mrc_obj.voxel_size # Angstrom per pixel
     voxel_size = np.array(kwargs.get('voxel_size', [voxel_size_angstr.x/1.0e4, voxel_size_angstr.y/1.0e4, voxel_size_angstr.z/1.0e4])) # in um per pixel
     stack_size = np.array([nx*voxel_size[0], ny*voxel_size[1], nz*voxel_size[2]])
-    print('EM cross-sections dimensions (um):', stack_size)
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   EM cross-sections dimensions (um):', stack_size)
     cc_default = stack_size/2.0
     
     center_coordinates = kwargs.get('center_coordinates', cc_default)   # in um
@@ -1989,7 +1988,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
         EM_crop = deepcopy(np.squeeze(mrc_obj.data[ci_x[0]:ca_x[0], ci_x[1]:ca_x[1], ci_x[2]:ca_x[2]]))
         #print('EM Crop Base: ', EM_crop.base)
         ysz, xsz = np.shape(EM_crop)
-        print(cs_names[i] + ' loaded, dimensions (pixels):', xsz, ysz)
+        print(time.strftime('%Y/%m/%d  %H:%M:%S   ')+cs_names[i] + ' loaded, dimensions (pixels):', xsz, ysz)
         if i==2:
             EM_crop = np.transpose(EM_crop)
         images.append(EM_crop)
@@ -2008,7 +2007,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     
     EM_min = kwargs.get('EM_min', np.min(np.array(EM_mins)))
     EM_max = kwargs.get('EM_max', np.max(np.array(EM_maxs)))
-    print('Will use EM-data range: {:.1f} - {:.1f}'.format(EM_min, EM_max))
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will use EM-data range: {:.1f} - {:.1f}'.format(EM_min, EM_max))
         
     print('Generating Cross-Section Images')
     if XZ_section and ZY_section:
@@ -2017,7 +2016,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
                 j=y*2+x
                 if j<3:
                     if x==0 or (x==1 and XZ_section) or y==0 or (y==1 and ZY_section):
-                        print('Generating '+ cs_names[j])
+                        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Generating '+ cs_names[j])
                         axs[x,y].imshow(images[j], cmap='Greys', vmin=EM_min, vmax=EM_max, clip_on=True)
                         if XZ_section:
                             axs[x,y].axhline(lines[j][0], c = xsection_line_color, linewidth = xsection_linewidth)
@@ -2049,8 +2048,8 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
                 axs[x].spines[sp].set_linewidth(0.5)
 
     if save_PNG:
-        print('Saving image into: ', save_filename)
-        savefig(save_filename, dpi=dpi, transparent=True)
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving image into: ', save_filename)
+        fig.savefig(save_filename, dpi=dpi, transparent=True)
         
     return images, axs
 
@@ -2158,14 +2157,14 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
     except:
-        print('DASK client does not exist. Will perform local computations')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
         use_DASK = False
     
     mrc_filename  = os.path.normpath(mrc_filename)
@@ -2227,7 +2226,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     if mode == 'sum':
         mrc_mode = 1
         dt = np.int16
-    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
     st_frames = np.arange(fri, fra, zbin_factor)
     mrc_obj.close()
     
@@ -2237,7 +2236,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
         params = [mrc_filename, dt, st_frame, (min(st_frame+zbin_factor, nz-1)), j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya]
         params_mult.append(params)
     
-    print('New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
     
     fnms_saved = []
     if 'mrc' in fnm_types:
@@ -2245,7 +2244,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
         mrc_new = mrcfile.new_mmap(binned_mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
         mrc_new.voxel_size = voxel_size_angstr_new
         #mrc_new.header.cella = voxel_size_angstr_new
-        print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
         desc = 'Saving the data stack into MRC file'
 
     if 'h5' in fnm_types:
@@ -2265,7 +2264,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
             desc = 'Saving the data stack into H5 file'
     
     if use_DASK:
-        print('Using DASK distributed')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
         #futures = DASK_client.map(bin_crop_frames, params_mult, retries = DASK_client_retries)
         # In case of a large source file, need to stadge the DASK jobs - cannot start all at once.
         DASK_batch = 0
@@ -2428,14 +2427,14 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
     except:
-        print('DASK client does not exist. Will perform local computations')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
         use_DASK = False
     
     mrc_filename  = os.path.normpath(mrc_filename)
@@ -2481,7 +2480,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         params_mult.append(params)
     
     if use_DASK:
-        print('Using DASK distributed')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
         [future] = DASK_client.scatter([destreak_kernel], broadcast=True)
         futures = [DASK_client.submit(destreak_single_frame_kernel_shared, future, params) for params in params_mult]
         #futures = DASK_client.map(destreak_single_frame_kernel_shared, params_mult, retries = DASK_client_retries)       
@@ -2592,14 +2591,14 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
     except:
-        print('DASK client does not exist. Will perform local computations')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
         use_DASK = False
     
     mrc_filename  = os.path.normpath(mrc_filename)
@@ -2645,7 +2644,7 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
         params_mult.append(params)
     
     if use_DASK:
-        print('Using DASK distributed')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
         [future] = DASK_client.scatter([smooth_kernel], broadcast=True)
         futures = [DASK_client.submit(smooth_single_frame_kernel_shared, future, params) for params in params_mult]
         #futures = DASK_client.map(smooth_single_frame_kernel_shared, params_mult, retries = DASK_client_retries)       
@@ -2843,14 +2842,14 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
     except:
-        print('DASK client does not exist. Will perform local computations')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
         use_DASK = False
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
     sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
@@ -2894,11 +2893,11 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     nbins = kwargs.get('nbins', 64)
     if verbose:
         if sliding_evaluation_box:
-            print('Will use sliding (linearly) evaluation box')
-            print('   Starting with box:  ', start_evaluation_box)
-            print('   Finishing with box: ', stop_evaluation_box)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will use sliding (linearly) evaluation box')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting with box:  ', start_evaluation_box)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Finishing with box: ', stop_evaluation_box)
         else:
-            print('Will use fixed evaluation box: ', evaluation_box)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will use fixed evaluation box: ', evaluation_box)
 
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
@@ -2946,7 +2945,7 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
         frame_inds = frame_inds+1
     sample_frame_inds = [frame_inds[nf//10], frame_inds[nf//2], frame_inds[nf//10*9]]
     if verbose:
-        print('Will analyze 2D Blobs in {:d} frames'.format(len(frame_inds)))
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will analyze 2D Blobs in {:d} frames'.format(len(frame_inds)))
         print('Will save the data into ' + results_file_xlsx)
     if sliding_evaluation_box:
         dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
@@ -2990,12 +2989,12 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
         mrc_papams_blob_analysis.append(mrc_params_single)
 
     if use_DASK:
-        print('Blob Analysis, Using DASK distributed')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Blob Analysis, Using DASK distributed')
         futures = DASK_client.map(select_blobs_LoG_analyze_transitions_2D_mrc_stack, mrc_papams_blob_analysis, retries = DASK_client_retries)
         results_2D = DASK_client.gather(futures)
 
     else:
-        print('Blob Analysis, Using Local Computation')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Blob Analysis, Using Local Computation')
         for j, mrc_params_single in enumerate(tqdm(mrc_papams_blob_analysis, desc='Analyzing Resolution using Blobs', display = True)):
             results_2D.append(select_blobs_LoG_analyze_transitions_2D_mrc_stack(mrc_params_single))
 
@@ -3020,7 +3019,7 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
         blobs_LoG_arr = np.array(blobs_LoG)
 
         if verbose:
-            print('Saving the results into file:  ' + results_file_xlsx)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the results into file:  ' + results_file_xlsx)
 
         transition_results = pd.DataFrame(np.column_stack((frame_inds, blobs_LoG, tr_results, error_flags)), columns = columns, index = None)
         transition_results.to_excel(xlsx_writer, index=None, sheet_name='Transition analysis results')
@@ -3124,7 +3123,7 @@ def select_blobs_LoG_analyze_transitions_2D_mrc_stack(params):
     frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)), dtype=float)
 
     if verbose:
-        print('Will analyze a subset of ', mrc_filename)
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will analyze a subset of ', mrc_filename)
 
     for j in np.arange(zbin_factor):
         if j>0:
@@ -3587,14 +3586,14 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
     except:
-        print('DASK client does not exist. Will perform local computations')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
         use_DASK = False
     invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
@@ -3607,7 +3606,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     registration_summary_xlsx = save_filename.replace('.mrc', '_RegistrationQuality.xlsx')
 
     if sliding_evaluation_box:
-        print('Will use sliding (linearly) evaluation box')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will use sliding (linearly) evaluation box')
         print('   Starting with box:  ', start_evaluation_box)
         print('   Finishing with box: ', stop_evaluation_box)
     else:
@@ -3653,7 +3652,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     if frame_inds[0]==0:
         frame_inds = frame_inds+1
     sample_frame_inds = [frame_inds[nf//10], frame_inds[nf//2], frame_inds[nf//10*9]]
-    print('Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will analyze regstrations in {:d} frames'.format(len(frame_inds)))
     print('Will save the data into ' + registration_summary_xlsx)
     if sliding_evaluation_box:
         dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
@@ -3693,14 +3692,14 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
         params_tif_mult.append([tif_filename, fr, invert_data, evals, save_frame_png, filename_frame_png])
         
     if use_DASK:
-        print('Using DASK distributed')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
         futures = DASK_client.map(evaluate_registration_two_frames_tif, params_tif_mult, retries = DASK_client_retries)
         dask_results = DASK_client.gather(futures)
         image_nsad = np.array([res[0] for res in dask_results])
         image_ncc = np.array([res[1] for res in dask_results])
         image_mi = np.array([res[2] for res in dask_results])
     else:
-        print('Using Local Computation')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
         image_nsad = np.zeros((nf), dtype=float)
         image_ncc = np.zeros((nf), dtype=float)
         image_mi = np.zeros((nf), dtype=float)
@@ -3716,7 +3715,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     nccs = [np.mean(image_ncc), np.median(image_ncc), np.std(image_ncc)]
     nmis = [np.mean(image_mi), np.median(image_mi), np.std(image_mi)]
 
-    print('Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
     xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
     columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Image NSAD', 'Image NCC', 'Image MI']
     reg_summary = pd.DataFrame(np.vstack((frame_inds, xi_evals, xa_evals, yi_evals, ya_evals, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
@@ -6826,12 +6825,12 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
 
         if use_DASK:
             if disp_res:
-                print('Using DASK distributed')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
             futures = DASK_client.map(evaluate_FIBSEM_frame, params_s2, retries = DASK_client_retries)
             results_s2 = np.array(DASK_client.gather(futures))
         else:
             if disp_res:
-                print('Using Local Computation')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
             results_s2 = np.zeros((len(frame_inds), 6))
             for j, param_s2 in enumerate(tqdm(params_s2, desc='Evaluating FIB-SEM frames (data min/max, mill rate, FOV shifts): ', display = disp_res)):
                 results_s2[j, :] = evaluate_FIBSEM_frame(param_s2)
@@ -6857,7 +6856,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         SEMSpecimenI = results_s2[:, 8]
 
     if disp_res:
-        print('Saving the FIBSEM dataset statistics (Min/Max, Mill Rate, FOV Shifts into the file: ', FIBSEM_Data_xlsx_path)
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the FIBSEM dataset statistics (Min/Max, Mill Rate, FOV Shifts into the file: ', FIBSEM_Data_xlsx_path)
         # Create a Pandas Excel writer using XlsxWriter as the engine.
     xlsx_writer = pd.ExcelWriter(FIBSEM_Data_xlsx_path, engine='xlsxwriter')
     columns=['Frame', 'Min', 'Max', 'Sliding Min', 'Sliding Max', 'Working Distance (mm)', 'Milling Y Voltage (V)', 'FOV X Center (Pix)', 'FOV Y Center (Pix)', 'Scan Rate (Hz)', 'EHT (kV)', 'SEMSpecimenI (nA)']
@@ -7067,11 +7066,11 @@ def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
     else:
         params_s3 = [[fl, data_min_glob, data_max_glob, kwargs] for fl in fls]        
     if use_DASK:
-        print('Using DASK distributed')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
         futures_s3 = DASK_client.map(extract_keypoints_descr_files, params_s3, retries = DASK_client_retries)
         fnms = DASK_client.gather(futures_s3)
     else:
-        print('Using Local Computation')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
         fnms = []
         for j, param_s3 in enumerate(tqdm(params_s3, desc='Extracting Key Points and Descriptors: ')):
             fnms.append(extract_keypoints_descr_files(param_s3))
@@ -8423,16 +8422,16 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
 
     if use_DASK:
         if disp_res:
-            print('Analyzing Frame Registration: Starting DASK jobs')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Analyzing Frame Registration: Starting DASK jobs')
         futures_til = DASK_client.map(Two_Image_Analysis, params_frames, retries = DASK_client_retries)
         results_til = DASK_client.gather(futures_til)
         image_metrics = np.array(results_til)  # 2D array  np.array([[image_nsad, image_ncc, image_mi]])
         if disp_res:
-            print('Finished DASK jobs')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Finished DASK jobs')
 
     else:   # if DASK is not used - perform local computations
         if disp_res:
-            print('Analyzing Frame Registration: Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Analyzing Frame Registration: Will perform local computations')
         image_metrics = np.zeros((nfrs-1, len(eval_metrics)), dtype=float)
         for j, params_frame in enumerate(tqdm(params_frames, desc = 'Analyzing frame pairs', display = disp_res)):
             image_metrics[j, :] = Two_Image_Analysis(params_frame)
@@ -8471,7 +8470,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
     if save_registration_summary:
         registration_summary_xlsx = fpath_reg.replace('.mrc', '_RegistrationQuality.xlsx')
         if disp_res:
-            print('Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
         # Create a Pandas Excel writer using XlsxWriter as the engine.
         xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
         reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
@@ -8633,14 +8632,14 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
 
     if use_DASK:
         if disp_res:
-            print('Transform and Save Chunks of Frames: Starting DASK jobs')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Transform and Save Chunks of Frames: Starting DASK jobs')
         futures_td = DASK_client.map(transform_and_save_chunk_of_frames, chunk_of_frame_parametrs_dataset, retries = DASK_client_retries)
         registered_filenames = np.array(DASK_client.gather(futures_td))
         if disp_res:
-            print('Finished DASK jobs')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Finished DASK jobs')
     else:   # if DASK is not used - perform local computations
         if disp_res:
-            print('Transform and Save Chunks of Frames: Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Transform and Save Chunks of Frames: Will perform local computations')
         registered_filenames = []
         for chunk_of_frame_parametrs in tqdm(chunk_of_frame_parametrs_dataset, desc = 'Transforming and saving frame chunks', display = disp_res):
             registered_filenames.append(transform_and_save_chunk_of_frames(chunk_of_frame_parametrs))
@@ -8885,7 +8884,7 @@ def select_blobs_LoG_analyze_transitions_2D_dataset(params):
     frame_eval = np.zeros(((ya_eval-yi_eval), (xa_eval-xi_eval)), dtype=float)
 
     if verbose:
-        print('Will analyze a subset of ', image_name)
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will analyze a subset of ', image_name)
 
 
     for j in np.arange(zbin_factor):
@@ -9327,12 +9326,12 @@ class FIBSEM_dataset:
             dump_filename = kwargs.get("dump_filename", '')
             try:
                 dump_data = pickle.load(open(dump_filename, 'rb'))
-                print('Loaded the data from the dump filename: ', dump_filename)
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Loaded the data from the dump filename: ', dump_filename)
                 dump_loaded = True
             except Exception as ex1:
                 dump_loaded = False
                 if disp_res:
-                    print('Failed to open Parameter dump filename: ', dump_filename)
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Failed to open Parameter dump filename: ', dump_filename)
                     print(ex1.message)
             if dump_loaded:
                 try:
@@ -9345,7 +9344,7 @@ class FIBSEM_dataset:
                         print(ex2.message)
         else:
             if disp_res:
-                print('Registered data will be saved into: ', self.fnm_reg)
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Registered data will be saved into: ', self.fnm_reg)
         if disp_res:
             print('Total Number of frames: ', len(self.fls))
  
@@ -9484,7 +9483,7 @@ class FIBSEM_dataset:
         
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts = SIFT_evaluation_dataset(eval_fls, **SIFT_evaluation_kwargs)
         src_pts_filtered, dst_pts_filtered = kpts
-        print('Transformation Matrix determined using '+ TransformType.__name__ +' using ' + solver + ' solver')
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Transformation Matrix determined using '+ TransformType.__name__ +' using ' + solver + ' solver')
         print(transform_matrix)
         print('{:d} keypoint matches were detected with {:.1f} pixel outlier threshold'.format(n_matches, drmax))
         print('Number of iterations: {:d}'.format(iteration))
@@ -9510,14 +9509,14 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
-                print('DASK client does not exist. Will perform local computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                 use_DASK = False
         except:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
@@ -9612,14 +9611,14 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
-                print('DASK client does not exist. Will perform local computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                 use_DASK = False
         except:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
@@ -9753,14 +9752,14 @@ class FIBSEM_dataset:
                     except:
                         dport = client_services['bokeh']
                     status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                    print('DASK client exists. Will perform distributed computations')
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
                     print('Use ' + status_update_address +' to monitor DASK progress')
                     use_DASK = True
                 else:
-                    print('DASK client does not exist. Will perform local computations')
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                     use_DASK = False
             except:
-                print('DASK client does not exist. Will perform local computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                 use_DASK = False
             if hasattr(self, "DASK_client_retries"):
                 DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
@@ -9799,11 +9798,11 @@ class FIBSEM_dataset:
             else:
                 params_s3 = [[fl, data_min_glob, data_max_glob, kpt_kwargs] for fl in self.fls]        
             if use_DASK:
-                print('Using DASK distributed')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
                 futures_s3 = DASK_client.map(extract_keypoints_descr_files, params_s3, retries = DASK_client_retries)
                 fnms = DASK_client.gather(futures_s3)
             else:
-                print('Using Local Computation')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
                 fnms = []
                 for j, param_s3 in enumerate(tqdm(params_s3, desc='Extracting Key Points and Descriptors: ')):
                     fnms.append(extract_keypoints_descr_files(param_s3))
@@ -9877,14 +9876,14 @@ class FIBSEM_dataset:
                     except:
                         dport = client_services['bokeh']
                     status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                    print('DASK client exists. Will perform distributed computations')
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
                     print('Use ' + status_update_address +' to monitor DASK progress')
                     use_DASK = True
                 else:
-                    print('DASK client does not exist. Will perform local computations')
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                     use_DASK = False
             except:
-                print('DASK client does not exist. Will perform local computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                 use_DASK = False
             if hasattr(self, "DASK_client_retries"):
                 DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
@@ -9920,12 +9919,12 @@ class FIBSEM_dataset:
                 fname2 = self.fnms[j+1]
                 params_s4.append([fname1, fname2, dt_kwargs])
             if use_DASK:
-                print('Using DASK distributed')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
                 futures4 = DASK_client.map(determine_transformations_files, params_s4, retries = DASK_client_retries)
                 #determine_transformations_files returns (transform_matrix, fnm_matches, kpts, iteration)
                 results_s4 = DASK_client.gather(futures4)
             else:
-                print('Using Local Computation')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
                 results_s4 = []
                 for param_s4 in tqdm(params_s4, desc = 'Extracting Transformation Parameters: '):
                     results_s4.append(determine_transformations_files(param_s4))
@@ -10290,14 +10289,14 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
-                print('DASK client does not exist. Will perform local computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                 use_DASK = False
         except:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
 
         save_transformed_dataset = kwargs.get('save_transformed_dataset', True)
@@ -10991,14 +10990,14 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
-                print('DASK client does not exist. Will perform local computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                 use_DASK = False
         except:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
@@ -11286,14 +11285,14 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
-                print('DASK client does not exist. Will perform local computations')
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
                 use_DASK = False
         except:
-            print('DASK client does not exist. Will perform local computations')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
             use_DASK = False
         image_name = kwargs.get("image_name", 'ImageA')
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
@@ -11430,12 +11429,12 @@ class FIBSEM_dataset:
             papams_blob_analysis.append(params_single)
 
         if use_DASK:
-            print('Using DASK distributed')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
             futures = DASK_client.map(select_blobs_LoG_analyze_transitions_2D_dataset, papams_blob_analysis, retries = DASK_client_retries)
             results_2D = DASK_client.gather(futures)
 
         else:
-            print('Using Local Computation')
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
 
             for j, params_single in enumerate(tqdm(papams_blob_analysis, desc='Analyzing Resolution using Blobs', display = verbose)):
                 if verbose:
@@ -11463,7 +11462,7 @@ class FIBSEM_dataset:
             blobs_LoG_arr = np.array(blobs_LoG)
 
             if verbose:
-                print('Saving the results into file:  ' + results_file_xlsx)
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the results into file:  ' + results_file_xlsx)
 
             transition_results = pd.DataFrame(np.column_stack((frame_inds, blobs_LoG, tr_results, error_flags)), columns = columns, index = None)
             transition_results.to_excel(xlsx_writer, index=None, sheet_name='Transition analysis results')
