@@ -34,9 +34,6 @@ from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit as cf
 
 from openpyxl import load_workbook
-import shutil
-
-
 
 from skimage.feature import blob_dog, blob_log, blob_doh
 from sklearn.linear_model import (LinearRegression,
@@ -65,7 +62,6 @@ EPS = np.finfo(float).eps
 try:
     from SIFT_gs.FIBSEM_help_functions_gs import *
 except:
-    #from FIBSEM_help_functions_gs import *
     raise RuntimeError("Unable to load FIBSEM_help_functions_gs")
 
 import warnings
