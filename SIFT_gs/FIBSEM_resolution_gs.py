@@ -11,11 +11,11 @@ import matplotlib.image as mpimg
 from matplotlib import pylab, mlab
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.patches import Ellipse
 from IPython.core.pylabtools import figsize, getfigs
 from PIL import Image as PILImage
 from PIL.TiffTags import TAGS
 
-from struct import *
 #from tqdm import tqdm_notebook as tqdm
 from tqdm.notebook import tqdm
 
@@ -36,7 +36,7 @@ from scipy.optimize import curve_fit as cf
 from openpyxl import load_workbook
 import shutil
 
-from matplotlib.patches import Ellipse
+
 
 from skimage.feature import blob_dog, blob_log, blob_doh
 from sklearn.linear_model import (LinearRegression,
@@ -176,7 +176,7 @@ def analyze_blob_transitions(amp, ** kwargs):
     indmin_i0 = np.max((0, indmin_i-dxi//2-1))
     xmin_i = xnm[indmin_i0:indmin_i0+dxi]
     amp_i = amp[indmin_i0:indmin_i0+dxi]
-    ampi = mean(amp_i)
+    ampi = np.mean(amp_i)
     if verbose:
         print('left min ind: ', indmin_i)
         print('left min X Pts: ', xmin_i)
@@ -187,7 +187,7 @@ def analyze_blob_transitions(amp, ** kwargs):
     indmin_a1 = np.min((npts, indmin_a+xc+2+dxa//2))
     xmin_a = xnm[indmin_a1-dxa:indmin_a1]
     amp_a = amp[indmin_a1-dxa:indmin_a1]
-    ampa = mean(amp_a)
+    ampa = np.mean(amp_a)
     if verbose:
         print('right min ind: ', indmin_a+xc+1)
         print('right min X Pts: ', xmin_a)
@@ -195,7 +195,7 @@ def analyze_blob_transitions(amp, ** kwargs):
         print('right min: ', ampa)
     
     # find peak by averaging around the max value
-    # amp_max = mean(amp[(xc-dxc//2):(xc+dxc//2+1)])
+    # amp_max = np.mean(amp[(xc-dxc//2):(xc+dxc//2+1)])
     # amp_subset_fit = amp_subset *0.0 + amp_max
     # find peak by parabolic fitting around the max value
     amp_subset = amp[(xc-dxc//2):(xc+dxc//2+1)]
@@ -217,7 +217,7 @@ def analyze_blob_transitions(amp, ** kwargs):
     else:
         # bad fit, use averaging around center point instead
         xnm_mx = xc
-        amp_max = mean(amp[(xc-dxc//2):(xc+dxc//2+1)])
+        amp_max = np.mean(amp[(xc-dxc//2):(xc+dxc//2+1)])
         xnm_subset_fit = xnm_subset
         amp_subset_fit = amp_subset *0.0 + amp_max
         if verbose:
