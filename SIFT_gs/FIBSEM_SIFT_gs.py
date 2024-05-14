@@ -69,20 +69,17 @@ print('SIFT_gs version: ', SIFT_gs.__version__)
 try:
     from SIFT_gs.FIBSEM_help_functions_gs import *
 except:
-    #from FIBSEM_help_functions_gs import *
     raise RuntimeError("Unable to load FIBSEM_help_functions_gs")
 
 try:
     from SIFT_gs.FIBSEM_custom_transforms_gs import *
 except:
-    #from FIBSEM_custom_transforms_gs import *
     raise RuntimeError("Unable to load FIBSEM_custom_transforms_gs")
 
 
 try:
     from SIFT_gs.FIBSEM_resolution_gs import *
 except:
-    #from FIBSEM_resolution_gs import *
     raise RuntimeError("Unable to load FIBSEM_resolution_gs")
 
 

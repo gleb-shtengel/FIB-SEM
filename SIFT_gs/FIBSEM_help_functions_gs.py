@@ -21,7 +21,6 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 try:
     from SIFT_gs.FIBSEM_custom_transforms_gs import *
 except:
-    #from FIBSEM_custom_transforms_gs import *
     raise RuntimeError("Unable to load FIBSEM_custom_transforms_gs")
 
 
@@ -716,7 +715,7 @@ def add_hist(dt, **kwargs):
     ax = kwargs.get('ax', 0)
     col = kwargs.get('col', 'red')
     label = kwargs.get('label', '')
-      
+    
     mn = np.mean(dt)
     md = np.median(dt)
     std = np.std(dt)
@@ -779,7 +778,10 @@ def read_kwargs_xlsx(file_xlsx, kwargs_sheet_name, **kwargs):
             try:
                 exec('kwargs_dict["'+str(key)+'"] = '+ str(kwargs_dict_initial[key]))
             except:
-                exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\\', '/').replace('\n', ',') + '"')
+                try:
+                    exec('kwargs_dict["'+str(key)+'"] = "' + kwargs_dict_initial[key].replace('\\', '/').replace('\n', ',') + '"')
+                except:
+                    pass
     if 'dump_filename' in kwargs.keys():
         kwargs_dict['dump_filename'] = kwargs['dump_filename']
     #correct for pandas mixed read failures
