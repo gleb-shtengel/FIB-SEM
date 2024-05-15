@@ -373,7 +373,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
     
     range_analysis = get_min_max_thresholds(img_hist_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res=False)
     if disp_res:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
+        print('The EM data range for noise analysis: {:.1f} - {:.1f},  DarkCount={:.1f}'.format(range_analysis[0], range_analysis[1], DarkCount))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
     
     yx_ratio = img.shape[0]/img.shape[1]
@@ -605,10 +605,10 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     
     range_disp = get_min_max_thresholds(img_filtered, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res = False)
     if disp_res:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
+        print('The EM data range for display:            {:.1f} - {:.1f}'.format(range_disp[0], range_disp[1]))
     range_analysis = get_min_max_thresholds(img_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res = False)
     if disp_res:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   The EM data range for noise analysis:     {:.1f} - {:.1f}'.format(range_analysis[0], range_analysis[1]))
+        print('The EM data range for noise analysis:     {:.1f} - {:.1f}'.format(range_analysis[0], range_analysis[1]))
     bins_analysis = np.linspace(range_analysis[0], range_analysis[1], nbins_analysis)
 
     imdiff = (img-img_filtered)
@@ -1498,7 +1498,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+            print('DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
@@ -2157,7 +2157,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+            print('DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
@@ -2427,7 +2427,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+            print('DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
@@ -2591,7 +2591,7 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+            print('DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
@@ -2842,7 +2842,7 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+            print('DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
@@ -3586,7 +3586,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
             except:
                 dport = client_services['bokeh']
             status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+            print('DASK client exists. Will perform distributed computations')
             print('Use ' + status_update_address +' to monitor DASK progress')
             use_DASK = True
         else:
@@ -9509,7 +9509,7 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+                print('DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
@@ -9611,7 +9611,7 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+                print('DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
@@ -9752,7 +9752,7 @@ class FIBSEM_dataset:
                     except:
                         dport = client_services['bokeh']
                     status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+                    print('DASK client exists. Will perform distributed computations')
                     print('Use ' + status_update_address +' to monitor DASK progress')
                     use_DASK = True
                 else:
@@ -9876,7 +9876,7 @@ class FIBSEM_dataset:
                     except:
                         dport = client_services['bokeh']
                     status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+                    print('DASK client exists. Will perform distributed computations')
                     print('Use ' + status_update_address +' to monitor DASK progress')
                     use_DASK = True
                 else:
@@ -10289,7 +10289,7 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+                print('DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
@@ -10990,7 +10990,7 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+                print('DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
@@ -11285,7 +11285,7 @@ class FIBSEM_dataset:
                 except:
                     dport = client_services['bokeh']
                 status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client exists. Will perform distributed computations')
+                print('DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
                 use_DASK = True
             else:
