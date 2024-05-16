@@ -8701,7 +8701,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
                     pass
                 fnms_saved.append(fpath_reg_h5)
                 if disp_res:
-                    print('Saving dataset into Big Data Viewer HDF5 file: ', fpath_reg_h5)
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving dataset into Big Data Viewer HDF5 file: ', fpath_reg_h5)
                 bdv_writer = npy2bdv.BdvWriter(fpath_reg_h5, nchannels=1, blockdim=((1, 256, 256),))
                 bdv_writer.append_view(stack=FIBSEMstack,
                        virtual_stack_dim=(nz,ny,nx),
@@ -8712,7 +8712,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
                 bdv_writer.close()
             if fnm_type == 'mrc':
                 if disp_res:
-                    print('Saving dataset into MRC file: ', fpath_reg)
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving dataset into MRC file: ', fpath_reg)
                 fnms_saved.append(fpath_reg)
                 '''
                 mode 0 -> uint8
