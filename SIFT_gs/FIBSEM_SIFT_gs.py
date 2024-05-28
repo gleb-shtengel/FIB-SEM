@@ -5512,13 +5512,13 @@ class FIBSEM_frame:
             if self.EightBit == 1:
                 if self.AI1 == 1:
                     self.RawImageA = Raw[:,:,0]
-                    self.ImageA = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
+                    self.ImageA = (Raw[:,:,0].astype(np.float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
                     if self.AI2 == 1:
                         self.RawImageB = Raw[:,:,1]
-                        self.ImageB = (Raw[:,:,1].astype(float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(np.int32)
+                        self.ImageB = (Raw[:,:,1].astype(np.float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(np.int32)
                 elif self.AI2 == 1:
                     self.RawImageB = Raw[:,:,0]
-                    self.ImageB = (Raw[:,:,0].astype(float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
+                    self.ImageB = (Raw[:,:,0].astype(np.float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
             else:
                 if self.FileVersion == 1 or self.FileVersion == 2 or self.FileVersion == 3 or self.FileVersion == 4 or self.FileVersion == 5 or self.FileVersion == 6:
                     if self.AI1 == 1:
