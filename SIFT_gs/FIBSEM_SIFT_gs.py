@@ -5751,7 +5751,7 @@ class FIBSEM_frame:
                 fname_jpg = os.path.splitext(self.fname)[0] + 'DetA.jpg'
             Img = self.RawImageA_8bit_thresholds()[0]
             if invert:
-                Img =  uint8(255) - Img
+                Img =  np.uint8(255) - Img
             PILImage.fromarray(Img).save(fname_jpg)
 
         try:
@@ -5762,7 +5762,7 @@ class FIBSEM_frame:
                     fname_jpg = os.path.splitext(self.fname)[0] + 'DetB.jpg'
                 Img = self.RawImageB_8bit_thresholds()[0]
                 if invert:
-                    Img =  uint8(255) - Img
+                    Img =  np.uint8(255) - Img
                 PILImage.fromarray(Img).save(fname_jpg)
         except:
             print('No Detector B image to save')
@@ -5845,7 +5845,7 @@ class FIBSEM_frame:
         
         Returns
         dt, data_min, data_max
-            dt : 2D uint8 array
+            dt : 2D np.uint8 array
                 Converted data
             data_min : float
                 value used as low bound for I8 data conversion
@@ -5880,7 +5880,7 @@ class FIBSEM_frame:
         
         Returns
         dt, data_min, data_max
-            dt : 2D uint8 array
+            dt : 2D np.uint8 array
                 Converted data
             data_min : float
                 value used as low bound for I8 data conversion
@@ -5923,7 +5923,7 @@ class FIBSEM_frame:
 
         Returns
         dt, data_min, data_max
-            dt : 2D uint8 array
+            dt : 2D np.uint8 array
                 Converted data
             data_min : float
                 value used as low bound for I8 data conversion
@@ -6671,8 +6671,8 @@ def evaluate_FIBSEM_frame(params):
     try:
         frame = FIBSEM_frame(fl, ftype=ftype)
         if frame.EightBit ==1:
-            dmin = uint8(0)
-            dmax =  uint8(255)
+            dmin = np.uint8(0)
+            dmax =  np.uint8(255)
         else:
             dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins)
         if ftype == 0:
@@ -6806,12 +6806,12 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     if frame.EightBit == 1 and ftype == 1:
         if disp_res:
             print('Original data is 8-bit, no need to find Min and Max for 8-bit conversion')
-        data_min_glob = uint8(0)
-        data_max_glob =  uint8(255)
-        data_min_sliding = np.zeros(nfrs, dtype=uint8)
-        data_max_sliding = np.full(nfrs, uint8(255), dtype=uint8)
-        data_minmax_glob = np.zeros((nfrs, 2), dtype=uint8)
-        data_minmax_glob[1, :] = uint8(255)
+        data_min_glob = np.uint8(0)
+        data_max_glob =  np.uint8(255)
+        data_min_sliding = np.zeros(nfrs, dtype=np.uint8)
+        data_max_sliding = np.full(nfrs, np.uint8(255), dtype=np.uint8)
+        data_minmax_glob = np.zeros((nfrs, 2), dtype=np.uint8)
+        data_minmax_glob[1, :] = np.uint8(255)
         mill_rate_WD = np.zeros(nfrs, dtype=float)
         mill_rate_MV = np.zeros(nfrs, dtype=float)
         center_x = np.zeros(nfrs, dtype=float)
@@ -8202,7 +8202,7 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
             if frame.EightBit==0:
                 frame_img[yi:ya, xi:xa] = np.negative(image)
             else:
-                frame_img[yi:ya, xi:xa]  =  uint8(255) - image
+                frame_img[yi:ya, xi:xa]  =  np.uint8(255) - image
             '''
         else:
             frame_img[yi:ya, xi:xa]  = image
@@ -8321,7 +8321,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
             if frame.EightBit==0:
                 frame_img[yi:ya, xi:xa] = np.negative(image)
             else:
-                frame_img[yi:ya, xi:xa]  =  uint8(255) - image
+                frame_img[yi:ya, xi:xa]  =  np.uint8(255) - image
             '''
         else:
             frame_img[yi:ya, xi:xa]  = image
@@ -10267,7 +10267,7 @@ class FIBSEM_dataset:
         save_sample_frames_png : bolean
             If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
         dtp  : dtype
-            Python data type for saving. Deafult is int16, the other option currently is uint8.
+            Python data type for saving. Deafult is int16, the other option currently is np.uint8.
         fill_value : float
             Fill value for padding. Default is zero.
         disp_res : bolean
@@ -10390,7 +10390,7 @@ class FIBSEM_dataset:
         start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
         stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         disp_res  = kwargs.get("disp_res", True )
-        dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
+        dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is np.uint8.
         fill_value = kwargs.get('fill_value', 0.0) + offset
         
         save_kwargs = {'fnm_types' : fnm_types,
@@ -11069,9 +11069,9 @@ class FIBSEM_dataset:
                     if self.DetB != 'None':
                         frame_imgB = np.negative(test_frame.RawImageB)
                 else:
-                    frame_imgA  =  uint8(255) - test_frame.RawImageA
+                    frame_imgA  =  np.uint8(255) - test_frame.RawImageA
                     if self.DetB != 'None':
-                        frame_imgB  =  uint8(255) - test_frame.RawImageB
+                        frame_imgB  =  np.uint8(255) - test_frame.RawImageB
             else:
                 frame_imgA  = test_frame.RawImageA
                 if self.DetB != 'None':
