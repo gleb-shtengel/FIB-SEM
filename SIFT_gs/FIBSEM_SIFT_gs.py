@@ -1431,7 +1431,7 @@ def evaluate_registration_two_frames(params_mrc):
     if save_frame_png:
         fr_img = (mrc_obj.data[fr, :, :].astype(dt_mrc)).astype(float)
         yshape, xshape = fr_img.shape
-        fig, ax = subplots(1,1, figsize=(3.0*xshape/yshape, 3))
+        fig, ax = plt.subplots(1,1, figsize=(3.0*xshape/yshape, 3))
         fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
         dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
         if invert_data:
