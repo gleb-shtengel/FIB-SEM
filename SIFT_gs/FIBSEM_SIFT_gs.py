@@ -2404,6 +2404,8 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     DASK_client : DASK client. If set to empty string '' (default), local computations are performed
     DASK_client_retries : int (default is 3)
         Number of allowed automatic retries if a task fails
+    max_futures : int
+        max number of running futures. Default is 5000.
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
     invert_data : boolean
@@ -2419,6 +2421,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     '''
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    max_futures = kwargs.get('max_futures', 5000)
     try:
         client_services = DASK_client.scheduler_info()['services']
         if client_services:
@@ -2482,12 +2485,34 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     if use_DASK:
         print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
         [future] = DASK_client.scatter([destreak_kernel], broadcast=True)
+        #futures = DASK_client.map(bin_crop_frames, params_mult, retries = DASK_client_retries)
+        # In case of a large source file, need to stadge the DASK jobs - cannot start all at once.
+        DASK_batch = 0
+        while len(params_mult) > max_futures:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting DASK batch {:d} with {:d} jobs, {:d} jobs remaining'.format(DASK_batch, max_futures, (len(params_mult)-max_futures)))
+            futures = [DASK_client.submit(destreak_single_frame_kernel_shared, future, params) for params in params_mult[0:max_futures]]
+            params_mult = params_mult[max_futures:]
+            for future in as_completed(futures):
+                target_frame_ID, transformed_frame = future.result()
+                mrc_new.data[target_frame_ID,:,:] = transformed_frame
+                future.cancel()
+        if len(params_mult) > 0:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting DASK batch {:d} with {:d} jobs'.format(DASK_batch, len(params_mult)))
+            futures = [DASK_client.submit(destreak_single_frame_kernel_shared, future, params) for params in params_mult]
+            for future in as_completed(futures):
+                target_frame_ID, transformed_frame = future.result()
+                mrc_new.data[target_frame_ID,:,:] = transformed_frame
+                future.cancel()
+        '''   this is what processing used to be before I added staging in case of a very large data set
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
+        [future] = DASK_client.scatter([destreak_kernel], broadcast=True)
         futures = [DASK_client.submit(destreak_single_frame_kernel_shared, future, params) for params in params_mult]
         #futures = DASK_client.map(destreak_single_frame_kernel_shared, params_mult, retries = DASK_client_retries)       
         for future in as_completed(futures):
             target_frame_ID, transformed_frame = future.result()
             mrc_new.data[target_frame_ID,:,:] = transformed_frame
             future.cancel()
+        '''
     else:
         desc = 'Saving the destreaked data stack into MRC file'    
         for params in tqdm(params_mult, desc=desc):
