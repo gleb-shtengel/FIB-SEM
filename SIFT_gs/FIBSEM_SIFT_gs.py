@@ -2693,7 +2693,7 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
                 target_frame_ID, transformed_frame = future.result()
                 mrc_new.data[target_frame_ID,:,:] = transformed_frame
                 future.cancel()
-    ''' this is what it used to be before DASK future staging
+        ''' this is what it used to be before DASK future staging
         [future] = DASK_client.scatter([smooth_kernel], broadcast=True)
         futures = [DASK_client.submit(smooth_single_frame_kernel_shared, future, params) for params in params_mult]
         #futures = DASK_client.map(smooth_single_frame_kernel_shared, params_mult, retries = DASK_client_retries)       
@@ -2701,7 +2701,7 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
             target_frame_ID, transformed_frame = future.result()
             mrc_new.data[target_frame_ID,:,:] = transformed_frame
             future.cancel()
-    '''
+        '''
     else:
         desc = 'Saving the smoothed data stack into MRC file'    
         for params in tqdm(params_mult, desc=desc):
