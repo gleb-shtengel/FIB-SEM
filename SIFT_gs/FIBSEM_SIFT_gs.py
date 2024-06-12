@@ -8155,7 +8155,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     cbar = fig2.colorbar(vec_field, pad=0.05, shrink=0.70, orientation = 'horizontal', format="%.1f")
     cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize)
 
-    ax.text(0.01, 1.10-0.13*frame.YResolution/frame.XResolution, fs[0], fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.01, 1.11-0.13*frame.YResolution/frame.XResolution, fs[0], fontsize=fsize, transform=ax.transAxes)
     ax.text(0.01, 1.07-0.13*frame.YResolution/frame.XResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max, kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
     ax.text(0.01, 1.03-0.13*frame.YResolution/frame.XResolution, 'kp_max_num={:d},  # of matches={:d}'.format(kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
             
