@@ -6964,6 +6964,8 @@ def extract_keypoints_descr_files(params):
             by the strength of the response. Only kp_max_num is kept for
             further processing.
             Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+        verbose : boolean
+            If True, intermediate printouts are enabled. Default is False
         SIFT_nfeatures : int
             SIFT libary default is 0. The number of best features to retain.
             The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
@@ -6991,6 +6993,7 @@ def extract_keypoints_descr_files(params):
     '''
     fl, dmin, dmax, kwargs = params
     ftype = kwargs.get("ftype", 0)
+    verbose = kwargs.get("verbose", False)
     thr_min = kwargs.get("threshold_min", 1e-3)
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
@@ -7028,6 +7031,8 @@ def extract_keypoints_descr_files(params):
         for kp in kps:
             kp.pt = kp.pt + np.array((xi_eval, yi_eval))
     #key_points = [KeyPoint(kp) for kp in kps]
+    if verbose:
+        print('File: ', fl, ', extracted {:d} keypoints'.format(len(kps)))
     key_points = [kp_to_list(kp) for kp in kps]
     kpd = [key_points, dess]
     fnm = os.path.splitext(fl)[0] + '_kpdes.bin'
@@ -8079,13 +8084,12 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     #print('data range: ', dmin, dmax)
     
     t0 = time.time()
-    #print('File1: ',fs[0], dmin, dmax, kwargs)
+
     params1 = [fs[0], dmin, dmax, kwargs]
     fnm_1 = extract_keypoints_descr_files(params1)
-    #print('File2: ',fs[1], dmin, dmax, kwargs)
     params2 = [fs[1], dmin, dmax, kwargs]
     fnm_2 = extract_keypoints_descr_files(params2)
-    
+
     params_dsf = [fnm_1, fnm_2, kwargs]
     transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = determine_transformations_files(params_dsf)
     n_matches = len(kpts[0])
@@ -8152,6 +8156,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize)
 
     ax.text(0.01, 1.1-0.13*frame.YResolution/frame.XResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}, kp_max_num={:d},  #of matches={:d}'.format(threshold_min, threshold_max, kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.01, 0.9-0.13*frame.YResolution/frame.XResolution, fs[0], fontsize=fsize, transform=ax.transAxes)
             
     if save_res_png :
         fig2_fnm = os.path.join(data_dir, 'SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num))
@@ -9504,6 +9509,7 @@ class FIBSEM_dataset:
         save_res_png  = kwargs.get("save_res_png", self.save_res_png)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        verbose = kwargs.get('verbose', True)
 
         SIFT_evaluation_kwargs = {'ftype' : ftype,
                                 'Sample_ID' : Sample_ID,
@@ -9529,6 +9535,7 @@ class FIBSEM_dataset:
                                 'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold,
                                 'BFMatcher' : BFMatcher,
                                 'save_matches' : save_matches,
+                                'verbose' : verbose,
                                 'save_res_png'  : save_res_png}
         
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts = SIFT_evaluation_dataset(eval_fls, **SIFT_evaluation_kwargs)
