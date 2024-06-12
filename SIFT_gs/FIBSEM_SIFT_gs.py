@@ -8133,7 +8133,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     axs[0,0].text(0.01, 1.14, otext, fontsize=fszl, transform=axs[0,0].transAxes)        
     if save_res_png :
-        png_name = os.path.join(data_dir, os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.5f}_thr_max{:.5f}.png'.format(threshold_min, threshold_max) 
+        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.5f}_thr_max{:.5f}.png'.format(threshold_min, threshold_max)))
         fig.savefig(png_name, dpi=300)
             
     xfsz = int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1
@@ -8160,7 +8160,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ax.text(0.01, 1.03-0.13*frame.YResolution/frame.XResolution, 'kp_max_num={:d},  # of matches={:d}'.format(kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
             
     if save_res_png :
-        fig2_fnm = os.path.join(data_dir, os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num))
+        fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
         fig2.savefig(fig2_fnm, dpi=300)
 
     return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts)
