@@ -8155,9 +8155,9 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     cbar = fig2.colorbar(vec_field, pad=0.05, shrink=0.70, orientation = 'horizontal', format="%.1f")
     cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize)
 
-    ax.text(0.001, 1.1-0.03*frame.XResolution/frame.YResolution, fs[0], fontsize=fsize, transform=ax.transAxes)
-    ax.text(0.001, 1.1-0.05*frame.XResolution/frame.YResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max, kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
-    ax.text(0.001, 1.1-0.07*frame.XResolution/frame.YResolution, 'kp_max_num={:d},  # of matches={:d}'.format(kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.001, 1.0-0.01*frame.XResolution/frame.YResolution, fs[0], fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.001, 1.0-0.03*frame.XResolution/frame.YResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max, kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.001, 1.0-0.05*frame.XResolution/frame.YResolution, 'kp_max_num={:d},  # of matches={:d}'.format(kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
             
     if save_res_png :
         fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
