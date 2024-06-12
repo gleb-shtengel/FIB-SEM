@@ -8156,7 +8156,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize)
 
     ax.text(0.01, 1.10-0.13*frame.YResolution/frame.XResolution, fs[0], fontsize=fsize, transform=ax.transAxes)
-    ax.text(0.01, 1.07-0.13*frame.YResolution/frame.XResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}, kp_max_num={:d},  #of matches={:d}'.format(threshold_min, threshold_max, kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.01, 1.07-0.13*frame.YResolution/frame.XResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max, kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.01, 1.03-0.13*frame.YResolution/frame.XResolution, 'kp_max_num={:d},  # of matches={:d}'.format(kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
             
     if save_res_png :
         fig2_fnm = os.path.join(data_dir, os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num))
