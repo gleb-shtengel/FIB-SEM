@@ -8044,8 +8044,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     #    frame.display_images()
 
     img = np.ravel(frame.RawImageA)
-    fsz=12
-    fszl=11
+    fsz = 12
+    fszl = 11
     dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins)
     xi = dmin-(np.abs(dmax-dmin)/10)
     xa = dmax+(np.abs(dmax-dmin)/10)
@@ -8141,7 +8141,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     fig2, ax = plt.subplots(1,1, figsize=(xfsz,yfsz))
     fig2.subplots_adjust(left=0.0, bottom=0.25*(1-frame.YResolution/frame.XResolution), right=1.0, top=1.0)
     symsize = 2
-    fsize = 12  
+    fsize = 11  
     img2 = FIBSEM_frame(fs[-1], ftype=ftype).RawImageA
     ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
