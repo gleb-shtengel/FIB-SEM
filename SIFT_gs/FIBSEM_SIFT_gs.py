@@ -8171,7 +8171,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     if save_res_png :
         fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
-        fig2.savefig(fig2_fnm, dpi=300)
+        fig2.savefig(fig2_fnm, dpi=600)
 
     return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts)
 
