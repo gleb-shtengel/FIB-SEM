@@ -8139,7 +8139,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     axs[0,0].text(0.01, 1.14, otext, fontsize=fszl, transform=axs[0,0].transAxes)        
     if save_res_png :
-        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
+        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
         fig.savefig(png_name, dpi=300)
             
     xfsz = int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1
