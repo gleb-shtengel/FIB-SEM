@@ -8026,7 +8026,11 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     save_res_png  = kwargs.get("save_res_png", True)
-    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
+    SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
+    SIFT_nOctaveLayers = kwargs.get('SIFT_nOctaveLayers', 0)
+    SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 0.00)
+    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.00)
+    SIFT_sigma = kwargs.get('SIFT_sigma', 0.0)
 
     frame = FIBSEM_frame(fs[0], ftype=ftype)
     if ftype == 0:
@@ -8051,7 +8055,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     xa = dmax+(np.abs(dmax-dmin)/10)
 
     fig, axs = plt.subplots(2,2, figsize=(12,8))
-    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, contrastThreshold={:.3f}, kp_max_num={:d}'.format(threshold_min, threshold_max, SIFT_contrastThreshold, kp_max_num), fontsize=fszl)
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFTcontrastThreshold={:.3f}, kp_max_num={:d}'.format(threshold_min, threshold_max, SIFT_contrastThreshold, kp_max_num), fontsize=fszl)
 
     hist, bins, patches = axs[0,0].hist(img, bins = nbins)
     axs[0,0].set_xlim(xi, xa)
@@ -8087,6 +8091,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     params1 = [fs[0], dmin, dmax, kwargs]
     fnm_1 = extract_keypoints_descr_files(params1)
+    kpp1s, des1 = pickle.load(open(fnm_1, 'rb'))
+    n_kpts = len(kpp1s)
     params2 = [fs[1], dmin, dmax, kwargs]
     fnm_2 = extract_keypoints_descr_files(params2)
 
@@ -8155,10 +8161,14 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     cbar = fig2.colorbar(vec_field, pad=0.05, shrink=0.70, orientation = 'horizontal', format="%.1f")
     cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize)
 
-    ax.text(0.001, 0.99-0.01*frame.XResolution/frame.YResolution, fs[0], fontsize=fsize, transform=ax.transAxes)
-    ax.text(0.001, 0.99-0.03*frame.XResolution/frame.YResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max, kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
-    ax.text(0.001, 0.99-0.05*frame.XResolution/frame.YResolution, 'kp_max_num={:d},  # of matches={:d}'.format(kp_max_num, n_matches), fontsize=fsize, transform=ax.transAxes)
-            
+    ax.text(0.005, 0.99-0.01*frame.XResolution/frame.YResolution, fs[0], fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.005, 0.99-0.03*frame.XResolution/frame.YResolution, Sample_ID, fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.005, 0.99-0.05*frame.XResolution/frame.YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.005, 0.99-0.07*frame.XResolution/frame.YResolution, 'kp_max_num={:d},  SIFT_nfeatures={:d}'.format(kp_max_num, SIFT_nfeatures), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.005, 0.99-0.09*frame.XResolution/frame.YResolution, 'SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.005, 0.99-0.11*frame.XResolution/frame.YResolution, 'SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.005, 0.99-0.13*frame.XResolution/frame.YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize, transform=ax.transAxes)
+
     if save_res_png :
         fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
         fig2.savefig(fig2_fnm, dpi=300)
