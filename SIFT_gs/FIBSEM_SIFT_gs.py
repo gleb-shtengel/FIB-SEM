@@ -8030,6 +8030,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     save_res_png  = kwargs.get("save_res_png", True)
+    verbose = kwargs.get('verbose', False)
     SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
     SIFT_nOctaveLayers = kwargs.get('SIFT_nOctaveLayers', 0)
     SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 0.00)
@@ -8173,6 +8174,12 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ax.text(0.005, 1.00 - 0.062*frame.XResolution/frame.YResolution, 'SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.075*frame.XResolution/frame.YResolution, 'SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.088*frame.XResolution/frame.YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize_text, transform=ax.transAxes)
+    if verbose:
+        print('thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max))
+        print('kp_max_num={:d},  SIFT_nfeatures={:d}'.format(kp_max_num, SIFT_nfeatures))
+        print('SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold))
+        print('SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma))
+        print('# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches))
 
     if save_res_png :
         fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
