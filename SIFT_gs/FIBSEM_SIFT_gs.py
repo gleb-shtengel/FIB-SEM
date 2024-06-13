@@ -8175,7 +8175,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ax.text(0.005, 1.00 - 0.010*frame.XResolution/frame.YResolution, fs[0], fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.023*frame.XResolution/frame.YResolution, Sample_ID, fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.036*frame.XResolution/frame.YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize=fsize_text, transform=ax.transAxes)
-    ax.text(0.005, 1.00 - 0.049*frame.XResolution/frame.YResolution, TransformType.__name__+ ', ' + solver + ',  ' + matcher)
+    ax.text(0.005, 1.00 - 0.049*frame.XResolution/frame.YResolution, TransformType.__name__+ ', ' + solver + ',  ' + matcher, fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.062*frame.XResolution/frame.YResolution, 'kp_max_num={:d},  SIFT_nfeatures={:d}'.format(kp_max_num, SIFT_nfeatures), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.075*frame.XResolution/frame.YResolution, 'SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.088*frame.XResolution/frame.YResolution, 'SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma), fontsize=fsize_text, transform=ax.transAxes)
