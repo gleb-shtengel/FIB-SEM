@@ -8139,7 +8139,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     axs[0,0].text(0.01, 1.14, otext, fontsize=fszl, transform=axs[0,0].transAxes)        
     if save_res_png :
-        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.5f}_thr_max{:.5f}.png'.format(threshold_min, threshold_max)))
+        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
         fig.savefig(png_name, dpi=300)
             
     xfsz = int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1
@@ -8158,7 +8158,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ys = yshifts
 
     # the code below is for vector map. vectors have origin coordinates x and y, and vector projections xs and ys.
-    vec_field = ax.quiver(x,y,xs,ys,M, scale=40, width =0.003, cmap='jet')
+    vec_field = ax.quiver(x,y,xs,ys,M, scale=30, width =0.0015, cmap='jet')
     cbar = fig2.colorbar(vec_field, pad=0.05, shrink=0.70, orientation = 'horizontal', format="%.1f")
     cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize_label)
 
