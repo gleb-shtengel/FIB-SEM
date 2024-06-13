@@ -29,7 +29,7 @@ try:
 except:
     import tifffile as tiff
 from scipy import __version__ as scipy_version
-print('scipy version: ', scipy_version)
+print('scipy version:   ', scipy_version)
 from scipy.signal import savgol_filter
 from scipy import ndimage
 from scipy.signal import convolve2d
