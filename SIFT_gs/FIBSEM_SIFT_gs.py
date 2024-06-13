@@ -21,18 +21,22 @@ from struct import unpack
 from tqdm.notebook import tqdm
 
 import skimage
-#print(skimage.__version__)
+print('skimage version: ', skimage.__version__)
 from skimage.measure import ransac
 from skimage.transform import ProjectiveTransform, AffineTransform, EuclideanTransform, warp
 try:
     import skimage.external.tifffile as tiff
 except:
     import tifffile as tiff
+from scipy import __version__ as scipy_version
+print('scipy version: ', scipy_version)
 from scipy.signal import savgol_filter
 from scipy import ndimage
 from scipy.signal import convolve2d
 from scipy.ndimage import gaussian_filter
 
+from sklearn import __version__ as sklearn_version
+print('sklearn version: ', sklearn_version)
 from sklearn.linear_model import (LinearRegression,
     TheilSenRegressor,
     RANSACRegressor,
