@@ -7233,7 +7233,7 @@ def determine_transformation_matrix(src_pts, dst_pts, TransformType, drmax = 2, 
             transform_matrix = tform.params
 
         if TransformType == RegularizedAffineTransform:
-            tform = AffineTransform()
+            tform = RegularizedAffineTransform()
             tform.estimate(src_pts, dst_pts)  # regularization parameters are already part of estimate procedure 
             # this is implemented this way because the other code - RANSAC does not work otherwise
             transform_matrix = tform.params
