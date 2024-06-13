@@ -8147,7 +8147,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     fig2, ax = plt.subplots(1,1, figsize=(xfsz,yfsz))
     fig2.subplots_adjust(left=0.0, bottom=0.25*(1-frame.YResolution/frame.XResolution), right=1.0, top=1.0)
     symsize = 2
-    fsize = 11  
+    fsize = 8
     img2 = FIBSEM_frame(fs[-1], ftype=ftype).RawImageA
     ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
