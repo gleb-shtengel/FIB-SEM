@@ -8183,13 +8183,15 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ax.text(0.005, 1.00 - 0.062*frame.XResolution/frame.YResolution, 'kp_max_num={:d},  SIFT_nfeatures={:d}'.format(kp_max_num, SIFT_nfeatures), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.075*frame.XResolution/frame.YResolution, 'SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.088*frame.XResolution/frame.YResolution, 'SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma), fontsize=fsize_text, transform=ax.transAxes)
-    ax.text(0.005, 1.00 - 0.101*frame.XResolution/frame.YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize_text, transform=ax.transAxes)
+    ax.text(0.005, 1.00 - 0.101*frame.XResolution/frame.YResolution, 'RANSAC_initial_fraction = {:.4f}'.format(RANSAC_initial_fraction), fontsize=fsize_text, transform=ax.transAxes)
+    ax.text(0.005, 1.00 - 0.114*frame.XResolution/frame.YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize_text, transform=ax.transAxes)
     if verbose:
         print('thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max))
         print(TransformType.__name__+ ', ' + solver + ',  ' + matcher)
         print('kp_max_num={:d},  SIFT_nfeatures={:d}'.format(kp_max_num, SIFT_nfeatures))
         print('SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold))
         print('SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma))
+        print('RANSAC_initial_fraction = {:.4f}'.format(RANSAC_initial_fraction))
         print('# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches))
 
     if save_res_png :
