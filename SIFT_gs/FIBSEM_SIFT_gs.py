@@ -7292,7 +7292,7 @@ def determine_transformations_files(params_dsf):
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)    # threshold for Lowe's Ratio Test
-    RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.05)  # fraction of data points for initial RANSAC iteration step.
+    RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.01)  # fraction of data points for initial RANSAC iteration step.
 
     if TransformType == RegularizedAffineTransform:
 
@@ -7970,7 +7970,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     solver : str
         Solver used for SIFT ('RANSAC' or 'LinReg')
     RANSAC_initial_fraction : float
-        Fraction of data points for initial RANSAC iteration step. Default is 0.05.
+        Fraction of data points for initial RANSAC iteration step. Default is 0.01.
     drmax : float
         In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
         In the case of 'LinReg' - outlier threshold for iterative regression
@@ -8026,7 +8026,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     l2_matrix = kwargs.get("l2_matrix", l2_matrix_default)
     targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
     solver = kwargs.get("solver", 'RANSAC')
-    RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.05)  # fraction of data points for initial RANSAC iteration step.
+    RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.01)  # fraction of data points for initial RANSAC iteration step.
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
     kp_max_num = kwargs.get("kp_max_num", -1)
@@ -9106,7 +9106,7 @@ class FIBSEM_dataset:
     solver : str
         Solver used for SIFT ('RANSAC' or 'LinReg')
     RANSAC_initial_fraction : float
-        Fraction of data points for initial RANSAC iteration step. Default is 0.05.
+        Fraction of data points for initial RANSAC iteration step. Default is 0.01.
     drmax : float
         In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
         In the case of 'LinReg' - outlier threshold for iterative regression
@@ -9270,7 +9270,7 @@ class FIBSEM_dataset:
         solver : str
             Solver used for SIFT ('RANSAC' or 'LinReg')
         RANSAC_initial_fraction : float
-            Fraction of data points for initial RANSAC iteration step. Default is 0.05.
+            Fraction of data points for initial RANSAC iteration step. Default is 0.01.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
             In the case of 'LinReg' - outlier threshold for iterative regression
@@ -9382,7 +9382,7 @@ class FIBSEM_dataset:
         self.l2_matrix = kwargs.get("l2_matrix", l2_matrix_default)
         self.targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
         self.solver = kwargs.get("solver", 'RANSAC')
-        self.RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.05)  # fraction of data points for initial RANSAC iteration step.
+        self.RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.01)  # fraction of data points for initial RANSAC iteration step.
         self.drmax = kwargs.get("drmax", 2.0)
         self.max_iter = kwargs.get("max_iter", 1000)
         self.BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
@@ -9485,7 +9485,7 @@ class FIBSEM_dataset:
         solver : str
             Solver used for SIFT ('RANSAC' or 'LinReg')
         RANSAC_initial_fraction : float
-            Fraction of data points for initial RANSAC iteration step. Default is 0.05.
+            Fraction of data points for initial RANSAC iteration step. Default is 0.01.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
             In the case of 'LinReg' - outlier threshold for iterative regression
@@ -9939,7 +9939,7 @@ class FIBSEM_dataset:
         solver : str
             Solver used for SIFT ('RANSAC' or 'LinReg')
         RANSAC_initial_fraction : float
-            Fraction of data points for initial RANSAC iteration step. Default is 0.05.
+            Fraction of data points for initial RANSAC iteration step. Default is 0.01.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
             In the case of 'LinReg' - outlier threshold for iterative regression
