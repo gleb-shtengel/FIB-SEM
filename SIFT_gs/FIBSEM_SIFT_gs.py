@@ -4259,7 +4259,7 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     max_iter = saved_kwargs.get("max_iter", 1000)
     BFMatcher = saved_kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = saved_kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    kp_max_num = saved_kwargs.get("kp_max_num", -1)
+    #kp_max_num = saved_kwargs.get("kp_max_num", -1)
     save_res_png  = saved_kwargs.get("save_res_png", True)
 
     preserve_scales = saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -4343,7 +4343,7 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     axs5[0,0].text(-0.1, 0.50, SIFT2text, transform=axs5[0,0].transAxes, fontsize = fs)
 
     sbtrfit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF') + ('(ON, ' if  subtract_FOVtrend_from_fit[0] else '(OFF, ') + ('ON)' if  subtract_FOVtrend_from_fit[1] else 'OFF)')
-    axs5[0,0].text(-0.1, 0.35, 'drmax={:.1f}, Max # of KeyPts={:d}, Max # of Iter.={:d}'.format(drmax, kp_max_num, max_iter), transform=axs5[0,0].transAxes, fontsize = fs)
+    axs5[0,0].text(-0.1, 0.35, 'drmax={:.1f}, Max # of Iter.={:d}'.format(drmax, max_iter), transform=axs5[0,0].transAxes, fontsize = fs)
     padedges = 'ON' if pad_edges else 'OFF'
     if preserve_scales:
         fit_method = fit_params[0]
@@ -4486,7 +4486,7 @@ def generate_report_transf_matrix_details(transf_matrix_bin_file, *kwarrgs):
     max_iter = saved_kwargs.get("max_iter", 1000)
     BFMatcher = saved_kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = saved_kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    kp_max_num = saved_kwargs.get("kp_max_num", -1)
+    #kp_max_num = saved_kwargs.get("kp_max_num", -1)
     save_res_png  = saved_kwargs.get("save_res_png", True)
 
     preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -4521,7 +4521,7 @@ def generate_report_transf_matrix_details(transf_matrix_bin_file, *kwarrgs):
     axs5[0,0].text(-0.1, 0.50, SIFT2text, transform=axs5[0,0].transAxes, fontsize = fs)
 
     sbtrfit = ('ON, ' if  subtract_linear_fit[0] else 'OFF, ') + ('ON' if  subtract_linear_fit[1] else 'OFF')
-    axs5[0,0].text(-0.1, 0.35, 'drmax={:.1f}, Max # of KeyPts={:d}, Max # of Iter.={:d}'.format(drmax, kp_max_num, max_iter), transform=axs5[0,0].transAxes, fontsize = fs)
+    axs5[0,0].text(-0.1, 0.35, 'drmax={:.1f}, Max # of Iter.={:d}'.format(drmax, max_iter), transform=axs5[0,0].transAxes, fontsize = fs)
     padedges = 'ON' if pad_edges else 'OFF'
     if preserve_scales:
         fit_method = fit_params[0]
@@ -7001,7 +7001,7 @@ def extract_keypoints_descr_files(params):
     thr_min = kwargs.get("threshold_min", 1e-3)
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
-    kp_max_num = kwargs.get("kp_max_num", 10000)
+    #kp_max_num = kwargs.get("kp_max_num", 10000)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
 
     SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
@@ -7027,10 +7027,10 @@ def extract_keypoints_descr_files(params):
         ya_eval = -1
 
     kps, dess = sift.detectAndCompute(img[yi_eval:ya_eval, xi_eval:xa_eval], None)
-    if kp_max_num != -1 and (len(kps) > kp_max_num):
-        kp_ind = np.argsort([-kp.response for kp in kps])[0:kp_max_num]
-        kps = np.array(kps)[kp_ind]
-        dess = np.array(dess)[kp_ind]
+    #if kp_max_num != -1 and (len(kps) > kp_max_num):
+    #    kp_ind = np.argsort([-kp.response for kp in kps])[0:kp_max_num]
+    #    kps = np.array(kps)[kp_ind]
+    #    dess = np.array(dess)[kp_ind]
     if xi_eval >0 or yi_eval>0:   # add shifts to ke-pint coordinates to convert them to full image coordinated
         for kp in kps:
             kp.pt = kp.pt + np.array((xi_eval, yi_eval))
@@ -7290,7 +7290,7 @@ def determine_transformations_files(params_dsf):
     max_iter = kwargs.get("max_iter", 1000)
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    kp_max_num = kwargs.get("kp_max_num", -1)
+    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)    # threshold for Lowe's Ratio Test
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
 
@@ -7404,7 +7404,7 @@ def build_filename(fname, **kwargs):
     solver = kwargs.get("solver", 'RANSAC')
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
-    kp_max_num = kwargs.get("kp_max_num", -1)
+    #kp_max_num = kwargs.get("kp_max_num", -1)
     save_res_png  = kwargs.get("save_res_png", True)
     zbin_factor =  kwargs.get("zbin_factor", 1)             # binning factor in z-direction (milling direction). Default is 1
     preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -7504,7 +7504,7 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     max_iter = kwargs.get("max_iter", 1000)
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    kp_max_num = kwargs.get("kp_max_num", -1)
+    #kp_max_num = kwargs.get("kp_max_num", -1)
     save_res_png  = kwargs.get("save_res_png", True)
 
     preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -7840,13 +7840,14 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     solver = kwargs.get("solver", 'RANSAC')
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
-    kp_max_num = kwargs.get("kp_max_num", -1)
+    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     save_res_png  = kwargs.get("save_res_png", True)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
-    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
+    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.025)
+    RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
 
     frame = FIBSEM_frame(fr, ftype=ftype)
     if ftype == 0:
@@ -7871,7 +7872,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     xa = dmax+(np.abs(dmax-dmin)/10)
 
     fig, axs = plt.subplots(2,1, figsize=(6,6))
-    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, contrastThreshold={:.3f}, kp_max_num={:d}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, SIFT_contrastThreshold, kp_max_num, comp_time), fontsize=fszl)
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFT_contrastThreshold={:.3f}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, SIFT_contrastThreshold, comp_time), fontsize=fszl)
     
     hist, bins, patches = axs[0].hist(img, bins = nbins)
     axs[0].set_xlim(xi, xa)
@@ -7930,7 +7931,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     return(dmin, dmax, comp_time, src_pts)
 
 
-# This is a function used for selecting proper threshold and kp_max_num parameters for SIFT processing
+# This is a function used for selecting proper SIFT and other parameters for processing
 def SIFT_evaluation_dataset(fs, **kwargs):
     '''
     Evaluate SIFT settings and perfromance of few test frames (fs). ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
@@ -8029,7 +8030,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
-    kp_max_num = kwargs.get("kp_max_num", -1)
+    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
@@ -8069,7 +8070,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     xa = dmax+(np.abs(dmax-dmin)/10)
 
     fig, axs = plt.subplots(2,2, figsize=(12,8))
-    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFTcontrastThreshold={:.3f}, kp_max_num={:d}'.format(threshold_min, threshold_max, SIFT_contrastThreshold, kp_max_num), fontsize=fszl)
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFT_contrastThreshold={:.3f}'.format(threshold_min, threshold_max, SIFT_contrastThreshold), fontsize=fszl)
 
     hist, bins, patches = axs[0,0].hist(img, bins = nbins)
     axs[0,0].set_xlim(xi, xa)
@@ -8143,7 +8144,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     for ax in axs.ravel():
         ax.grid(True)
     
-    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, kp_max_num={:d}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, kp_max_num, comp_time), fontsize=fszl)
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, comp_time), fontsize=fszl)
 
     if TransformType == RegularizedAffineTransform:
         tstr = ['{:d}'.format(x) for x in targ_vector] 
@@ -8153,7 +8154,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     axs[0,0].text(0.01, 1.14, otext, fontsize=fszl, transform=axs[0,0].transAxes)        
     if save_res_png :
-        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
+        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(threshold_min, threshold_max)))
         fig.savefig(png_name, dpi=300)
             
     xfsz = int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1
@@ -8180,22 +8181,22 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ax.text(0.005, 1.00 - 0.023*frame.XResolution/frame.YResolution, Sample_ID, fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.036*frame.XResolution/frame.YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.049*frame.XResolution/frame.YResolution, TransformType.__name__+ ', ' + solver + ',  ' + matcher, fontsize=fsize_text, transform=ax.transAxes)
-    ax.text(0.005, 1.00 - 0.062*frame.XResolution/frame.YResolution, 'kp_max_num={:d},  SIFT_nfeatures={:d}'.format(kp_max_num, SIFT_nfeatures), fontsize=fsize_text, transform=ax.transAxes)
+    ax.text(0.005, 1.00 - 0.062*frame.XResolution/frame.YResolution, 'SIFT_nfeatures={:d}'.format(SIFT_nfeatures), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.075*frame.XResolution/frame.YResolution, 'SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.088*frame.XResolution/frame.YResolution, 'SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma), fontsize=fsize_text, transform=ax.transAxes)
-    ax.text(0.005, 1.00 - 0.101*frame.XResolution/frame.YResolution, 'RANSAC_initial_fraction = {:.4f}'.format(RANSAC_initial_fraction), fontsize=fsize_text, transform=ax.transAxes)
+    ax.text(0.005, 1.00 - 0.101*frame.XResolution/frame.YResolution, 'RANSAC_initial_fraction={:.4f}, max_iter={:d}'.format(RANSAC_initial_fraction, max_iter), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.114*frame.XResolution/frame.YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize_text, transform=ax.transAxes)
     if verbose:
         print('thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max))
         print(TransformType.__name__+ ', ' + solver + ',  ' + matcher)
-        print('kp_max_num={:d},  SIFT_nfeatures={:d}'.format(kp_max_num, SIFT_nfeatures))
+        print('SIFT_nfeatures={:d}'.format(SIFT_nfeatures))
         print('SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold))
         print('SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma))
-        print('RANSAC_initial_fraction = {:.4f}'.format(RANSAC_initial_fraction))
+        print('RANSAC_initial_fraction = {:.4f}, max_iter={:d}'.format(RANSAC_initial_fraction, max_iter))
         print('# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches))
 
     if save_res_png :
-        fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}_kp_max{:d}.png'.format(threshold_min, threshold_max, kp_max_num)))
+        fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(threshold_min, threshold_max)))
         fig2.savefig(fig2_fnm, dpi=600)
 
     return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts)
@@ -9387,7 +9388,7 @@ class FIBSEM_dataset:
         self.max_iter = kwargs.get("max_iter", 1000)
         self.BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
         self.save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-        self.kp_max_num = kwargs.get("kp_max_num", -1)
+        #self.kp_max_num = kwargs.get("kp_max_num", -1)
         self.SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
         self.SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", 3)
         self.SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
@@ -9541,7 +9542,7 @@ class FIBSEM_dataset:
         RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", self.RANSAC_initial_fraction)
         drmax = kwargs.get("drmax", self.drmax)
         max_iter = kwargs.get("max_iter", self.max_iter)
-        kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+        #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
         SIFT_nfeatures = kwargs.get("SIFT_nfeatures", self.SIFT_nfeatures)
         SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", self.SIFT_nOctaveLayers)
         SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
@@ -9570,7 +9571,7 @@ class FIBSEM_dataset:
                                 'RANSAC_initial_fraction' : RANSAC_initial_fraction,
                                 'drmax' : drmax,
                                 'max_iter' : max_iter,
-                                'kp_max_num' : kp_max_num,
+                                #'kp_max_num' : kp_max_num,
                                 'SIFT_Transform' : TransformType,
                                 'SIFT_nfeatures' : SIFT_nfeatures,
                                 'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
@@ -9875,7 +9876,7 @@ class FIBSEM_dataset:
             nbins = kwargs.get("nbins", self.nbins)
             sliding_minmax = kwargs.get("sliding_minmax", self.sliding_minmax)
             data_minmax = kwargs.get("data_minmax", self.data_minmax)
-            kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+            #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
 
             SIFT_nfeatures = kwargs.get("SIFT_nfeatures", self.SIFT_nfeatures)
             SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", self.SIFT_nOctaveLayers)
@@ -9888,7 +9889,7 @@ class FIBSEM_dataset:
                         'threshold_min' : threshold_min,
                         'threshold_max' : threshold_max,
                         'nbins' : nbins,
-                        'kp_max_num' : kp_max_num,
+                        #'kp_max_num' : kp_max_num,
                         'SIFT_nfeatures' : SIFT_nfeatures,
                         'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
                         'SIFT_contrastThreshold' : SIFT_contrastThreshold,
@@ -10001,7 +10002,7 @@ class FIBSEM_dataset:
             RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", self.RANSAC_initial_fraction)
             drmax = kwargs.get("drmax", self.drmax)
             max_iter = kwargs.get("max_iter", self.max_iter)
-            kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+            #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
             Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
             BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
             save_matches = kwargs.get("save_matches", self.save_matches)
@@ -10016,7 +10017,7 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'save_matches' : save_matches,
-                            'kp_max_num' : kp_max_num,
+                            #'kp_max_num' : kp_max_num,
                             'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold}
 
             params_s4 = []
@@ -10119,7 +10120,7 @@ class FIBSEM_dataset:
             max_iter = kwargs.get("max_iter", self.max_iter)
             BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
             save_matches = kwargs.get("save_matches", self.save_matches)
-            kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+            #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
             save_res_png  = kwargs.get("save_res_png", self.save_res_png )
             preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
             fit_params =  kwargs.get("fit_params", self.fit_params)
@@ -10143,7 +10144,7 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'save_matches' : save_matches,
-                            'kp_max_num' : kp_max_num,
+                            #'kp_max_num' : kp_max_num,
                             'save_res_png ' : save_res_png ,
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
@@ -10266,7 +10267,7 @@ class FIBSEM_dataset:
         max_iter = kwargs.get("max_iter", self.max_iter)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         save_matches = kwargs.get("save_matches", self.save_matches)
-        kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
+        #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
@@ -10293,7 +10294,7 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'save_matches' : save_matches,
-                            'kp_max_num' : kp_max_num,
+                            #'kp_max_num' : kp_max_num,
                             'save_res_png ' : save_res_png ,
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
