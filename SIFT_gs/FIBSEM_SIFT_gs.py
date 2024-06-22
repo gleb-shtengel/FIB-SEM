@@ -7376,7 +7376,7 @@ def determine_transformations_files(params_dsf):
             iteration = len(src_pts)- len(src_pts_ransac)
             error_abs_mean = np.mean(np.abs(estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)))
         except:
-            transform_matrix = array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]])
+            transform_matrix = np.eye(3)
             kpts = [[], []]
             error_abs_mean = np.nan
             iteration = np.nan
