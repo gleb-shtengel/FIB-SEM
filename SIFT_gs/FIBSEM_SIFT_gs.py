@@ -8126,16 +8126,21 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     #print('Time to compute: {:.1f}sec'.format(comp_time))
 
     axx = axs[0,1]
-    hst = axx.hist(xshifts, bins=64)
     axx.set_xlabel('SIFT: X Error (pixels)')
-    axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
-    axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
-    axx.set_title('data range: {:.1f} ÷ {:.1f}'.format(dmin, dmax), fontsize=fsz)
     axy = axs[1,1]
-    hst = axy.hist(yshifts, bins=64)
     axy.set_xlabel('SIFT: Y Error (pixels)')
-    axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
-    axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
+    if n_matches > 0:
+        hst = axx.hist(xshifts, bins=64)
+        axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
+        axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
+        axx.set_title('data range: {:.1f} ÷ {:.1f}'.format(dmin, dmax), fontsize=fsz)
+        hst = axy.hist(yshifts, bins=64)
+        axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
+        axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
+    else:
+        axx.text(0.05, 0.9, 'No Matches Detected', transform=axx.transAxes, fontsize=fsz)
+        axy.text(0.05, 0.9, 'No Matches Detected', transform=axy.transAxes, fontsize=fsz)
+
     axt=axx  # print Transformation Matrix data over axx plot
     axt.text(0.65, 0.8, 'Transf. Matrix:', transform=axt.transAxes, fontsize=fsz)
     axt.text(0.55, 0.7, '{:.4f} {:.4f} {:.4f}'.format(transform_matrix[0,0], transform_matrix[0,1], transform_matrix[0,2]), transform=axt.transAxes, fontsize=fsz-1)
@@ -8168,14 +8173,14 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
     x, y = dst_pts_filtered.T
-    M = np.sqrt(xshifts*xshifts+yshifts*yshifts)
-    xs = xshifts
-    ys = yshifts
-
-    # the code below is for vector map. vectors have origin coordinates x and y, and vector projections xs and ys.
-    vec_field = ax.quiver(x,y,xs,ys,M, scale=50, width =0.0015, cmap='jet')
-    cbar = fig2.colorbar(vec_field, pad=0.05, shrink=0.70, orientation = 'horizontal', format="%.1f")
-    cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize_label)
+    if n_matches > 0:
+        M = np.sqrt(xshifts*xshifts+yshifts*yshifts)
+        xs = xshifts
+        ys = yshifts
+        # the code below is for vector map. vectors have origin coordinates x and y, and vector projections xs and ys.
+        vec_field = ax.quiver(x,y,xs,ys,M, scale=50, width =0.0015, cmap='jet')
+        cbar = fig2.colorbar(vec_field, pad=0.05, shrink=0.70, orientation = 'horizontal', format="%.1f")
+        cbar.set_label('SIFT Shift Amplitude (pix)', fontsize=fsize_label)
 
     ax.text(0.005, 1.00 - 0.010*frame.XResolution/frame.YResolution, fs[0], fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.023*frame.XResolution/frame.YResolution, Sample_ID, fontsize=fsize_text, transform=ax.transAxes)
