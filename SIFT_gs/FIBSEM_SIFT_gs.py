@@ -7360,7 +7360,7 @@ def determine_transformations_files(params_dsf):
             min_samples = np.int32(len(src_pts)*RANSAC_initial_fraction)
             model, inliers = ransac((src_pts, dst_pts),
                 TransformType, min_samples=min_samples,
-                residual_threshold=drmax, max_trials=10000, initial_inliers=np.ones(len(src_pts), dtype=bool))
+                residual_threshold=drmax, max_trials=10000, initial_inliers=np.ones(len(src_pts), dtype=bool), rng={'np.random.Generator', 4})
             n_inliers = np.sum(inliers)
             inlier_keypoints_left = [cv2.KeyPoint(point[0], point[1], 1) for point in src_pts[inliers]]
             inlier_keypoints_right = [cv2.KeyPoint(point[0], point[1], 1) for point in dst_pts[inliers]]
@@ -7379,7 +7379,7 @@ def determine_transformations_files(params_dsf):
             transform_matrix = np.eye(3)
             kpts = [[], []]
             error_abs_mean = np.nan
-            iteration = np.nan
+            iteration = 0
     if save_matches:
         fnm_matches = fnm_2.replace('_kpdes.bin', '_matches.bin')
         pickle.dump(kpts, open(fnm_matches, 'wb'))
