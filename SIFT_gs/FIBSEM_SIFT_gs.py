@@ -7360,7 +7360,7 @@ def determine_transformations_files(params_dsf):
             min_samples = np.int32(len(src_pts)*RANSAC_initial_fraction)
             model, inliers = ransac((src_pts, dst_pts),
                 TransformType, min_samples=min_samples,
-                residual_threshold=drmax, max_trials=10000, initial_inliers=np.ones(len(src_pts), dtype=bool), rng={'np.random.Generator', 4})
+                residual_threshold=drmax, max_trials=10000)
             n_inliers = np.sum(inliers)
             inlier_keypoints_left = [cv2.KeyPoint(point[0], point[1], 1) for point in src_pts[inliers]]
             inlier_keypoints_right = [cv2.KeyPoint(point[0], point[1], 1) for point in dst_pts[inliers]]
