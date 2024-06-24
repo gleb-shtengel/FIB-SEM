@@ -8114,12 +8114,15 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     params_dsf = [fnm_1, fnm_2, kwargs]
     transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = determine_transformations_files(params_dsf)
     n_matches = len(kpts[0])
-    
-    src_pts_filtered, dst_pts_filtered = kpts
-    
-    src_pts_transformed = src_pts_filtered @ transform_matrix[0:2, 0:2].T + transform_matrix[0:2, 2]
-    xshifts = (dst_pts_filtered - src_pts_transformed)[:,0]
-    yshifts = (dst_pts_filtered - src_pts_transformed)[:,1]
+    if verbose:
+        print('# of detected matches: {:d}'.format(n_matches))
+        print('transformation Matrix: ')
+        print(transform_matrix)
+    if n_matches > 0:
+        src_pts_filtered, dst_pts_filtered = kpts
+        src_pts_transformed = src_pts_filtered @ transform_matrix[0:2, 0:2].T + transform_matrix[0:2, 2]
+        xshifts = (dst_pts_filtered - src_pts_transformed)[:,0]
+        yshifts = (dst_pts_filtered - src_pts_transformed)[:,1]
     
     t1 = time.time()
     comp_time = (t1-t0)
