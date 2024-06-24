@@ -8116,8 +8116,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     n_matches = len(kpts[0])
     if verbose:
         print('# of detected matches: {:d}'.format(n_matches))
-        print('transformation Matrix: ')
-        print(transform_matrix)
+        #print('Transformation Matrix: ')
+        #print(transform_matrix)
     if n_matches > 0:
         src_pts_filtered, dst_pts_filtered = kpts
         src_pts_transformed = src_pts_filtered @ transform_matrix[0:2, 0:2].T + transform_matrix[0:2, 2]
@@ -8175,8 +8175,9 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     img2 = FIBSEM_frame(fs[-1], ftype=ftype).RawImageA
     ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
-    x, y = dst_pts_filtered.T
+    
     if n_matches > 0:
+        x, y = dst_pts_filtered.T
         M = np.sqrt(xshifts*xshifts+yshifts*yshifts)
         xs = xshifts
         ys = yshifts
