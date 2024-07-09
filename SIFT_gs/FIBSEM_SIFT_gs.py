@@ -1692,7 +1692,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
 
     print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
     xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
-    columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Image NSAD', 'Image NCC', 'Image MI']
+    columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'NSAD', 'NCC', 'NMI']
     reg_summary = pd.DataFrame(np.vstack((frame_inds, xi_evals, xa_evals, yi_evals, ya_evals, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
     reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
     Stack_info = pd.DataFrame([{'Stack Filename' : mrc_filename, 'Sample_ID' : Sample_ID, 'invert_data' : invert_data}]).T # prepare to be save in transposed format
@@ -3771,7 +3771,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
 
     print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the Registration Quality Statistics into the file: ', registration_summary_xlsx)
     xlsx_writer = pd.ExcelWriter(registration_summary_xlsx, engine='xlsxwriter')
-    columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Image NSAD', 'Image NCC', 'Image MI']
+    columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'NSAD', 'NCC', 'NMI']
     reg_summary = pd.DataFrame(np.vstack((frame_inds, xi_evals, xa_evals, yi_evals, ya_evals, image_nsad, image_ncc, image_mi)).T, columns = columns, index = None)
     reg_summary.to_excel(xlsx_writer, index=None, sheet_name='Registration Quality Statistics')
     Stack_info = pd.DataFrame([{'Stack Filename' : tif_filename, 'Sample_ID' : Sample_ID, 'invert_data' : invert_data}]).T # prepare to be save in transposed format
@@ -4631,7 +4631,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     Generate Report Plot for FIB-SEM data set registration from xlxs workbook file. ©G.Shtengel 09/2022 gleb.shtengel@gmail.com
     XLS file should have pages (sheets):
         - 'Registration Quality Statistics' - containing columns with the the evaluation box data and registration quality metrics data: 
-            'Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI'
+            'Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'NSAD', 'NCC', 'NMI'
         - 'Stack Info' - containing the fields:
             'Stack Filename' and 'data_dir'
         - 'SIFT kwargs' (optional) - containg the kwargs with SIFT registration parameters.
@@ -4668,7 +4668,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     dump_filename = kwargs.get("dump_filename", '')
     
     Regisration_data = pd.read_excel(file_xlsx, sheet_name='Registration Quality Statistics')
-    # columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'Image NSAD', 'Image NCC', 'Image MI']
+    # columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'NSAD', 'NCC', 'NMI']
     frames = Regisration_data['Frame']
     xi_evals = Regisration_data['xi_eval']
     xa_evals = Regisration_data['xa_eval']
