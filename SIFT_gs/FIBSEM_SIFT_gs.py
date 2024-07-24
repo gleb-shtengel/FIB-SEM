@@ -7491,7 +7491,7 @@ def find_fit(tr_matr_cum, **kwargs):
     return tr_matr_cum_new, s_fits
 
 
-def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_matches, npts, error_abs_mean, **kwargs):
+def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_matches, npts, error_abs_mean, **kwargs):
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -7553,6 +7553,7 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
         txs = np.zeros(len(tr_matr_cum), dtype=float)
         tys = np.zeros(len(tr_matr_cum), dtype=float)
         
+        failed_to_open_matches = 0
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Recalculating the shifts for preserved scales: ')):
             try:
                 src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
@@ -7562,8 +7563,13 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
                 tys[j+1] = np.mean(tr_matr_cum[j, 1, 1] * dst_pts[:, 1] + tr_matr_cum[j, 1, 0] * dst_pts[:, 0]
                                    - tr_matr_cum[j+1, 1, 1] * src_pts[:, 1] - tr_matr_cum[j+1, 1, 0] * src_pts[:, 0])
             except:
+                failed_to_open_matches += 1
                 txs[j+1] = 0.0
                 tys[j+1] = 0.0
+        if failed_to_open_matches > 0:
+            if verbose:
+                print('Failed to open {:d} files containgng matched keypoints'.format(failed_to_open_matches))
+                print('Transformation Matrix optimization will most likely not work')
         txs_cum = np.cumsum(txs)
         tys_cum = np.cumsum(tys)
         tr_matr_cum[:, 0, 2] = txs_cum
@@ -7571,13 +7577,6 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
 
     Xshift_cum = tr_matr_cum[:, 0, 2].copy()
     Yshift_cum = tr_matr_cum[:, 1, 2].copy()
-
-    if verbose:
-        fig_verb, ax_verb = plt.subplots(1,1, figsize=(7,5))
-        ax_verb.plot(Xshift_cum_orig, 'r', label = 'Xshift_cum_orig')
-        ax_verb.plot(Yshift_cum_orig, 'b', label = 'Yshift_cum_orig')
-        ax_verb.plot(Xshift_cum, 'green', label = 'Xshift_cum')
-        ax_verb.plot(Yshift_cum, 'cyan', label = 'Yshift_cum')
 
     # Subtract linear trends from offsets
     if subtract_linear_fit[0]:
@@ -7610,17 +7609,7 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     tr_matr_cum[:, 0, 2] = Xshift_residual-Xshift_residual[0]
     tr_matr_cum[:, 1, 2] = Yshift_residual-Yshift_residual[0]
 
-    if verbose:
-        fig_verb, ax_verb = plt.subplots(1,1, figsize=(7,5))
-        ax_verb.plot(Xshift_cum_orig, 'r', label = 'Xshift_cum_orig')
-        ax_verb.plot(Yshift_cum_orig, 'b', label = 'Yshift_cum_orig')
-        ax_verb.plot(Xshift_cum, 'green', label = 'Xshift_cum')
-        ax_verb.plot(Yshift_cum, 'cyan', label = 'Yshift_cum')
-        ax_verb.plot(tr_matr_cum[:, 0, 2], 'orange', label = 'Xshift_residual')
-        ax_verb.plot(tr_matr_cum[:, 1, 2], 'magenta', label = 'Yshift_residual')
-        ax_verb.grid(True)
-        ax_verb.legend()
-    
+
     # save the data
     default_bin_file = os.path.join(data_dir, fnm_reg.replace('.mrc', '_transf_matrix.bin'))
     transf_matrix_bin_file = kwargs.get("dump_filename", default_bin_file)
@@ -10191,7 +10180,7 @@ class FIBSEM_dataset:
                             'subtract_FOVtrend_from_fit' : subtract_FOVtrend_from_fit,
                             'pad_edges' : pad_edges,
                             'verbose' : verbose}
-            self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transf_matrix(self.transformation_matrix,
+            self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transformation_matrix_dataset(self.transformation_matrix,
                                              self.FOVtrend_x,
                                              self.FOVtrend_y,
                                              self.fnms_matches,
@@ -10355,7 +10344,7 @@ class FIBSEM_dataset:
                             'verbose' : verbose}
             if verbose:
                 print('Transformation Matrix Data is present, will perform post-processing')
-            self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transf_matrix(self.transformation_matrix,
+            self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transformation_matrix_dataset(self.transformation_matrix,
                                              self.FOVtrend_x,
                                              self.FOVtrend_y,
                                              self.fnms_matches,
