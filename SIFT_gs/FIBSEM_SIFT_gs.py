@@ -7506,14 +7506,18 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     #kp_max_num = kwargs.get("kp_max_num", -1)
     save_res_png  = kwargs.get("save_res_png", True)
+    verbose = kwargs.get('verbose', False)
 
     preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
     subtract_linear_fit =  kwargs.get("subtract_linear_fit", [True, True])   # The linear slopes along X- and Y- directions (respectively) will be subtracted from the cumulative shifts.
     subtract_FOVtrend_from_fit = kwargs.get("subtract_FOVtrend_from_fit", [True, True]) 
+    if verbose:
+        print("preserve_scales:", preserve_scales)
+        print("subtract_linear_fit:", subtract_linear_fit)
+        print("subtract_FOVtrend_from_fit:", subtract_FOVtrend_from_fit)
 
-    #print("subtract_linear_fit:", subtract_linear_fit)
     pad_edges =  kwargs.get("pad_edges", True)
 
     tr_matr_cum = transformation_matrix.copy()   
@@ -7537,8 +7541,9 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     Xshift_cum_orig = tr_matr_cum[:, 0, 2].astype(np.double)
     Yshift_cum_orig = tr_matr_cum[:, 1, 2].astype(np.double)
 
-    if preserve_scales:  # in case of ScaleShift Transform WITH scale perservation
-        #print('Recalculating the transformation matrix for preserved scales')
+    if preserve_scales:  # in case of transformation WITH scale perservation
+        if verbose:
+            print('Recalculating the transformation matrix for preserved scales')
         tr_matr_cum, s_fits = find_fit(tr_matr_cum, fit_params)
         s00_fit, s01_fit, s10_fit, s11_fit = s_fits
         txs = np.zeros(len(tr_matr_cum), dtype=float)
@@ -10136,6 +10141,7 @@ class FIBSEM_dataset:
             subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
             subtract_FOVtrend_from_fit =  kwargs.get("subtract_FOVtrend_from_fit", self.subtract_FOVtrend_from_fit)
             pad_edges =  kwargs.get("pad_edges", self.pad_edges)
+            verbose = kwargs.get('verbose', False)
 
             TM_kwargs = {'fnm_reg' : fnm_reg,
                             'data_dir' : data_dir,
@@ -10159,7 +10165,8 @@ class FIBSEM_dataset:
                             'fit_params' : fit_params,
                             'subtract_linear_fit' : subtract_linear_fit,
                             'subtract_FOVtrend_from_fit' : subtract_FOVtrend_from_fit,
-                            'pad_edges' : pad_edges}
+                            'pad_edges' : pad_edges,
+                            'verbose' : verbose}
             self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transf_matrix(self.transformation_matrix,
                                              self.FOVtrend_x,
                                              self.FOVtrend_y,
