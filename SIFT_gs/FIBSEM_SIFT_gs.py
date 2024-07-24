@@ -7572,6 +7572,13 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     Xshift_cum = tr_matr_cum[:, 0, 2].copy()
     Yshift_cum = tr_matr_cum[:, 1, 2].copy()
 
+    if verbose:
+        fig_verb, ax_verb = plt.subplots(1,1, figsize=(7,5))
+        ax_verb.plot(Xshift_cum_orig, 'r', label = 'Xshift_cum_orig')
+        ax_verb.plot(Yshift_cum_orig, 'b', label = 'Yshift_cum_orig')
+        ax_verb.plot(Xshift_cum, 'green', label = 'Xshift_cum')
+        ax_verb.plot(Yshift_cum, 'cyan', label = 'Yshift_cum')
+
     # Subtract linear trends from offsets
     if subtract_linear_fit[0]:
         fr = np.arange(0, len(Xshift_cum))
@@ -7602,6 +7609,17 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     # define new cumulative transformation matrix where the offests may have linear slopes subtracted
     tr_matr_cum[:, 0, 2] = Xshift_residual-Xshift_residual[0]
     tr_matr_cum[:, 1, 2] = Yshift_residual-Yshift_residual[0]
+
+    if verbose:
+        fig_verb, ax_verb = plt.subplots(1,1, figsize=(7,5))
+        ax_verb.plot(Xshift_cum_orig, 'r', label = 'Xshift_cum_orig')
+        ax_verb.plot(Yshift_cum_orig, 'b', label = 'Yshift_cum_orig')
+        ax_verb.plot(Xshift_cum, 'green', label = 'Xshift_cum')
+        ax_verb.plot(Yshift_cum, 'cyan', label = 'Yshift_cum')
+        ax_verb.plot(tr_matr_cum[:, 0, 2], 'orange', label = 'Xshift_residual')
+        ax_verb.plot(tr_matr_cum[:, 1, 2], 'magenta', label = 'Yshift_residual')
+        ax_verb.grid(True)
+        ax_verb.legend()
     
     # save the data
     default_bin_file = os.path.join(data_dir, fnm_reg.replace('.mrc', '_transf_matrix.bin'))
