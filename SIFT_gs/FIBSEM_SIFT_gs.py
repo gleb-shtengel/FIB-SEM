@@ -7447,7 +7447,11 @@ def build_filename(fname, **kwargs):
     return fnm_reg, dtp
 
 
-def find_fit(tr_matr_cum, fit_params):
+def find_fit(tr_matr_cum, **kwargs):
+    fit_params = kwargs.get('fit_params', ['SG', 11, 3])
+    verbose = kwargs.get('verbose', False)
+    if verbose:
+        print('Using Fit Parameters ', fit_params, ' for processing the transformation matrix')
     fit_method = fit_params[0]
     if fit_method == 'SG':  # perform Savitsky-Golay fitting with parameters
         ws, porder = fit_params[1:3]         # window size 701, polynomial order 3
@@ -7544,7 +7548,7 @@ def process_transf_matrix(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_ma
     if preserve_scales:  # in case of transformation WITH scale perservation
         if verbose:
             print('Recalculating the transformation matrix for preserved scales')
-        tr_matr_cum, s_fits = find_fit(tr_matr_cum, fit_params)
+        tr_matr_cum, s_fits = find_fit(tr_matr_cum, fit_params=fit_params, verbose=verbose)
         s00_fit, s01_fit, s10_fit, s11_fit = s_fits
         txs = np.zeros(len(tr_matr_cum), dtype=float)
         tys = np.zeros(len(tr_matr_cum), dtype=float)
@@ -10277,6 +10281,11 @@ class FIBSEM_dataset:
         data_dir = kwargs.get("data_dir", self.data_dir)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         TransformType = kwargs.get("TransformType", self.TransformType)
+        SIFT_nfeatures = kwargs.get("SIFT_nfeatures", self.SIFT_nfeatures)
+        SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", self.SIFT_nOctaveLayers)
+        SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
+        SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
+        SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         l2_matrix = kwargs.get("l2_matrix", self.l2_matrix)
         targ_vector = kwargs.get("targ_vector", self.targ_vector)
@@ -10292,6 +10301,7 @@ class FIBSEM_dataset:
         subtract_linear_fit =  kwargs.get("subtract_linear_fit", self.subtract_linear_fit)
         subtract_FOVtrend_from_fit =  kwargs.get("subtract_FOVtrend_from_fit", self.subtract_FOVtrend_from_fit)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
+        verbose = kwargs.get('verbose', False)
   
         res_nomatch_check = check_for_nomatch_frames_dataset(self.fls, self.fnms, self.fnms_matches,
                                      self.transformation_matrix, self.error_abs_mean, self.npts,
@@ -10304,6 +10314,11 @@ class FIBSEM_dataset:
             TM_kwargs = {'fnm_reg' : fnm_reg,
                             'data_dir' : data_dir,
                             'TransformType' : TransformType,
+                            'SIFT_nfeatures' : SIFT_nfeatures,
+                            'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
+                            'SIFT_contrastThreshold' : SIFT_contrastThreshold,
+                            'SIFT_edgeThreshold' : SIFT_edgeThreshold,
+                            'SIFT_sigma' : SIFT_sigma,
                             'Sample_ID' : Sample_ID,
                             'l2_matrix' : l2_matrix,
                             'targ_vector': targ_vector, 
@@ -10318,7 +10333,10 @@ class FIBSEM_dataset:
                             'fit_params' : fit_params,
                             'subtract_linear_fit' : subtract_linear_fit,
                             'subtract_FOVtrend_from_fit' : subtract_FOVtrend_from_fit,
-                            'pad_edges' : pad_edges}
+                            'pad_edges' : pad_edges,
+                            'verbose' : verbose}
+            if verbose:
+                print('Transformation Matrix Data is present, will perform post-processing')
             self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transf_matrix(self.transformation_matrix,
                                              self.FOVtrend_x,
                                              self.FOVtrend_y,
@@ -10326,6 +10344,7 @@ class FIBSEM_dataset:
                                              self.npts,
                                              self.error_abs_mean,
                                              **TM_kwargs)
+
         return self.tr_matr_cum_residual, self.transf_matrix_xlsx_file
 
 
