@@ -10142,6 +10142,8 @@ class FIBSEM_dataset:
             subtract_FOVtrend_from_fit =  kwargs.get("subtract_FOVtrend_from_fit", self.subtract_FOVtrend_from_fit)
             pad_edges =  kwargs.get("pad_edges", self.pad_edges)
             verbose = kwargs.get('verbose', False)
+            if verbose:
+                print('Transformation Matrix Data is present, will perform post-processing')
 
             TM_kwargs = {'fnm_reg' : fnm_reg,
                             'data_dir' : data_dir,
