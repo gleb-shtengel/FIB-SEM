@@ -8140,6 +8140,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     params2 = [fs[1], dmin, dmax, kwargs]
     fnm_2 = extract_keypoints_descr_files(params2)
 
+    kwargs.pop('DASK_client', None)
     params_dsf = [fnm_1, fnm_2, kwargs]
 
     n_matches_tot = []
