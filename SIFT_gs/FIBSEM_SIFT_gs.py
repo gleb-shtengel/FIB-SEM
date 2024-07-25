@@ -8160,10 +8160,10 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     n_matches_tot = np.array(n_matches_tot)
     print('')
     if number_of_repeats > 1:
-        print('Repeated registration calculations {:d} times'.format(number_of_repeats))
+        print('Repeated registration calculations {:.2f} times'.format(number_of_repeats))
         print('Average # of detected matches: {:d}'.format(np.mean(n_matches_tot)))
         print('min # of detected matches: {:d}'.format(np.min(n_matches_tot)))
-        print('STD # of detected matches: {:d}'.format(np.std(n_matches_tot)))
+        print('STD # of detected matches: {:.2f}'.format(np.std(n_matches_tot)))
     else:
         print('# of detected matches: {:d}'.format(n_matches))
     print('')
