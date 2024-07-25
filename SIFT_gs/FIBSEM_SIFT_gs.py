@@ -8149,7 +8149,6 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         kwargs_temp['iteration'] = j
         params_dsf_mult.append([fnm_1, fnm_2, kwargs_temp])
 
-
     n_matches_tot = []
     if use_DASK:
         futures = DASK_client.map(determine_transformations_files, params_dsf_mult)
@@ -8187,7 +8186,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     axx.set_xlabel('SIFT: X Error (pixels)')
     axy = axs[1,1]
     axy.set_xlabel('SIFT: Y Error (pixels)')
-    if n_matches > 0:
+    if n_matches > 1:
         hst = axx.hist(xshifts, bins=64)
         axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
         axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
@@ -8196,8 +8195,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
         axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
     else:
-        axx.text(0.05, 0.9, 'No Matches Detected', transform=axx.transAxes, fontsize=fsz)
-        axy.text(0.05, 0.9, 'No Matches Detected', transform=axy.transAxes, fontsize=fsz)
+        axx.text(0.05, 0.9, '{:d} Matches Detected'.format(n_matches), transform=axx.transAxes, fontsize=fsz)
+        axy.text(0.05, 0.9, '{:d} Matches Detected'.format(n_matches), transform=axy.transAxes, fontsize=fsz)
 
     axt=axx  # print Transformation Matrix data over axx plot
     axt.text(0.65, 0.8, 'Transf. Matrix:', transform=axt.transAxes, fontsize=fsz)
