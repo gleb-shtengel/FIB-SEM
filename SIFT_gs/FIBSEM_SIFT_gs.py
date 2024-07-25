@@ -7158,7 +7158,7 @@ def estimate_kpts_transform_error(src_pts, dst_pts, transform_matrix):
     return np.linalg.norm(dst_pts - src_pts_transformed, ord=2, axis=1)
 
 
-def determine_transformation_matrix(src_pts, dst_pts, TransformType, **kwargs):
+def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
     '''
     Determine the transformation matrix.
     ©G.Shtengel, 09/2021. gleb.shtengel@gmail.com
@@ -7175,6 +7175,8 @@ def determine_transformation_matrix(src_pts, dst_pts, TransformType, **kwargs):
     untill the worst error falls below drmax or the max number of iterations is reached.
 
     kwargs:
+    TransformType - transformation type to be used (ShiftTransform, XScaleShiftTransform, ScaleShiftTransform, AffineTransform, RegularizedAffineTransform).
+        Default is RegularizedAffineTransform.
     drmax : float
         In the case of 'LinReg' - outlier threshold for iterative regression
         In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
@@ -7189,6 +7191,7 @@ def determine_transformation_matrix(src_pts, dst_pts, TransformType, **kwargs):
     drmax = kwargs.get('drmax', 2)
     max_iter = kwargs.get('max_iter', 1000)
     remove_per_iter = kwargs.het('remove_per_iter', 1)
+    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
 
     transform_matrix = np.eye(3,3)
     iteration = 1
@@ -7371,7 +7374,7 @@ def determine_transformations_files(params_dsf):
     
     if solver == 'LinReg':
         # Determine the transformation matrix via iterative liear regression
-        transform_matrix, kpts, error_abs_mean, iteration = determine_transformation_matrix(src_pts, dst_pts, TransformType, **kwargs)
+        transform_matrix, kpts, error_abs_mean, iteration = determine_transformation_matrix(src_pts, dst_pts, **kwargs)
         n_kpts = len(kpts[0])
     else:  # the other option is solver = 'RANSAC'
         try:
