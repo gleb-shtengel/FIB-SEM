@@ -8150,7 +8150,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     n_matches_tot = []
     if use_DASK:
-        futures = [DASK_client.submit(determine_transformations_files, params_dsf) for params_dsf in params_dsf_mult]
+        futures = DASK_client.map(determine_transformations_files, params_dsf_mult)
         results = DASK_client.gather(futures)
     else:
         results = []
