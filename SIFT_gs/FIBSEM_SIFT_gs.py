@@ -7190,7 +7190,7 @@ def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
     '''
     drmax = kwargs.get('drmax', 2)
     max_iter = kwargs.get('max_iter', 1000)
-    remove_per_iter = kwargs.het('remove_per_iter', 1)
+    remove_per_iter = kwargs.get('remove_per_iter', 1)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
 
     transform_matrix = np.eye(3,3)
