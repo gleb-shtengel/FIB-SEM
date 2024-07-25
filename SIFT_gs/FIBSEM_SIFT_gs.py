@@ -7158,7 +7158,7 @@ def estimate_kpts_transform_error(src_pts, dst_pts, transform_matrix):
     return np.linalg.norm(dst_pts - src_pts_transformed, ord=2, axis=1)
 
 
-def determine_transformation_matrix(src_pts, dst_pts, TransformType, drmax = 2, max_iter = 100):
+def determine_transformation_matrix(src_pts, dst_pts, TransformType, **kwargs):
     '''
     Determine the transformation matrix.
     ©G.Shtengel, 09/2021. gleb.shtengel@gmail.com
@@ -7174,9 +7174,22 @@ def determine_transformation_matrix(src_pts, dst_pts, TransformType, drmax = 2, 
     The iterative procedure throws away the matched keypoint pair with worst error on every iteration
     untill the worst error falls below drmax or the max number of iterations is reached.
 
+    kwargs:
+    drmax : float
+        In the case of 'LinReg' - outlier threshold for iterative regression
+        In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
+    max_iter : int
+        Max number of iterations. Defaults is 1000
+    remove_per_iter : int
+        Number of worst outliers to remove per iteration. Defaults is 1.
+
     Returns
     transform_matrix, kpts, error_abs_mean, iteration
     '''
+    drmax = kwargs.get('drmax', 2)
+    max_iter = kwargs.get('max_iter', 1000)
+    remove_per_iter = kwargs.het('remove_per_iter', 1)
+
     transform_matrix = np.eye(3,3)
     iteration = 1
     max_error = drmax * 2.0
@@ -7240,11 +7253,13 @@ def determine_transformation_matrix(src_pts, dst_pts, TransformType, drmax = 2, 
         
         # estimate transformation errors and find outliers
         errs = estimate_kpts_transform_error(src_pts, dst_pts, transform_matrix)
-        max_error = np.max(errs)
-        ind = np.argmax(errs)
-        src_pts = np.delete(src_pts, ind, axis=0)
-        dst_pts = np.delete(dst_pts, ind, axis=0)
-        #print('Iteration {:d}, max_error={:.2f} '.format(iteration, max_error), (iteration <= max_iter), (max_error > drmax))
+        for j in np.arange(remove_per_iter):
+            max_error = np.max(errs)
+            ind = np.argmax(errs)
+            src_pts = np.delete(src_pts, ind, axis=0)
+            dst_pts = np.delete(dst_pts, ind, axis=0)
+            errs = np.delete(errs, ind)
+            #print('Iteration {:d}, max_error={:.2f} '.format(iteration, max_error), (iteration <= max_iter), (max_error > drmax))
         iteration +=1
     kpts = [src_pts, dst_pts]
     error_abs_mean = np.mean(np.abs(np.delete(errs, ind, axis=0)))
@@ -7295,7 +7310,6 @@ def determine_transformations_files(params_dsf):
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
 
     if TransformType == RegularizedAffineTransform:
-
         def estimate(self, src, dst):
             self.params = determine_regularized_affine_transform(src, dst, l2_matrix, targ_vector)
         RegularizedAffineTransform.estimate = estimate
@@ -7353,7 +7367,7 @@ def determine_transformations_files(params_dsf):
     
     if solver == 'LinReg':
         # Determine the transformation matrix via iterative liear regression
-        transform_matrix, kpts, error_abs_mean, iteration = determine_transformation_matrix(src_pts, dst_pts, TransformType, drmax = drmax, max_iter = max_iter)
+        transform_matrix, kpts, error_abs_mean, iteration = determine_transformation_matrix(src_pts, dst_pts, TransformType, kwargs)
         n_kpts = len(kpts[0])
     else:  # the other option is solver = 'RANSAC'
         try:
