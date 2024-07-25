@@ -8142,7 +8142,11 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     kwargs.pop('DASK_client', None)
     params_dsf = [fnm_1, fnm_2, kwargs]
-    params_dsf_mult = [params_dsf for j in np.arange(number_of_repeats)]
+    params_dsf_mult = []
+    kwargs_temp = kwargs.copy()
+    for j in np.arange(number_of_repeats):
+        kwargs_temp['iteration'] = j
+        params_dsf_mult.append([fnm_1, fnm_2, kwargs_temp])
 
     n_matches_tot = []
     if use_DASK:
