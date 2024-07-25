@@ -8152,16 +8152,14 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     if use_DASK:
         futures = [DASK_client.submit(determine_transformations_files, params_dsf) for params_dsf in params_dsf_mult]
         results = DASK_client.gather(futures)
-        n_matches_tot = [len(res[2][0]) for res in results]
-        transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = results[-1]
-        n_matches = len(kpts[0])
     else:
+        results = []
         for j in tqdm(np.arange(number_of_repeats), desc='Repeating SIFT calculation {:d} times'.format(number_of_repeats)):
-            transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = determine_transformations_files(params_dsf)
-            n_matches = len(kpts[0])
-            n_matches_tot.append(n_matches)
+            results.append(determine_transformations_files(params_dsf))
 
-    n_matches_tot = np.array(n_matches_tot)
+    n_matches_tot = np.array([len(res[2][0]) for res in results])
+    transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = results[np.argmin(n_matches_tot)]
+    n_matches = len(kpts[0])
     print('')
     if number_of_repeats > 1:
         print('Repeated registration calculations {:d} times'.format(number_of_repeats))
