@@ -8034,9 +8034,15 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     Returns:
     dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts
     '''
+    DASK_client = kwargs.get('DASK_client', '')
+    if DASK_client == '':
+        use_DASK = False
+    else:
+        use_DASK = kwargs.get('use_DASK', False)
+    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
+    number_of_repeats = kwargs.get('number_of_repeats', 1)
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
-    number_of_repeats = kwargs.get('number_of_repeats', 1)
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     threshold_min = kwargs.get("threshold_min", 1e-3)
     threshold_max = kwargs.get("threshold_max", 1e-3)
