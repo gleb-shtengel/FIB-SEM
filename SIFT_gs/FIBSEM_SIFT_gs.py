@@ -7958,6 +7958,12 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     
     kwargs
     ---------
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    DASK_client_retries : int (default to 3)
+        Number of allowed automatic retries if a task fails
+    use_DASK : boolean
+    number_of_repeats : int
+            number of repeats of the calculations (under the same conditions). Default is 1.
     data_dir : str
         data directory (path)
     ftype : int
@@ -8030,6 +8036,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     '''
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
+    number_of_repeats = kwargs.get('number_of_repeats', 1)
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     threshold_min = kwargs.get("threshold_min", 1e-3)
     threshold_max = kwargs.get("threshold_max", 1e-3)
@@ -8128,12 +8135,32 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     fnm_2 = extract_keypoints_descr_files(params2)
 
     params_dsf = [fnm_1, fnm_2, kwargs]
-    transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = determine_transformations_files(params_dsf)
-    n_matches = len(kpts[0])
-    if verbose:
+
+    n_matches_tot = []
+    if use_DASK:
+        futures = [DASK_client.submit(determine_transformations_files, params_dsf) for j in np.arange(number_of_repeats)]
+        results = DASK_client.gather(fututres)
+        n_matches_tot = [len(res[2][0]) for res in results]
+        transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = results[-1]
+        n_matches = len(kpts[0])
+    else:
+        for j in tqdm(np.arange(number_of_repeats), desc='Repeating SIFT calculation {:d} times'.format(number_of_repeats)):
+            transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = determine_transformations_files(params_dsf)
+            n_matches = len(kpts[0])
+            n_matches_tot.append(n_matches)
+
+    n_matches_tot = np.array(n_matches_tot)
+    print('')
+    if number_of_repeats > 1:
+        print('Repeated registration calculations {:d} times'.format(number_of_repeats))
+        print('Average # of detected matches: {:d}'.format(np.mean(n_matches_tot)))
+        print('min # of detected matches: {:d}'.format(np.min(n_matches_tot)))
+        print('STD # of detected matches: {:d}'.format(np.std(n_matches_tot)))
+    else:
         print('# of detected matches: {:d}'.format(n_matches))
-        #print('Transformation Matrix: ')
-        #print(transform_matrix)
+    print('')
+    #print('Transformation Matrix: ')
+    #print(transform_matrix)
     if n_matches > 0:
         src_pts_filtered, dst_pts_filtered = kpts
         src_pts_transformed = src_pts_filtered @ transform_matrix[0:2, 0:2].T + transform_matrix[0:2, 2]
@@ -9481,6 +9508,11 @@ class FIBSEM_dataset:
         
         kwargs
         ---------
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        DASK_client_retries : int (default is 3)
+            Number of allowed automatic retries if a task fails
+        number_of_repeats : int
+            number of repeats of the calculations (under the same conditions). Default is 1.
         data_dir : str
             data directory (path)
         ftype : int
@@ -9552,6 +9584,30 @@ class FIBSEM_dataset:
         Returns:
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts
         '''
+        DASK_client = kwargs.get('DASK_client', '')
+        try:
+            client_services = DASK_client.scheduler_info()['services']
+            if client_services:
+                try:
+                    dport = client_services['dashboard']
+                except:
+                    dport = client_services['bokeh']
+                status_update_address = 'http://localhost:{:d}/status'.format(dport)
+                print('DASK client exists. Will perform distributed computations')
+                print('Use ' + status_update_address +' to monitor DASK progress')
+                use_DASK = True
+            else:
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
+                use_DASK = False
+        except:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
+            use_DASK = False
+        if hasattr(self, "DASK_client_retries"):
+            DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
+        else:
+            DASK_client_retries = kwargs.get("DASK_client_retries", 3)
+
+        number_of_repeats = kwargs.get('number_of_repeats', 1)
         if len(eval_fls) == 0:
             eval_fls = [self.fls[self.nfrs//2], self.fls[self.nfrs//2+1]]
         data_dir = kwargs.get("data_dir", self.data_dir)
@@ -9581,7 +9637,11 @@ class FIBSEM_dataset:
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         verbose = kwargs.get('verbose', True)
 
-        SIFT_evaluation_kwargs = {'ftype' : ftype,
+        SIFT_evaluation_kwargs = {'DASK_client' : DASK_client,
+                                'DASK_client_retries' : DASK_client_retries,
+                                'use_DASK' : use_DASK,
+                                'number_of_repeats' : number_of_repeats,
+                                'ftype' : ftype,
                                 'Sample_ID' : Sample_ID,
                                 'data_dir' : data_dir,
                                 'fnm_reg' : fnm_reg,
