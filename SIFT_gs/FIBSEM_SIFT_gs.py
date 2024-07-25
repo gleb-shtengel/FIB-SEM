@@ -7302,7 +7302,11 @@ def determine_transformations_files(params_dsf):
     targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
     solver = kwargs.get("solver", 'RANSAC')
     drmax = kwargs.get("drmax", 2.0)
+    kwargs['drmax'] = drmax
     max_iter = kwargs.get("max_iter", 1000)
+    kwargs['max_iter'] = max_iter
+    remove_per_iter = kwargs.get('remove_per_iter', 1)
+    kwargs['remove_per_iter'] = remove_per_iter
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
     #kp_max_num = kwargs.get("kp_max_num", -1)
