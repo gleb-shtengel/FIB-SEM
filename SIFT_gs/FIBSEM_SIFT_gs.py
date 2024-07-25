@@ -7371,7 +7371,7 @@ def determine_transformations_files(params_dsf):
     
     if solver == 'LinReg':
         # Determine the transformation matrix via iterative liear regression
-        transform_matrix, kpts, error_abs_mean, iteration = determine_transformation_matrix(src_pts, dst_pts, TransformType, kwargs)
+        transform_matrix, kpts, error_abs_mean, iteration = determine_transformation_matrix(src_pts, dst_pts, TransformType, **kwargs)
         n_kpts = len(kpts[0])
     else:  # the other option is solver = 'RANSAC'
         try:
