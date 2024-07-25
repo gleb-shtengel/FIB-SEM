@@ -8142,10 +8142,11 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     kwargs.pop('DASK_client', None)
     params_dsf = [fnm_1, fnm_2, kwargs]
+    params_dsf_mult = [params_dsf for j in np.arange(number_of_repeats)]
 
     n_matches_tot = []
     if use_DASK:
-        futures = [DASK_client.submit(determine_transformations_files, params_dsf) for j in np.arange(number_of_repeats)]
+        futures = [DASK_client.submit(determine_transformations_files, params_dsf) for params_dsf in params_dsf_mult]
         results = DASK_client.gather(futures)
         n_matches_tot = [len(res[2][0]) for res in results]
         transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = results[-1]
