@@ -595,6 +595,8 @@ def build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
         High bound on X- spatial frequencies in FFT space
     dy : float
         Width of Y- spatial frequency band in FFT space
+    y_offset : float
+        vertical offset of the band in Y- spatial frequency FFT space. offset applied in a symmetric fashion - it is of opposite sign in the negative x -space.
     symm : int
         Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 4.
 
@@ -604,13 +606,14 @@ def build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
     xstart = kwargs.get('xstart', 0.1)
     xstop = kwargs.get('xstop', 1.0)
     dy = kwargs.get('dy', 0.01)
+    y_offset = kwargs.get('y_offset', 0.00)
     symm = kwargs.get('symm', 4)
     ds = data.shape
     yc, xc = ds[0]//2, ds[1]//2
     
     y, x = np.indices(ds)
     xa = np.abs(x - xc) / np.max(x - xc)
-    ya = np.abs(y - yc) / np.max(y - yc)
+    ya = np.abs((y - yc) / np.max(y - yc) + y_offset*np.sign(x - xc))
     
     rescaler_kernel = np.ones(ds, dtype=float)
     cond = (xa > xstart)*(xa < xstop)*(ya<=dy/2.0)

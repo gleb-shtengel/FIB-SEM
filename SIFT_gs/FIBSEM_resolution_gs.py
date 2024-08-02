@@ -470,94 +470,120 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
             try:              
                 tr_results.append([(tr_x[2][2]+tr_y[2][2])/2.0, trx1, trx2, try1, try2, abs(tr_x[0][4]), abs(tr_x[1][4]), abs(tr_y[0][4]), abs(tr_y[1][4])])
             except:
-                if verbose:
-                    print('could not append blob')
                 error_flag += 16
+                if verbose:
+                    print('could not append blob, error_flag={:d}'.format(error_flag))
                 tr_results.append([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
                 
         else:
             error_flag += 32
             tr_results.append([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            if verbose:
+                print('could not append blob, error_flag={:d}'.format(error_flag))
         error_flags.append(error_flag)
         
     error_flags = np.array(error_flags)
     tr_results_arr = np.array(tr_results)
+    if len(error_flags[error_flags==0]) > 0:
     #blobs_LoG = blobs_LoG[error_flags==0]
-    Xpt1 = tr_results_arr[error_flags==0, 1]
-    Xpt2 = tr_results_arr[error_flags==0, 2]
-    Ypt1 = tr_results_arr[error_flags==0, 3]
-    Ypt2 = tr_results_arr[error_flags==0, 4]
-    Xslp1 = tr_results_arr[error_flags==0, 5]
-    Xslp2 =tr_results_arr[error_flags==0, 6]
-    Yslp1 = tr_results_arr[error_flags==0, 7]
-    Yslp2 = tr_results_arr[error_flags==0, 8]
-    XYpt_selected = [Xpt1, Xpt2, Ypt1, Ypt2]
-    Xpt_selected = [Xpt1, Xpt2]
-    Ypt_selected = [Ypt1, Ypt2]
-    Xslp_selected = [Xslp1, Xslp2]
-    Yslp_selected = [Yslp1, Yslp2]
-    tr_mean = np.mean(XYpt_selected)
-    tr_std = np.std(XYpt_selected)
-    tr_sets = [[Xpt_selected, Ypt_selected],
-          [Xslp_selected, Yslp_selected]]
+        Xpt1 = tr_results_arr[error_flags==0, 1]
+        Xpt2 = tr_results_arr[error_flags==0, 2]
+        Ypt1 = tr_results_arr[error_flags==0, 3]
+        Ypt2 = tr_results_arr[error_flags==0, 4]
+        Xslp1 = tr_results_arr[error_flags==0, 5]
+        Xslp2 = tr_results_arr[error_flags==0, 6]
+        Yslp1 = tr_results_arr[error_flags==0, 7]
+        Yslp2 = tr_results_arr[error_flags==0, 8]
+        XYpt_selected = [Xpt1, Xpt2, Ypt1, Ypt2]
+        Xpt_selected = [Xpt1, Xpt2]
+        Ypt_selected = [Ypt1, Ypt2]
+        Xslp_selected = [Xslp1, Xslp2]
+        Yslp_selected = [Yslp1, Yslp2]
+        tr_mean = np.mean(XYpt_selected)
+        tr_std = np.std(XYpt_selected)
+        tr_sets = [[Xpt_selected, Ypt_selected],
+            [Xslp_selected, Yslp_selected]]
 
-    if verbose:
+        if save_data_xlsx:
+            xlsx_writer = pd.ExcelWriter(results_file_xlsx, engine='xlsxwriter')
+            trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
+            columns=['Y', 'X', 'R', 'Amp',
+                trans_str + ' X-pt1',
+                trans_str + ' X-pt2',
+                trans_str + ' Y-pt1',
+                trans_str + ' Y-pt2',
+                trans_str + ' X-slp1',
+                trans_str + ' X-slp2',
+                trans_str + ' Y-slp1',
+                trans_str + ' Y-slp2',
+                'error_flag']
+            blobs_LoG_arr = np.array(blobs_LoG)
+
+            transition_results = pd.DataFrame(np.column_stack((blobs_LoG_arr, tr_results_arr, np.array(error_flags))), columns = columns, index = None)
+            transition_results.to_excel(xlsx_writer, index=None, sheet_name='Transition analysis results')
+            kwargs_info = pd.DataFrame([kwargs]).T # prepare to be save in transposed format
+            kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
+        
+        fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
+        sheet_names = ['{:.0f}%-{:.0f}% summary (pts)'.format(bounds[0]*100, bounds[1]*100),
+            '{:.0f}%-{:.0f}% summary (slopes)'.format(bounds[0]*100, bounds[1]*100)]
+        
+
+        hranges = [(0, 10.0), 
+               (0, 10.0)]  # histogram range for the transition distance (in nm))
+        hst_datas = []
+        for [tr_xs, tr_ys], fext, sheet_name, hrange in zip(tr_sets, fexts, sheet_names, hranges):
+            trs = np.squeeze(np.array((tr_xs, tr_ys)).flatten())
+            tr_x = np.array(tr_xs).flatten()
+            tr_y = np.array(tr_ys).flatten()
+            dsets = [trs, tr_x, tr_y]
+            hst_data =  np.zeros((len(dsets), 4))
+            cc_data =  np.zeros((nbins, len(dsets)+1))
+            for (j, dset) in enumerate(dsets):
+                hst_res = np.array(add_hist(dset, nbins=nbins, hrange=hrange, ax=0, col='red', label=''), dtype=object)
+                #add_hist returns x, y, histmax_x, md, mn, std
+                hst_data[j, :] = hst_res[2:6]
+                cc_data[:, j+1] = hst_res[1]
+            hst_datas.append(hst_data)
+            cell_text = [['{:.2f}'.format(d) for d in dd] for dd in hst_data]
+            if save_data_xlsx:
+                columns = ['Hist. Peak', 'Median', 'Mean', 'STD']
+                rows = ['X, Y', 'X', 'Y']
+                n_cols = len(columns)
+                n_rows = len(rows)
+                transition_summary = pd.DataFrame(hst_data, columns = columns, index = None)
+                transition_summary.insert(0, '', rows)
+                transition_summary.to_excel(xlsx_writer, index=None, sheet_name=sheet_name)
+        if save_data_xlsx:
+            xlsx_writer.save()
+    else:
+        Xpt1 = []
+        Xpt2 = []
+        Ypt1 = []
+        Ypt2 = []
+        Xslp1 = []
+        Xslp2 = []
+        Yslp1 = []
+        Yslp2 = []
+        XYpt_selected = []
+        Xpt_selected = []
+        Ypt_selected = []
+        Xslp_selected = []
+        Yslp_selected = []
+        tr_mean = 0.0
+        tr_std = 0.0
+        tr_sets = [[Xpt_selected, Ypt_selected],
+            [Xslp_selected, Yslp_selected]]
+        save_data_xlsx = False
+        results_file_xlsx = 'Data not saved'
+
+    if verbose and len(error_flags[error_flags==0]) > 0:
         print('Step2: Analyzed Blobs/Transitions, selected {:d}'.format(len(blobs_LoG)))
         print('Step2: Analyzed selected {:d} Blobs, found {:d} good ones'.format(len(error_flags), len(error_flags[error_flags==0])))
-        print('Step3: Saving the results into file:  ' + results_file_xlsx)
-        
-    if save_data_xlsx:
-    	xlsx_writer = pd.ExcelWriter(results_file_xlsx, engine='xlsxwriter')
-    	trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
-    	columns=['Y', 'X', 'R', 'Amp',
-    		trans_str + ' X-pt1',
-    		trans_str + ' X-pt2',
-    		trans_str + ' Y-pt1',
-    		trans_str + ' Y-pt2',
-    		trans_str + ' X-slp1',
-    		trans_str + ' X-slp2',
-    		trans_str + ' Y-slp1',
-    		trans_str + ' Y-slp2',
-    		'error_flag']
-    	blobs_LoG_arr = np.array(blobs_LoG)
-
-    	transition_results = pd.DataFrame(np.column_stack((blobs_LoG_arr, tr_results_arr, np.array(error_flags))), columns = columns, index = None)
-    	transition_results.to_excel(xlsx_writer, index=None, sheet_name='Transition analysis results')
-    	kwargs_info = pd.DataFrame([kwargs]).T # prepare to be save in transposed format
-    	kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
-    
-    fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
-    sheet_names = ['{:.0f}%-{:.0f}% summary (pts)'.format(bounds[0]*100, bounds[1]*100),
-        '{:.0f}%-{:.0f}% summary (slopes)'.format(bounds[0]*100, bounds[1]*100)]
-    
-
-    hranges = [(0, 10.0), 
-           (0, 10.0)]  # histogram range for the transition distance (in nm))
-    hst_datas = []
-    for [tr_xs, tr_ys], fext, sheet_name, hrange in zip(tr_sets, fexts, sheet_names, hranges):
-        trs = np.squeeze(np.array((tr_xs, tr_ys)).flatten())
-        tr_x = np.array(tr_xs).flatten()
-        tr_y = np.array(tr_ys).flatten()
-        dsets = [trs, tr_x, tr_y]
-        hst_data =  np.zeros((len(dsets), 4))
-        cc_data =  np.zeros((nbins, len(dsets)+1))
-        for (j, dset) in enumerate(dsets):
-            hst_res = np.array(add_hist(dset, nbins=nbins, hrange=hrange, ax=0, col='red', label=''), dtype=object)
-            #add_hist returns x, y, histmax_x, md, mn, std
-            hst_data[j, :] = hst_res[2:6]
-            cc_data[:, j+1] = hst_res[1]
-        hst_datas.append(hst_data)
-        cell_text = [['{:.2f}'.format(d) for d in dd] for dd in hst_data]
         if save_data_xlsx:
-        	columns = ['Hist. Peak', 'Median', 'Mean', 'STD']
-        	rows = ['X, Y', 'X', 'Y']
-        	n_cols = len(columns)
-        	n_rows = len(rows)
-        	transition_summary = pd.DataFrame(hst_data, columns = columns, index = None)
-        	transition_summary.insert(0, '', rows)
-        	transition_summary.to_excel(xlsx_writer, index=None, sheet_name=sheet_name)
-    if save_data_xlsx:
-    	xlsx_writer.save()
+            print('Step3: Saving the results into file:  ' + results_file_xlsx)
+        else:
+            print('Data is NOT saved')
         
     if verbose and disp_res:
         print('Step4: Displaying the blob map')
@@ -576,7 +602,6 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
             ax.add_patch(c)
         ax.set_title(title)
     return results_file_xlsx, blobs_LoG, error_flags, tr_results, hst_datas
-
 
 ############################################
 #

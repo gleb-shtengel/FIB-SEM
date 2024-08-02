@@ -6171,8 +6171,6 @@ class FIBSEM_frame:
             ImgEM = self.RawImageB.astype(float)
             DarkCount = self.Scaling[1,1]
 
-
-
         if (image_name == 'RawImageA') or (image_name == 'RawImageB' and self.DetB != 'None'):
             st = 1.0/np.sqrt(2.0)
             def_kernel = np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]).astype(float)
