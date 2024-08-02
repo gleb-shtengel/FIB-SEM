@@ -5684,7 +5684,7 @@ class FIBSEM_frame:
             print('Oversampling=', self.Oversampling)
             print('ZeissScanSpeed=', self.ZeissScanSpeed)
             print('DecimatingFactor=', self.DecimatingFactor)
-            print('SaveOversamples=' self.SaveOversamples )
+            print('SaveOversamples=', self.SaveOversamples )
             print('ScanRate=', self.ScanRate)
             print('FramelineRampdownRatio=', self.FramelineRampdownRatio)
             print('Xmin=', self.Xmin)
