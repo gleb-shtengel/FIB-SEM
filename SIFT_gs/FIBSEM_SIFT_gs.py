@@ -5660,10 +5660,10 @@ class FIBSEM_frame:
                 self.RawSamplesB = self.RawImageB.copy()
                 self.SamplesA = self.ImageA.copy()
                 self.SamplesB = self.ImageB.copy()
-                self.RawImageA = np.mean(self.RawSamplesA, axis=3)
-                self.RawImageB = np.mean(self.RawSamplesB, axis=3)
-                self.ImageA = np.mean(self.SamplesA, axis=3)
-                self.ImageB = np.mean(self.SamplesB, axis=3)
+                self.RawImageA = np.mean(self.RawSamplesA, axis=2)
+                self.RawImageB = np.mean(self.RawSamplesB, axis=2)
+                self.ImageA = np.mean(self.SamplesA, axis=2)
+                self.ImageB = np.mean(self.SamplesB, axis=2)
 
 
 
