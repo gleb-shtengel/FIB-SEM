@@ -5655,6 +5655,18 @@ class FIBSEM_frame:
                         self.RawImageB = Raw[:,:,0]
                         self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
 
+            if self.SaveOversamples:
+                self.RawSamplesA = self.RawImageA.copy()
+                self.RawSamplesB = self.RawImageB.copy()
+                self.SamplesA = self.ImageA.copy()
+                self.SamplesB = self.ImageB.copy()
+                self.RawImageA = np.mean(self.RawSamplesA, axis=3)
+                self.RawImageB = np.mean(self.RawSamplesB, axis=3)
+                self.ImageA = np.mean(self.SamplesA, axis=3)
+                self.ImageB = np.mean(self.SamplesB, axis=3)
+
+
+
     def print_header(self):
         '''
         Prints a formatted content of the file header
