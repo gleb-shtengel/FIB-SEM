@@ -5543,6 +5543,8 @@ class FIBSEM_frame:
 #                finish reading raw data
 
             n_elements = self.ChanNum * self.XResolution * self.YResolution
+            if self.SaveOversamples:
+                n_elements *= self.Oversampling
             fid.seek(1024, 0)
             if self.EightBit==1:
                 dt = np.dtype(np.uint8)
@@ -5561,7 +5563,10 @@ class FIBSEM_frame:
             fid.close()
             # finish reading raw data
      
-            Raw = np.array(Raw).reshape(self.YResolution, self.XResolution, self.ChanNum)
+            if self.SaveOversamples:
+                Raw = np.array(Raw).reshape(self.Oversampling, self.YResolution, self.XResolution, self.ChanNum)
+            else:
+                Raw = np.array(Raw).reshape(self.YResolution, self.XResolution, self.ChanNum)
             #print(np.shape(Raw), type(Raw), type(Raw[0,0]))
 
             #data = np.asarray(datab).reshape(self.YResolution,self.XResolution,ChanNum)
