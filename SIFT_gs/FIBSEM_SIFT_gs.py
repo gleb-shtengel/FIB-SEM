@@ -5564,8 +5564,7 @@ class FIBSEM_frame:
             # finish reading raw data
      
             if self.SaveOversamples:
-                self.Raw = Raw
-                Raw = np.moveaxis(np.array(Raw).reshape(self.Oversampling, self.YResolution, self.XResolution, self.ChanNum), 0, 3)
+                Raw = np.moveaxis(np.array(Raw).reshape(self.YResolution, self.XResolution, self.Oversampling, self.ChanNum), 2, 3)
             else:
                 Raw = np.array(Raw).reshape(self.YResolution, self.XResolution, self.ChanNum)
             #print(np.shape(Raw), type(Raw), type(Raw[0,0]))
