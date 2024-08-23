@@ -6903,7 +6903,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         else:
             if disp_res:
                 print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
-            results_s2 = np.zeros((len(frame_inds), 6))
+            results_s2 = np.zeros((len(frame_inds), 9))
             for j, param_s2 in enumerate(tqdm(params_s2, desc='Evaluating FIB-SEM frames (data min/max, mill rate, FOV shifts): ', display = disp_res)):
                 results_s2[j, :] = evaluate_FIBSEM_frame(param_s2)
 
