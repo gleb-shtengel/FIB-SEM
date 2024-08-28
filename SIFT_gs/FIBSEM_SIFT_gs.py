@@ -3470,9 +3470,15 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
         for tag in tif.pages[0].tags.values():
             name, value = tag.name, tag.value
             tif_tags[name] = value
+        #print(tif_tags)
     try:
         shape = eval(tif_tags['ImageDescription'])
-        nz, ny, nx = shape['shape']
+        try:
+            nz, ny, nx = shape['shape']
+        except:
+            nx = eval(tif_tags['ImageWidth'])
+            ny = eval(tif_tags['ImageLength'])
+            nz = np.int(tif_tags['ImageDescription'].split('images=')[1].split('\nslices')[0])
     except:
         try:
             shape = eval(tif_tags['image_description'])
@@ -3480,7 +3486,10 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
         except:
             fr0 = tiff.imread(tif_filename, key=0)
             ny, nx = np.shape(fr0)
-            nz = eval(tif_tags['nimages'])
+            try:
+                nz = eval(tif_tags['nimages'])
+            except:
+                nz = np.int(tif_tags['ImageDescription'].split('images=')[1].split('\nslices')[0])
 
     frame_inds = kwargs.get("frame_inds", [nz//10,  nz//2, nz//10*9] )
     
@@ -3671,14 +3680,19 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
         for tag in tif.pages[0].tags.values():
             name, value = tag.name, tag.value
             tif_tags[name] = value
-    #print(tif_tags)
+        #print(tif_tags)
     try:
         shape = eval(tif_tags['ImageDescription'])
         nz, ny, nx = shape['shape']
     except:
         try:
             shape = eval(tif_tags['image_description'])
-            nz, ny, nx = shape['shape']
+            try:
+                nz, ny, nx = shape['shape']
+            except:
+                nx = eval(tif_tags['ImageWidth'])
+                ny = eval(tif_tags['ImageLength'])
+                nz = np.int(tif_tags['ImageDescription'].split('images=')[1].split('\nslices')[0])
         except:
             fr0 = tiff.imread(tif_filename, key=0)
             try:
@@ -3686,6 +3700,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
                 nz = eval(tif_tags['nimages'])
             except:
                 nz, ny, nx = np.shape(fr0)
+
     header_dict = {'nx' : nx, 'ny' : ny, 'nz' : nz }
 
     xi_eval = evaluation_box[2]
