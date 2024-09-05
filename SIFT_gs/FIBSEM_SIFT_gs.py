@@ -6587,7 +6587,7 @@ class FIBSEM_frame:
             ysz, xsz = img.shape
             Xsect = kwargs.get("Xsect", xsz//2)
             Ysect = kwargs.get("Ysect", ysz//2)
-            kwargs['res_fname'] = res_fname.replace('Image', image_name)
+            kwargs['res_fname'] = res_fname.replace('.png', '_' + image_name + '.png')
             intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, image_name=image_name, **kwargs)
             img_correction_arrays.append(img_correction_array)
             img_correction_coeffs.append(coefs)
