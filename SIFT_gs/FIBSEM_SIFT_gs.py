@@ -1963,7 +1963,38 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     xy_ratio = np.sum(yratios) / np.sum(xratios)
     hor_size = 5.0
     vert_size = hor_size * xy_ratio
+  
+    # Build images
+    images = []
+    for i, s in enumerate(tqdm(s_EM, desc = 'Loading EM Cross-sections Data')):
+        ci_x = ci_EM.copy()
+        ca_x = ca_EM.copy()
+        ci_x[i] = s
+        ca_x[i] = s+1
+        #print(ci_x[0],ca_x[0], ci_x[1],ca_x[1], ci_x[2],ca_x[2])
+        #EM_crop = deepcopy(np.squeeze(mrc_obj.data[ci_x[0]:ca_x[0], ci_x[1]:ca_x[1], ci_x[2]:ca_x[2]]))
+        EM_crop = np.squeeze(mrc_obj.data[ci_x[0]:ca_x[0], ci_x[1]:ca_x[1], ci_x[2]:ca_x[2]])
+        #print('EM Crop Base: ', EM_crop.base)
+        ysz, xsz = np.shape(EM_crop)
+        print(time.strftime('%Y/%m/%d  %H:%M:%S   ')+cs_names[i] + ' loaded, dimensions (pixels):', xsz, ysz)
+        if i==2:
+            EM_crop = np.transpose(EM_crop)
+        images.append(EM_crop)
+    mrc_obj.close()
 
+    # Determine EM data range
+    EM_mins = []
+    EM_maxs =[]  
+    for img in tqdm(images, desc='Determining EM data range'):
+        ysz, xsz = np.shape(img)
+        vmin, vmax = get_min_max_thresholds(img[ysz//5:ysz//5*4, xsz//5:xsz//5*4], thr_min = 1e-3, thr_max=1e-3, disp_res=False)
+        EM_mins.append(vmin)
+        EM_maxs.append(vmax)
+    
+    EM_min = kwargs.get('EM_min', np.min(np.array(EM_mins)))
+    EM_max = kwargs.get('EM_max', np.max(np.array(EM_maxs)))
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will use EM-data range: {:.1f} - {:.1f}'.format(EM_min, EM_max))
+    
     # ---------------------------------------------------------------------
     # now generate figures
     ncols = 2 if ZY_section else 1
@@ -1981,40 +2012,10 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     if (not XZ_section) and ZY_section:
         fig.subplots_adjust(left=0.0, bottom=0.0, right=1.0, top=1.0, wspace=0.025*(xy_ratio**2)+addtl_sp)
     
-    # Build images
-    images = []
-    for i, s in enumerate(tqdm(s_EM, desc = 'Loading EM Cross-sections Data')):
-        ci_x = ci_EM.copy()
-        ca_x = ca_EM.copy()
-        ci_x[i] = s
-        ca_x[i] = s+1
-        #print(ci_x[0],ca_x[0], ci_x[1],ca_x[1], ci_x[2],ca_x[2])
-        EM_crop = deepcopy(np.squeeze(mrc_obj.data[ci_x[0]:ca_x[0], ci_x[1]:ca_x[1], ci_x[2]:ca_x[2]]))
-        #print('EM Crop Base: ', EM_crop.base)
-        ysz, xsz = np.shape(EM_crop)
-        print(time.strftime('%Y/%m/%d  %H:%M:%S   ')+cs_names[i] + ' loaded, dimensions (pixels):', xsz, ysz)
-        if i==2:
-            EM_crop = np.transpose(EM_crop)
-        images.append(EM_crop)
-    mrc_obj.close()
-    #del mrc_obj
-    #gc.collect()
-
-    # Determine EM data range
-    EM_mins = []
-    EM_maxs =[]  
-    for img in tqdm(images, desc='Determining EM data range'):
-        ysz, xsz = np.shape(img)
-        vmin, vmax = get_min_max_thresholds(img[ysz//5:ysz//5*4, xsz//5:xsz//5*4], thr_min = 1e-3, thr_max=1e-3, disp_res=False)
-        EM_mins.append(vmin)
-        EM_maxs.append(vmax)
-    
-    EM_min = kwargs.get('EM_min', np.min(np.array(EM_mins)))
-    EM_max = kwargs.get('EM_max', np.max(np.array(EM_maxs)))
-    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will use EM-data range: {:.1f} - {:.1f}'.format(EM_min, EM_max))
-        
     print('Generating Cross-Section Images')
+    
     if XZ_section and ZY_section:
+        widths_um = [stack_size[0], stack_size[0], stack_size[2]]
         for x in np.arange(ncols):
             for y in np.arange(nrows):
                 j=y*2+x
@@ -2032,7 +2033,8 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
                             axs[x,y].spines[sp].set_color('white')
                             axs[x,y].spines[sp].set_linewidth(0.5)
                     if display_scale_bars:
-                        add_scale_bar(axs[x,y], pixel_size_um = voxel_size[j], **bar_kwargs)
+                        if widths_um[j] > bar_length_um:
+                            add_scale_bar(axs[x,y], pixel_size_um = voxel_size[j], **bar_kwargs)
         fig.delaxes(axs[1,1])
         
     if (XZ_section and (not ZY_section)) or (ZY_section and (not XZ_section)):
@@ -2128,8 +2130,6 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
             If Trye, the data will be flipped along Y axis (0 index) AFTER cropping.
         invert_data : boolean
             If True, invert the data
-        frmax : int
-            Maximum frame to bin. If not present, the entire file is binned
         binned_copped_filename : str
             name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
         xi : int
@@ -2209,7 +2209,6 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
         print('Incorrect voxel size entry')
         print('will use : ', voxel_size_new)
     nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
-    frmax = kwargs.get('frmax', nz)
     xi = kwargs.get('xi', 0)
     xa = kwargs.get('xa', nx)
     yi = kwargs.get('yi', 0)
@@ -6588,11 +6587,12 @@ class FIBSEM_frame:
             ysz, xsz = img.shape
             Xsect = kwargs.get("Xsect", xsz//2)
             Ysect = kwargs.get("Ysect", ysz//2)
-
+            kwargs['res_fname'] = res_fname.replace('Image', image_name)
             intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, image_name=image_name, **kwargs)
             img_correction_arrays.append(img_correction_array)
             img_correction_coeffs.append(coefs)
             img_correction_intercepts.append(intercept)
+        kwargs['res_fname'] = res_fname
 
         if calc_corr:
             self.image_correction_sources = image_names
