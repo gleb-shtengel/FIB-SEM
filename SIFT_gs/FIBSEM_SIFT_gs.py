@@ -8241,11 +8241,11 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     axy = axs[1,1]
     axy.set_xlabel('SIFT: Y Error (pixels)')
     if n_matches > 1:
-        xcounts, xbins = axx.hist(xshifts, bins=64)
+        xcounts, xbins, xhist_patches = axx.hist(xshifts, bins=64)
         axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
         axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
         axx.set_title('data range: {:.1f} ÷ {:.1f}'.format(dmin, dmax), fontsize=fsz)
-        ycounts, ybins = axy.hist(yshifts, bins=64)
+        ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64)
         axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
         axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
     else:
@@ -8316,7 +8316,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(threshold_min, threshold_max)))
         fig2.savefig(fig2_fnm, dpi=600)
 
-    return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, ycounts, ybins)
+    return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, xhist_patches, ycounts, ybins, yhist_patches)
 
 
 def save_inlens_data(fname):
@@ -9734,13 +9734,13 @@ class FIBSEM_dataset:
                                 'verbose' : verbose,
                                 'save_res_png'  : save_res_png}
         
-        dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, ycounts, ybins = SIFT_evaluation_dataset(eval_fls, **SIFT_evaluation_kwargs)
+        dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, xhist_patches, ycounts, ybins, yhist_patches = SIFT_evaluation_dataset(eval_fls, **SIFT_evaluation_kwargs)
         src_pts_filtered, dst_pts_filtered = kpts
         print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Transformation Matrix determined using '+ TransformType.__name__ +' using ' + solver + ' solver')
         print(transform_matrix)
         print('{:d} keypoint matches were detected with {:.1f} pixel outlier threshold'.format(n_matches, drmax))
         print('Number of iterations: {:d}'.format(iteration))
-        return dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, ycounts, ybins
+        return dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, xhist_patches, ycounts, ybins, yhist_patches
 
 
     def convert_raw_data_to_tif_files(self, **kwargs):
