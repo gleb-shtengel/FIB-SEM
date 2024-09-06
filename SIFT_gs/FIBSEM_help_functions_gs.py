@@ -265,6 +265,57 @@ def find_BW(fr, FSC, **kwargs):
     return BW, fr_fit, FSC_fit, fitOK
 
 
+def find_histogram_FWHM(cnts, bins, **kwargs):
+    '''
+    find FWHM of the histogram. g.Shtengel 09.2024
+    
+    Parameters:
+    cnts : array or list
+        histogram counts
+    bins : array or list
+        histogram bins
+        
+    kwargs:
+    start : string
+        'edges' (default) or 'center'. start of search.
+    estimation : string
+        'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
+    verbose : boolean
+        display output. Defaults is False.
+    Returns:
+    FWHM, indi, inda, mx/2.0
+    '''
+    start = kwargs.get('start', 'edges')
+    estimation = kwargs.get('estimation', 'interval')
+    verbose = kwargs.get('verbose', False)
+    
+    mx_ind = np.argmax(np.array(cnts))
+    ii = np.max((mx_ind, 0))
+    ia = np.min((ii+3, len(cnts)))
+    ii = ia-3
+    mx = np.mean(cnts[ii:ia])
+    cnts_mod = cnts - mx/2.0
+    db = bins[1]-bins[0]
+    
+    if estimation == 'count':
+        FWHM = np.sum(i > 0.0 for i in cnts_mod) * db
+        indi = np.argmax(cnts_mod > 0.0)
+        inda = len(cnts) - np.argmax(np.flip(cnts_mod) > 0.0)
+    else:
+        if start == 'edges':
+            indi = np.argmax(cnts_mod > 0.0)
+            inda = len(cnts) - np.argmax(np.flip(cnts_mod) > 0.0)
+        else:
+            ln1 = len(cnts_mod[0:mx_ind])
+            indi = ln1 - np.argmax(np.flip(cnts_mod[0:mx_ind]) < 0.0)
+            inda = ln1 + np.argmax(cnts_mod[mx_ind:] < 0.0)
+        FWHM = (inda-indi) * db
+    if verbose:
+        print('FWHM, ' + estimation + ', ' + start+ ' = {:.2f}'.format(FWHM))
+
+    return FWHM, indi, inda, mx/2.0
+
+
 def radial_profile(data, center):
     '''
     Calculates radially average profile of the 2D array (used for FRC and auto-correlation)

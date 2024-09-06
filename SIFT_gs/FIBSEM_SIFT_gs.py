@@ -8084,9 +8084,13 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
+    start : string
+        'edges' (default) or 'center'. start of search.
+    estimation : string
+        'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
 
     Returns:
-    dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts
+    dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
     '''
     DASK_client = kwargs.get('DASK_client', '')
     if DASK_client == '':
@@ -8124,6 +8128,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 0.00)
     SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.00)
     SIFT_sigma = kwargs.get('SIFT_sigma', 0.0)
+    start = kwargs.get('start', 'edges')
+    estimation = kwargs.get('estimation', 'interval')
 
     frame = FIBSEM_frame(fs[0], ftype=ftype)
     if ftype == 0:
@@ -8242,12 +8248,18 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     axy.set_xlabel('SIFT: Y Error (pixels)')
     if n_matches > 1:
         xcounts, xbins, xhist_patches = axx.hist(xshifts, bins=64)
+        error_FWHMx, indxi, indxa, mxx = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
+        axx.plot([xbins[indxi], xbins[indxa]], [mxx, mxx], 'r', linewidth = 4)
         axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
         axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
+        axx.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMx), transform=axx.transAxes, fontsize=fsz)
         axx.set_title('data range: {:.1f} ÷ {:.1f}'.format(dmin, dmax), fontsize=fsz)
         ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64)
+        error_FWHMy, indyi, indya, mxy = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
+        axy.plot([ybins[indyi], ybins[indya]], [mxy, mxy], 'r', linewidth = 4)
         axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
         axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
+        axy.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMy), transform=axy.transAxes, fontsize=fsz)
     else:
         axx.text(0.05, 0.9, '{:d} Matches Detected'.format(n_matches), transform=axx.transAxes, fontsize=fsz)
         axy.text(0.05, 0.9, '{:d} Matches Detected'.format(n_matches), transform=axy.transAxes, fontsize=fsz)
@@ -8316,7 +8328,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(threshold_min, threshold_max)))
         fig2.savefig(fig2_fnm, dpi=600)
 
-    return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, xhist_patches, ycounts, ybins, yhist_patches)
+    return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy)
 
 
 def save_inlens_data(fname):
@@ -9645,9 +9657,13 @@ class FIBSEM_dataset:
             If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
+        start : string
+            'edges' (default) or 'center'. start of search.
+        estimation : string
+            'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
     
         Returns:
-        dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts
+        dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
         '''
         DASK_client = kwargs.get('DASK_client', '')
         try:
@@ -9700,6 +9716,8 @@ class FIBSEM_dataset:
         save_res_png  = kwargs.get("save_res_png", self.save_res_png)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        start = kwargs.get('start', 'edges')
+        estimation = kwargs.get('estimation', 'interval')
         verbose = kwargs.get('verbose', True)
 
         SIFT_evaluation_kwargs = {'DASK_client' : DASK_client,
@@ -9732,9 +9750,11 @@ class FIBSEM_dataset:
                                 'BFMatcher' : BFMatcher,
                                 'save_matches' : save_matches,
                                 'verbose' : verbose,
+                                'start' : start,
+                                'estimation' : estimation,
                                 'save_res_png'  : save_res_png}
         
-        dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, xhist_patches, ycounts, ybins, yhist_patches = SIFT_evaluation_dataset(eval_fls, **SIFT_evaluation_kwargs)
+        dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy = SIFT_evaluation_dataset(eval_fls, **SIFT_evaluation_kwargs)
         src_pts_filtered, dst_pts_filtered = kpts
         print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Transformation Matrix determined using '+ TransformType.__name__ +' using ' + solver + ' solver')
         print(transform_matrix)
