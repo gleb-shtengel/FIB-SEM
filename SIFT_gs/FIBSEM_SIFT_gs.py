@@ -9797,7 +9797,7 @@ class FIBSEM_dataset:
         print(transform_matrix)
         print('{:d} keypoint matches were detected with {:.1f} pixel outlier threshold'.format(n_matches, drmax))
         print('Number of iterations: {:d}'.format(iteration))
-        return dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, xcounts, xbins, xhist_patches, ycounts, ybins, yhist_patches
+        return dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
 
 
     def convert_raw_data_to_tif_files(self, **kwargs):
