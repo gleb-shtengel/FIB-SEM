@@ -280,19 +280,22 @@ def find_histogram_FWHM(cnts, bins, **kwargs):
         'edges' (default) or 'center'. start of search.
     estimation : string
         'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
+    max_aver_aperture : int
+        Aperture for averaging the Max signal
     verbose : boolean
         display output. Defaults is False.
     Returns:
-    FWHM, indi, inda, mx/2.0
+    FWHM, indi, inda, mx, mx_ind
     '''
     start = kwargs.get('start', 'edges')
     estimation = kwargs.get('estimation', 'interval')
+    max_aver_aperture = kwargs.get('max_aver_aperture', 5)
     verbose = kwargs.get('verbose', False)
     
     mx_ind = np.argmax(np.array(cnts))
-    ii = np.max((mx_ind, 0))
-    ia = np.min((ii+3, len(cnts)))
-    ii = ia-3
+    ii = np.max((mx_ind-max_aver_aperture//2, 0))
+    ia = np.min((ii+max_aver_aperture, len(cnts)))
+    ii = ia-max_aver_aperture
     mx = np.mean(cnts[ii:ia])
     cnts_mod = cnts - mx/2.0
     db = bins[1]-bins[0]
@@ -313,7 +316,7 @@ def find_histogram_FWHM(cnts, bins, **kwargs):
     if verbose:
         print('FWHM, ' + estimation + ', ' + start+ ' = {:.2f}'.format(FWHM))
 
-    return FWHM, indi, inda, mx/2.0
+    return FWHM, indi, inda, mx, mx_ind
 
 
 def radial_profile(data, center):

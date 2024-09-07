@@ -7320,9 +7320,9 @@ def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
     kpts = [src_pts, dst_pts]
     error_abs_mean = np.mean(np.abs(np.delete(errs, ind, axis=0)))
     xcounts, xbins = np.histogram(xshifts, bins=64)
-    error_FWHMx, indxi, indxa, mxx = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
+    error_FWHMx, indxi, indxa, mxx, mxx_ind = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
     ycounts, ybins = np.histogram(yshifts, bins=64)
-    error_FWHMy, indyi, indya, mxy = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
+    error_FWHMy, indyi, indya, mxy, mxy_ind = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
     return transform_matrix, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
 
 
@@ -7461,9 +7461,9 @@ def determine_transformations_files(params_dsf):
             reg_errors, xshifts, yshifts = estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)
             error_abs_mean = np.mean(np.abs(reg_errors))
             xcounts, xbins = np.histogram(xshifts, bins=64)
-            error_FWHMx, indxi, indxa, mxx = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
+            error_FWHMx, indxi, indxa, mxx, mxx_ind = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
             ycounts, ybins = np.histogram(yshifts, bins=64)
-            error_FWHMy, indyi, indya, mxy = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
+            error_FWHMy, indyi, indya, mxy, mxy_ind = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
         except:
             transform_matrix = np.eye(3)
             kpts = [[], []]
@@ -8285,15 +8285,17 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     axy.set_xlabel('SIFT: Y Error (pixels)')
     if n_matches > 1:
         xcounts, xbins, xhist_patches = axx.hist(xshifts, bins=64)
-        error_FWHMx, indxi, indxa, mxx = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
-        axx.plot([xbins[indxi], xbins[indxa]], [mxx, mxx], 'r', linewidth = 4)
+        error_FWHMx, indxi, indxa, mxx, mxx_ind = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
+        axx.plot([xbins[indxi], xbins[indxa]], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
+        axx.plot([mxx_ind], [mxx], 'rd')
         axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
         axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
         axx.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMx), transform=axx.transAxes, fontsize=fsz)
         axx.set_title('data range: {:.1f} ÷ {:.1f}'.format(dmin, dmax), fontsize=fsz)
         ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64)
-        error_FWHMy, indyi, indya, mxy = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
-        axy.plot([ybins[indyi], ybins[indya]], [mxy, mxy], 'r', linewidth = 4)
+        error_FWHMy, indyi, indya, mxy, mxy_ind = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
+        axy.plot([ybins[indyi], ybins[indya]], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
+        axx.plot([mxy_ind], [mxy], 'rd')
         axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
         axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
         axy.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMy), transform=axy.transAxes, fontsize=fsz)
