@@ -7319,9 +7319,9 @@ def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
         iteration +=1
     kpts = [src_pts, dst_pts]
     error_abs_mean = np.mean(np.abs(np.delete(errs, ind, axis=0)))
-    xcounts, xbins = np.hist(xshifts, bins=64)
+    xcounts, xbins = np.histogram(xshifts, bins=64)
     error_FWHMx, indxi, indxa, mxx = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
-    ycounts, ybins = np.hist(yshifts, bins=64)
+    ycounts, ybins = np.histogram(yshifts, bins=64)
     error_FWHMy, indyi, indya, mxy = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
     return transform_matrix, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
 
@@ -7460,9 +7460,9 @@ def determine_transformations_files(params_dsf):
             iteration = len(src_pts)- len(src_pts_ransac)
             reg_errors, xshifts, yshifts = estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)
             error_abs_mean = np.mean(np.abs(reg_errors))
-            xcounts, xbins = np.hist(xshifts, bins=64)
+            xcounts, xbins = np.histogram(xshifts, bins=64)
             error_FWHMx, indxi, indxa, mxx = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
-            ycounts, ybins = np.hist(yshifts, bins=64)
+            ycounts, ybins = np.histogram(yshifts, bins=64)
             error_FWHMy, indyi, indya, mxy = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
         except:
             transform_matrix = np.eye(3)
