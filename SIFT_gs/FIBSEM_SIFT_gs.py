@@ -8286,16 +8286,20 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     if n_matches > 1:
         xcounts, xbins, xhist_patches = axx.hist(xshifts, bins=64)
         error_FWHMx, indxi, indxa, mxx, mxx_ind = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start, max_aver_aperture=5)
+        dbx = (xbins[1]-xbins[0])/2.0
+        #axx.plot([xbins[indxi]+dbx, xbins[indxa]+dbx], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
         axx.plot([xbins[indxi], xbins[indxa]], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
-        axx.plot([xbins[mxx_ind]+(xbins[1]-xbins[0])/2.0], [mxx], 'rd')
+        axx.plot([xbins[mxx_ind]+dbx], [mxx], 'rd')
         axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
         axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
         axx.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMx), transform=axx.transAxes, fontsize=fsz)
         axx.set_title('data range: {:.1f} ÷ {:.1f}'.format(dmin, dmax), fontsize=fsz)
         ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64)
         error_FWHMy, indyi, indya, mxy, mxy_ind = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start, max_aver_aperture=5)
+        dby = (ybins[1]-ybins[0])/2.0
+        #axy.plot([ybins[indyi] + dby, ybins[indya] + dby], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
         axy.plot([ybins[indyi], ybins[indya]], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
-        axy.plot([ybins[mxy_ind]+(ybins[1]-ybins[0])/2.0], [mxy], 'rd')
+        axy.plot([ybins[mxy_ind] + dby], [mxy], 'rd')
         axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
         axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
         axy.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMy), transform=axy.transAxes, fontsize=fsz)
