@@ -302,16 +302,16 @@ def find_histogram_FWHM(cnts, bins, **kwargs):
     
     if estimation == 'count':
         FWHM = np.sum(i > 0.0 for i in cnts_mod) * db
-        indi = np.argmax(cnts_mod > 0.0)
-        inda = len(cnts) - np.argmax(np.flip(cnts_mod) > 0.0) - 1
+        indi = np.argmax(cnts_mod > 0.0) + 1
+        inda = len(cnts) - np.argmax(np.flip(cnts_mod) > 0.0)
     else:
         if start == 'edges':
-            indi = np.argmax(cnts_mod > 0.0)
-            inda = len(cnts) - np.argmax(np.flip(cnts_mod) > 0.0) - 1
+            indi = np.argmax(cnts_mod > 0.0) + 1
+            inda = len(cnts) - np.argmax(np.flip(cnts_mod) > 0.0) 
         else:
             ln1 = len(cnts_mod[0:mx_ind])
-            indi = ln1 - np.argmax(np.flip(cnts_mod[0:mx_ind]) < 0.0)
-            inda = ln1 + np.argmax(cnts_mod[mx_ind:] < 0.0) - 1
+            indi = ln1 - np.argmax(np.flip(cnts_mod[0:mx_ind]) < 0.0) +1
+            inda = ln1 + np.argmax(cnts_mod[mx_ind:] < 0.0)
         FWHM = (inda-indi) * db
     if verbose:
         print('FWHM, ' + estimation + ', ' + start+ ' = {:.2f}'.format(FWHM))
