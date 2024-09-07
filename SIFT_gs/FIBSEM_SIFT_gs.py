@@ -4383,8 +4383,20 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     # plot Standard deviations
     axs5[0, 2].plot(error_abs_mean, 'magenta', linewidth = lwl, label = 'Mean Abs Error over keyponts per frame')
     axs5[0, 2].set_title('Mean Abs Error keyponts per frame')  
-    axs5[0, 2].text(0.03, 0.2, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
-    
+    axs5[0, 2].text(0.03, 0.8, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
+    try:
+        error_FWHMx = stat_results['Xerror_FWHM']
+        axs5[0, 2].plot(error_FWHMx, 'red', linewidth = lwl, label = 'X-error FWHM')
+        axs5[0, 2].text(0.03, 0.7, 'Mean X FWHM= {:.3f}   Median X FWHM= {:.3f}'.format(np.mean(error_FWHMx), np.median(error_FWHMx)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
+    except:
+        print('No Xerror_FWHM data')
+    try:
+        error_FWHMy = stat_results['Yerror_FWHM']
+        axs5[0, 2].plot(error_FWHMy, 'blue', linewidth = lwl, label = 'Y-error FWHM')
+        axs5[0, 2].text(0.03, 0.7, 'Mean Y FWHM= {:.3f}   Median Y FWHM= {:.3f}'.format(np.mean(error_FWHMy), np.median(error_FWHMy)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
+    except:
+        print('No Yerror_FWHM data')
+
     # plot scales terms
     axs5[1, 0].plot(transformation_matrix[:, 0, 0], 'r', linewidth = lwl, label = 'Sxx frame-to-frame')
     axs5[1, 0].plot(transformation_matrix[:, 1, 1], 'b', linewidth = lwl, label = 'Syy frame-to-frame')
@@ -7185,10 +7197,12 @@ def estimate_kpts_transform_error(src_pts, dst_pts, transform_matrix):
      errors are estimated as norm(dest_pts - A*src_pts) so that least square regression can be performed
 
     Returns:
-        np.linalg.norm(dst_pts - src_pts_transformed, ord=2, axis=1)
+        np.linalg.norm(dst_pts - src_pts_transformed, ord=2, axis=1), xshifts, yshifts
     """
     src_pts_transformed = src_pts @ transform_matrix[0:2, 0:2].T + transform_matrix[0:2, 2]
-    return np.linalg.norm(dst_pts - src_pts_transformed, ord=2, axis=1)
+    xshifts = (dst_pts - src_pts_transformed)[:,0]
+    yshifts = (dst_pts - src_pts_transformed)[:,1]
+    return np.linalg.norm(dst_pts - src_pts_transformed, ord=2, axis=1), xshifts, yshifts
 
 
 def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
@@ -7217,6 +7231,10 @@ def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
         Max number of iterations. Defaults is 1000
     remove_per_iter : int
         Number of worst outliers to remove per iteration. Defaults is 1.
+    start : string
+        'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
+    estimation : string
+        'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
 
     Returns
     transform_matrix, kpts, error_abs_mean, iteration
@@ -7225,6 +7243,8 @@ def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
     max_iter = kwargs.get('max_iter', 1000)
     remove_per_iter = kwargs.get('remove_per_iter', 1)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
+    start = kwargs.get('start', 'edges')
+    estimation = kwargs.get('estimation', 'interval')
 
     transform_matrix = np.eye(3,3)
     iteration = 1
@@ -7288,7 +7308,7 @@ def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
             transform_matrix = tform.params
         
         # estimate transformation errors and find outliers
-        errs = estimate_kpts_transform_error(src_pts, dst_pts, transform_matrix)
+        errs, xshifts, yshifts = estimate_kpts_transform_error(src_pts, dst_pts, transform_matrix)
         for j in np.arange(remove_per_iter):
             max_error = np.max(errs)
             ind = np.argmax(errs)
@@ -7299,7 +7319,11 @@ def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
         iteration +=1
     kpts = [src_pts, dst_pts]
     error_abs_mean = np.mean(np.abs(np.delete(errs, ind, axis=0)))
-    return transform_matrix, kpts, error_abs_mean, iteration
+    xcounts, xbins = np.hist(xshifts, bins=64)
+    error_FWHMx, indxi, indxa, mxx = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
+    ycounts, ybins = np.hist(yshifts, bins=64)
+    error_FWHMy, indyi, indya, mxy = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
+    return transform_matrix, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
 
 
 def determine_transformations_files(params_dsf):
@@ -7322,9 +7346,13 @@ def determine_transformations_files(params_dsf):
            - in the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
     max_iter - max number of iterations
     save_matches - if True - save the matched keypoints into a binary dump file
+    start : string
+        'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
+    estimation : string
+        'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
 
     Returns:
-    transform_matrix, fnm_matches, kpts, error_abs_mean, iteration
+    transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
     '''
     fnm_1, fnm_2, kwargs = params_dsf
 
@@ -7348,6 +7376,8 @@ def determine_transformations_files(params_dsf):
     #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)    # threshold for Lowe's Ratio Test
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
+    start = kwargs.get('start', 'edges')
+    estimation = kwargs.get('estimation', 'interval')
 
     if TransformType == RegularizedAffineTransform:
         def estimate(self, src, dst):
@@ -7407,7 +7437,7 @@ def determine_transformations_files(params_dsf):
     
     if solver == 'LinReg':
         # Determine the transformation matrix via iterative liear regression
-        transform_matrix, kpts, error_abs_mean, iteration = determine_transformation_matrix(src_pts, dst_pts, **kwargs)
+        transform_matrix, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = determine_transformation_matrix(src_pts, dst_pts, **kwargs)
         n_kpts = len(kpts[0])
     else:  # the other option is solver = 'RANSAC'
         try:
@@ -7428,18 +7458,25 @@ def determine_transformations_files(params_dsf):
             # find shift parameters
             transform_matrix = model.params
             iteration = len(src_pts)- len(src_pts_ransac)
-            error_abs_mean = np.mean(np.abs(estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)))
+            reg_errors, xshifts, yshifts = estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)
+            error_abs_mean = np.mean(np.abs(reg_errors))
+            xcounts, xbins = np.hist(xshifts, bins=64)
+            error_FWHMx, indxi, indxa, mxx = find_histogram_FWHM(xcounts[:-1], xbins, verbose=False, estimation=estimation, start=start)
+            ycounts, ybins = np.hist(yshifts, bins=64)
+            error_FWHMy, indyi, indya, mxy = find_histogram_FWHM(ycounts[:-1], ybins, verbose=False, estimation=estimation, start=start)
         except:
             transform_matrix = np.eye(3)
             kpts = [[], []]
             error_abs_mean = np.nan
             iteration = 0
+            error_FWHMx = np.nan
+            error_FWHMy = np.nan
     if save_matches:
         fnm_matches = fnm_2.replace('_kpdes.bin', '_matches.bin')
         pickle.dump(kpts, open(fnm_matches, 'wb'))
     else:
         fnm_matches = ''
-    return transform_matrix, fnm_matches, kpts, error_abs_mean, iteration
+    return transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
 
 
 def build_filename(fname, **kwargs):
@@ -7545,7 +7582,7 @@ def find_fit(tr_matr_cum, **kwargs):
     return tr_matr_cum_new, s_fits
 
 
-def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_matches, npts, error_abs_mean, **kwargs):
+def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOVtrend_y, fnms_matches, npts, error_abs_mean, error_FWHMx, error_FWHMy, **kwargs):
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -7683,8 +7720,8 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
     shifts_dt = pd.DataFrame(np.vstack((s00_cum_orig, s00_fit, s11_cum_orig, s11_fit, s01_cum_orig, s01_fit, s10_cum_orig, s10_fit, Xshift_cum_orig, Yshift_cum_orig, Xshift_cum, Yshift_cum, Xfit, Yfit)).T, columns = columns_shifts, index = None)
     shifts_dt.to_excel(xlsx_writer, index=None, sheet_name='Intermediate Results')
     
-    columns_reg_stat = ['Npts', 'Mean Abs Error']
-    reg_stat_dt = pd.DataFrame(np.vstack((npts, error_abs_mean)).T, columns = columns_reg_stat, index = None)
+    columns_reg_stat = ['Npts', 'Mean Abs Error', 'Xerror_FWHM', 'Yerror_FWHM']
+    reg_stat_dt = pd.DataFrame(np.vstack((npts, error_abs_mean, np.array(error_FWHMx), np.array(error_FWHMy))).T, columns = columns_reg_stat, index = None)
     reg_stat_dt.to_excel(xlsx_writer, index=None, sheet_name='Reg. Stat. Info')
 
     kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
@@ -8219,7 +8256,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
             results.append(determine_transformations_files(params_dsf))
 
     n_matches_tot = np.array([len(res[2][0]) for res in results])
-    transform_matrix, fnm_matches, kpts, error_abs_mean, iteration = results[np.argmin(n_matches_tot)]
+    transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = results[np.argmin(n_matches_tot)]
     n_matches = len(kpts[0])
     print('')
     if number_of_repeats > 1:
@@ -10124,11 +10161,15 @@ class FIBSEM_dataset:
             If True, matches will be saved into individual files
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
-
+        start : string
+            'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
+        estimation : string
+            'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
+ 
     
         Returns:
-        results_s4 : array of lists containing the reults:
-            results_s4 = [transformation_matrix, fnm_matches, npt, error_abs_mean]
+        results_s4 : array of lists containing the results:
+            results_s4 = [transformation_matrix, fnm_matches, npt, error_abs_mean, error_FWHMx, error_FWHMy, iteration]
             transformation_matrix : 2D float array
                 transformation matrix for each sequential frame pair
             fnm_matches : str
@@ -10177,6 +10218,8 @@ class FIBSEM_dataset:
             BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
             save_matches = kwargs.get("save_matches", self.save_matches)
             save_res_png  = kwargs.get("save_res_png", self.save_res_png )
+            start = kwargs.get('start', 'edges')
+            estimation = kwargs.get('estimation', 'interval')
             dt_kwargs = {'ftype' : ftype,
                             'TransformType' : TransformType,
                             'l2_matrix' : l2_matrix,
@@ -10188,7 +10231,9 @@ class FIBSEM_dataset:
                             'BFMatcher' : BFMatcher,
                             'save_matches' : save_matches,
                             #'kp_max_num' : kp_max_num,
-                            'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold}
+                            'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold,
+                            'start' : start,
+                            'estimation' : estimation}
 
             params_s4 = []
             for j, fnm in enumerate(self.fnms[:-1]):
@@ -10198,18 +10243,20 @@ class FIBSEM_dataset:
             if use_DASK:
                 print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
                 futures4 = DASK_client.map(determine_transformations_files, params_s4, retries = DASK_client_retries)
-                #determine_transformations_files returns (transform_matrix, fnm_matches, kpts, iteration)
+                #determine_transformations_files returns (transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration)
                 results_s4 = DASK_client.gather(futures4)
             else:
                 print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
                 results_s4 = []
                 for param_s4 in tqdm(params_s4, desc = 'Extracting Transformation Parameters: '):
                     results_s4.append(determine_transformations_files(param_s4))
-            #determine_transformations_files returns (transform_matrix, fnm_matches, kpts, errors, iteration)
+            #determine_transformations_files returns (transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration)
             self.transformation_matrix = np.nan_to_num(np.array([result[0] for result in results_s4]))
             self.fnms_matches = [result[1] for result in results_s4]
-            self.error_abs_mean = np.nan_to_num(np.array([result[3] for result in results_s4]))
             self.npts = np.nan_to_num(np.array([len(result[2][0])  for result in results_s4]))
+            self.error_abs_mean = np.nan_to_num(np.array([result[3] for result in results_s4]))
+            self.error_FWHMx = [result[4] for result in results_s4]
+            self.error_FWHMy = [result[5] for result in results_s4]
             print('Mean Number of Keypoints :', np.mean(self.npts).astype(np.int16))
         return results_s4
 
@@ -10325,12 +10372,15 @@ class FIBSEM_dataset:
                             'subtract_FOVtrend_from_fit' : subtract_FOVtrend_from_fit,
                             'pad_edges' : pad_edges,
                             'verbose' : verbose}
+
             self.tr_matr_cum_residual, self.transf_matrix_xlsx_file = process_transformation_matrix_dataset(self.transformation_matrix,
                                              self.FOVtrend_x,
                                              self.FOVtrend_y,
                                              self.fnms_matches,
                                              self.npts,
                                              self.error_abs_mean,
+                                             self.error_FWHMx,
+                                             self.error_FWHMy,
                                              **TM_kwargs)
         return self.tr_matr_cum_residual, self.transf_matrix_xlsx_file
 
@@ -10495,6 +10545,8 @@ class FIBSEM_dataset:
                                              self.fnms_matches,
                                              self.npts,
                                              self.error_abs_mean,
+                                             self.error_FWHMx,
+                                             self.error_FWHMy,
                                              **TM_kwargs)
 
         return self.tr_matr_cum_residual, self.transf_matrix_xlsx_file
