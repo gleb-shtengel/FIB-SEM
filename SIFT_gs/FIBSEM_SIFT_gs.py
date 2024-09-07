@@ -4383,17 +4383,17 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     # plot Standard deviations
     axs5[0, 2].plot(error_abs_mean, 'magenta', linewidth = lwl, label = 'Mean Abs Error over keyponts per frame')
     axs5[0, 2].set_title('Mean Abs Error keyponts per frame')  
-    axs5[0, 2].text(0.03, 0.8, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
+    axs5[0, 2].text(0.03, 0.3, 'Mean Abs Error= {:.3f}   Median Abs Error= {:.3f}'.format(np.mean(error_abs_mean), np.median(error_abs_mean)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
     try:
         error_FWHMx = stat_results['Xerror_FWHM']
         axs5[0, 2].plot(error_FWHMx, 'red', linewidth = lwl, label = 'X-error FWHM')
-        axs5[0, 2].text(0.03, 0.7, 'Mean X FWHM= {:.3f}   Median X FWHM= {:.3f}'.format(np.mean(error_FWHMx), np.median(error_FWHMx)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
+        axs5[0, 2].text(0.03, 0.2, 'Mean X FWHM= {:.3f}   Median X FWHM= {:.3f}'.format(np.mean(error_FWHMx), np.median(error_FWHMx)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
     except:
         print('No Xerror_FWHM data')
     try:
         error_FWHMy = stat_results['Yerror_FWHM']
         axs5[0, 2].plot(error_FWHMy, 'blue', linewidth = lwl, label = 'Y-error FWHM')
-        axs5[0, 2].text(0.03, 0.7, 'Mean Y FWHM= {:.3f}   Median Y FWHM= {:.3f}'.format(np.mean(error_FWHMy), np.median(error_FWHMy)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
+        axs5[0, 2].text(0.03, 0.1, 'Mean Y FWHM= {:.3f}   Median Y FWHM= {:.3f}'.format(np.mean(error_FWHMy), np.median(error_FWHMy)), transform=axs5[0, 2].transAxes, fontsize = fs-1)
     except:
         print('No Yerror_FWHM data')
 
