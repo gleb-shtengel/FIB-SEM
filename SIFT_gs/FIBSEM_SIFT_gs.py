@@ -5228,6 +5228,16 @@ class FIBSEM_frame:
     A class representing single FIB-SEM data frame.
     ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
     Contains the info/settings on a single FIB-SEM data frame and the procedures that can be performed on it.
+    Initialization Parameters:
+        Filename : string
+            Filename of the file containing the FIBSEM frame
+
+    Initialization kwargs:
+        ftype : int
+            0 - Shan Xu's binary format (default).  1 - tif files
+        calculate_scaled_images : boolean
+            Calculate Scaled Images from raw images using scalinfg data. Defauult is False
+        use_dask_arrays : boolean
 
     Attributes (only some more important are listed here)
     ----------
@@ -5303,7 +5313,21 @@ class FIBSEM_frame:
         Flatten the image
     """
 
-    def __init__(self, fname, **kwargs):   
+    def __init__(self, fname, **kwargs):
+        '''
+        Initialize FIBSEM_frame object.
+        Parameters:
+        Filename : string
+            Filename of the file containing the FIBSEM frame
+
+        kwargs:
+        ftype : int
+            0 - Shan Xu's binary format (default).  1 - tif files
+        calculate_scaled_images : boolean
+            Calculate Scaled Images from raw images using scalinfg data. Defauult is False
+        use_dask_arrays : boolean
+
+        '''
         self.fname = fname
         def_ftype = 0
         fname_suff = Path(fname).suffix.lower()
@@ -5311,12 +5335,12 @@ class FIBSEM_frame:
             def_ftype = 1
         #print('filename suffix: ',fname_suff, ', default filetype: ', def_ftype)
         self.ftype = kwargs.get("ftype", def_ftype) # ftype=0 - Shan Xu's binary format  ftype=1 - tif files
-        self.use_dask_arrays = kwargs.get("use_dask_arrays", False)
-        if self.ftype == 1:
-            self.RawImageA = tiff.imread(fname)
+        self.calculate_scaled_images = kwargs.get('calculate_scaled_images', False)
+        self.use_dask_arrays = kwargs.get("use_dask_arrays", False)    
 
     # for tif files
         if self.ftype == 1:
+            self.RawImageA = tiff.imread(fname)
             self.FileVersion = -1
             self.DetA = 'Detector A'     # Name of detector A
             self.DetB = 'None'     # Name of detector B
@@ -5599,71 +5623,71 @@ class FIBSEM_frame:
             if self.EightBit == 1:
                 if self.AI1 == 1:
                     self.RawImageA = Raw[:,:,0]
-                    self.ImageA = (Raw[:,:,0].astype(np.float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
+                    #self.ImageA = (Raw[:,:,0].astype(np.float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
                     if self.AI2 == 1:
                         self.RawImageB = Raw[:,:,1]
-                        self.ImageB = (Raw[:,:,1].astype(np.float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(np.int32)
+                        #self.ImageB = (Raw[:,:,1].astype(np.float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(np.int32)
                 elif self.AI2 == 1:
                     self.RawImageB = Raw[:,:,0]
-                    self.ImageB = (Raw[:,:,0].astype(np.float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
+                    #self.ImageB = (Raw[:,:,0].astype(np.float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
             else:
                 if self.FileVersion == 1 or self.FileVersion == 2 or self.FileVersion == 3 or self.FileVersion == 4 or self.FileVersion == 5 or self.FileVersion == 6:
                     if self.AI1 == 1:
                         self.RawImageA = Raw[:,:,0]
-                        self.ImageA = self.Scaling[0,0] + self.RawImageA * self.Scaling[1,0]  # Converts raw I16 data to voltage based on self.Scaling factors
+                        #self.ImageA = self.Scaling[0,0] + self.RawImageA * self.Scaling[1,0]  # Converts raw I16 data to voltage based on self.Scaling factors
                         if self.AI2 == 1:
                             self.RawImageB = Raw[:,:,1]
-                            self.ImageB = self.Scaling[0,1] + self.RawImageB * self.Scaling[1,1]
+                            #self.ImageB = self.Scaling[0,1] + self.RawImageB * self.Scaling[1,1]
                             if self.AI3 == 1:
                                 self.RawImageC = (Raw[:,:,2]).reshape(self.YResolution,self.XResolution)
-                                self.ImageC = self.Scaling[0,2] + self.RawImageC * self.Scaling[1,2]
+                                #self.ImageC = self.Scaling[0,2] + self.RawImageC * self.Scaling[1,2]
                                 if self.AI4 == 1:
                                     self.RawImageD = (Raw[:,:,3]).reshape(self.YResolution,self.XResolution)
-                                    self.ImageD = self.Scaling[0,3] + self.RawImageD * self.Scaling[1,3]
+                                    #self.ImageD = self.Scaling[0,3] + self.RawImageD * self.Scaling[1,3]
                             elif self.AI4 == 1:
                                 self.RawImageD = (Raw[:,:,2]).reshape(self.YResolution,self.XResolution)
-                                self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
+                                #self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
                         elif self.AI3 == 1:
                             self.RawImageC = Raw[:,:,1]
-                            self.ImageC = self.Scaling[0,1] + self.RawImageC * self.Scaling[1,1]
+                            #self.ImageC = self.Scaling[0,1] + self.RawImageC * self.Scaling[1,1]
                             if self.AI4 == 1:
                                 self.RawImageD = (Raw[:,:,2]).reshape(self.YResolution,self.XResolution)
-                                self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
+                                #self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
                         elif self.AI4 == 1:
                             self.RawImageD = Raw[:,:,1]
-                            self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
+                            #self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
                     elif self.AI2 == 1:
                         self.RawImageB = Raw[:,:,0]
-                        self.ImageB = self.Scaling[0,0] + self.RawImageB * self.Scaling[1,0]
+                        #self.ImageB = self.Scaling[0,0] + self.RawImageB * self.Scaling[1,0]
                         if self.AI3 == 1:
                             self.RawImageC = Raw[:,:,1]
-                            self.ImageC = self.Scaling[0,1] + self.RawImageC * self.Scaling[1,1]
+                            #self.ImageC = self.Scaling[0,1] + self.RawImageC * self.Scaling[1,1]
                             if self.AI4 == 1:
                                 self.RawImageD = (Raw[:,:,2]).reshape(self.YResolution,self.XResolution)
-                                self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
+                                #self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
                         elif self.AI4 == 1:
                             self.RawImageD = Raw[:,:,1]
-                            self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
+                            #self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
                     elif self.AI3 == 1:
                         self.RawImageC = Raw[:,:,0]
-                        self.ImageC = self.Scaling[0,0] + self.RawImageC * self.Scaling[1,0]
+                        #self.ImageC = self.Scaling[0,0] + self.RawImageC * self.Scaling[1,0]
                         if self.AI4 == 1:
                             self.RawImageD = Raw[:,:,1]
-                            self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
+                            #self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
                     elif self.AI4 == 1:
                         self.RawImageD = Raw[:,:,0]
-                        self.ImageD = self.Scaling[0,0] + self.RawImageD * self.Scaling[1,0]
+                        #self.ImageD = self.Scaling[0,0] + self.RawImageD * self.Scaling[1,0]
                         
                 elif self.FileVersion == 7:
                     if self.AI1 == 1:
                         self.RawImageA = Raw[:,:,0]
-                        self.ImageA = (self.RawImageA - self.Scaling[1,0])*self.Scaling[2,0]
+                        #self.ImageA = (self.RawImageA - self.Scaling[1,0])*self.Scaling[2,0]
                         if self.AI2 == 1:
                             self.RawImageB = Raw[:,:,1]
-                            self.ImageB = (self.RawImageB - self.Scaling[1,1])*self.Scaling[2,1]
+                            #self.ImageB = (self.RawImageB - self.Scaling[1,1])*self.Scaling[2,1]
                     elif self.AI2 == 1:
                         self.RawImageB = Raw[:,:,0]
-                        self.ImageB = (self.RawImageB - self.Scaling[1,1])*self.Scaling[2,1]
+                        #self.ImageB = (self.RawImageB - self.Scaling[1,1])*self.Scaling[2,1]
                         
                 elif  self.FileVersion == 8 or self.FileVersion == 9:
                     self.ElectronFactor1 = 0.1;             # 16-bit intensity is 10x electron counts
@@ -5684,12 +5708,114 @@ class FIBSEM_frame:
             if self.SaveOversamples:
                 self.RawSamplesA = self.RawImageA.copy()
                 self.RawSamplesB = self.RawImageB.copy()
-                self.SamplesA = self.ImageA.copy()
-                self.SamplesB = self.ImageB.copy()
+                #self.SamplesA = self.ImageA.copy()
+                #self.SamplesB = self.ImageB.copy()
                 self.RawImageA = np.mean(self.RawSamplesA, axis=2)
                 self.RawImageB = np.mean(self.RawSamplesB, axis=2)
+                #self.ImageA = np.mean(self.SamplesA, axis=2)
+                #self.ImageB = np.mean(self.SamplesB, axis=2)
+            del Raw
+
+    def calculate_scaled_images(self):
+        '''
+        Calculate Scaled Imaged from RawImages using Scaling Data.
+        '''
+        if self.ftype == 0:
+            if self.EightBit == 1:
+                if self.AI1 == 1:
+                    #self.RawImageA = Raw[:,:,0]
+                    self.ImageA = (self.RawImageA.astype(np.float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
+                    if self.AI2 == 1:
+                        #self.RawImageB = Raw[:,:,1]
+                        self.ImageB = (self.RawImageB.astype(np.float32)*self.ScanRate/self.Scaling[0,1]/self.Scaling[2,1]/self.Scaling[3,1]+self.Scaling[1,1]).astype(np.int32)
+                elif self.AI2 == 1:
+                    #self.RawImageB = Raw[:,:,0]
+                    self.ImageB = (self.RawImageB.astype(np.float32)*self.ScanRate/self.Scaling[0,0]/self.Scaling[2,0]/self.Scaling[3,0]+self.Scaling[1,0]).astype(np.int32)
+            else:
+                if self.FileVersion == 1 or self.FileVersion == 2 or self.FileVersion == 3 or self.FileVersion == 4 or self.FileVersion == 5 or self.FileVersion == 6:
+                    if self.AI1 == 1:
+                        #self.RawImageA = Raw[:,:,0]
+                        self.ImageA = self.Scaling[0,0] + self.RawImageA * self.Scaling[1,0]  # Converts raw I16 data to voltage based on self.Scaling factors
+                        if self.AI2 == 1:
+                            #self.RawImageB = Raw[:,:,1]
+                            self.ImageB = self.Scaling[0,1] + self.RawImageB * self.Scaling[1,1]
+                            if self.AI3 == 1:
+                                #self.RawImageC = (Raw[:,:,2]).reshape(self.YResolution,self.XResolution)
+                                self.ImageC = self.Scaling[0,2] + self.RawImageC * self.Scaling[1,2]
+                                if self.AI4 == 1:
+                                    #self.RawImageD = (Raw[:,:,3]).reshape(self.YResolution,self.XResolution)
+                                    self.ImageD = self.Scaling[0,3] + self.RawImageD * self.Scaling[1,3]
+                            elif self.AI4 == 1:
+                                #self.RawImageD = (Raw[:,:,2]).reshape(self.YResolution,self.XResolution)
+                                self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
+                        elif self.AI3 == 1:
+                            #self.RawImageC = Raw[:,:,1]
+                            self.ImageC = self.Scaling[0,1] + self.RawImageC * self.Scaling[1,1]
+                            if self.AI4 == 1:
+                                #self.RawImageD = (Raw[:,:,2]).reshape(self.YResolution,self.XResolution)
+                                self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
+                        elif self.AI4 == 1:
+                            #self.RawImageD = Raw[:,:,1]
+                            self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
+                    elif self.AI2 == 1:
+                        #self.RawImageB = Raw[:,:,0]
+                        self.ImageB = self.Scaling[0,0] + self.RawImageB * self.Scaling[1,0]
+                        if self.AI3 == 1:
+                            #self.RawImageC = Raw[:,:,1]
+                            self.ImageC = self.Scaling[0,1] + self.RawImageC * self.Scaling[1,1]
+                            if self.AI4 == 1:
+                                #self.RawImageD = (Raw[:,:,2]).reshape(self.YResolution,self.XResolution)
+                                self.ImageD = self.Scaling[0,2] + self.RawImageD * self.Scaling[1,2]
+                        elif self.AI4 == 1:
+                            #self.RawImageD = Raw[:,:,1]
+                            self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
+                    elif self.AI3 == 1:
+                        #self.RawImageC = Raw[:,:,0]
+                        self.ImageC = self.Scaling[0,0] + self.RawImageC * self.Scaling[1,0]
+                        if self.AI4 == 1:
+                            #self.RawImageD = Raw[:,:,1]
+                            self.ImageD = self.Scaling[0,1] + self.RawImageD * self.Scaling[1,1]
+                    elif self.AI4 == 1:
+                        #self.RawImageD = Raw[:,:,0]
+                        self.ImageD = self.Scaling[0,0] + self.RawImageD * self.Scaling[1,0]
+                        
+                elif self.FileVersion == 7:
+                    if self.AI1 == 1:
+                        #self.RawImageA = Raw[:,:,0]
+                        self.ImageA = (self.RawImageA - self.Scaling[1,0])*self.Scaling[2,0]
+                        if self.AI2 == 1:
+                            #self.RawImageB = Raw[:,:,1]
+                            self.ImageB = (self.RawImageB - self.Scaling[1,1])*self.Scaling[2,1]
+                    elif self.AI2 == 1:
+                        #self.RawImageB = Raw[:,:,0]
+                        self.ImageB = (self.RawImageB - self.Scaling[1,1])*self.Scaling[2,1]
+                        
+                elif  self.FileVersion == 8 or self.FileVersion == 9:
+                    self.ElectronFactor1 = 0.1;             # 16-bit intensity is 10x electron counts
+                    self.Scaling[3,0] = self.ElectronFactor1
+                    self.ElectronFactor2 = 0.1;             # 16-bit intensity is 10x electron counts
+                    self.Scaling[3,1] = self.ElectronFactor2
+                    if self.AI1 == 1:
+                        #self.RawImageA = Raw[:,:,0]
+                        self.ImageA = (self.RawImageA - self.Scaling[1,0]) * self.Scaling[2,0] / self.ScanRate * self.Scaling[0,0] / self.ElectronFactor1                        
+                        # Converts raw I16 data to voltage based on self.Scaling factors
+                        if self.AI2 == 1:
+                            #self.RawImageB = Raw[:,:,1]
+                            self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
+                    elif self.AI2 == 1:
+                        #self.RawImageB = Raw[:,:,0]
+                        self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
+
+            if self.SaveOversamples:
+                #self.RawSamplesA = self.RawImageA.copy()
+                #self.RawSamplesB = self.RawImageB.copy()
+                self.SamplesA = self.ImageA.copy()
+                self.SamplesB = self.ImageB.copy()
+                #self.RawImageA = np.mean(self.RawSamplesA, axis=2)
+                #self.RawImageB = np.mean(self.RawSamplesB, axis=2)
                 self.ImageA = np.mean(self.SamplesA, axis=2)
                 self.ImageB = np.mean(self.SamplesB, axis=2)
+
 
 
 
@@ -5916,9 +6042,14 @@ class FIBSEM_frame:
         Returns:
             dmin, dmax: (float) minimum and maximum values of the data range.   
         '''
+
         if image_name == 'ImageA':
+            if not hasattr(self, 'ImageA'):
+                self.calculate_scaled_images()
             im = self.ImageA
         if image_name == 'ImageB':
+            if not hasattr(self, 'ImageB'):
+                self.calculate_scaled_images()
             im = self.ImageB
         if image_name == 'RawImageA':
             im = self.RawImageA
@@ -6424,8 +6555,12 @@ class FIBSEM_frame:
         if image_name == 'RawImageB':
             img = self.RawImageB
         if image_name == 'ImageA':
+            if not hasattr(self, 'ImageA'):
+                self.calculate_scaled_images()
             img = self.ImageA
         if image_name == 'ImageB':
+            if not hasattr(self, 'ImageB'):
+                self.calculate_scaled_images()
             img = self.ImageB
 
         xi = 0
@@ -6491,8 +6626,12 @@ class FIBSEM_frame:
         if image_name == 'RawImageB':
             img = self.RawImageB
         if image_name == 'ImageA':
+            if not hasattr(self, 'ImageA'):
+                self.calculate_scaled_images()
             img = self.ImageA
         if image_name == 'ImageB':
+            if not hasattr(self, 'ImageB'):
+                self.calculate_scaled_images()
             img = self.ImageB
 
         xi = 0
@@ -6592,8 +6731,12 @@ class FIBSEM_frame:
             if image_name == 'RawImageB':
                 img = self.RawImageB - self.Scaling[1,1]
             if image_name == 'ImageA':
+                if not hasattr(self, 'ImageA'):
+                    self.calculate_scaled_images()
                 img = self.ImageA
             if image_name == 'ImageB':
+                if not hasattr(self, 'ImageB'):
+                    self.calculate_scaled_images()
                 img = self.ImageB
 
             ysz, xsz = img.shape
@@ -6659,6 +6802,10 @@ class FIBSEM_frame:
             else:
                 img_correction_arrays = kwargs.get("img_correction_arrays", [False])
 
+        calculate_scaled_images = ((image_correction_source == 'ImageA') and (not hasattr(self, 'ImageA'))) or ((image_correction_source == 'ImageB') and (not hasattr(self, 'ImageB')))
+        if calculate_scaled_images:
+            self.calculate_scaled_images()
+
         flattened_images = []
         for image_correction_source, img_correction_array in zip(image_correction_sources, img_correction_arrays):
             if (image_correction_source is not False) and (img_correction_array is not False):
@@ -6666,7 +6813,7 @@ class FIBSEM_frame:
                     flattened_image = (self.RawImageA - self.Scaling[1,0])*img_correction_array[0:self.YResolution, 0:self.XResolution] + self.Scaling[1,0]
                 if image_correction_source == 'RawImageB':
                     flattened_image = (self.RawImageB - self.Scaling[1,1])*img_correction_array[0:self.YResolution, 0:self.XResolution] + self.Scaling[1,1]
-                if image_correction_source == 'ImageA':
+                if image_correction_source == 'ImageA':                
                     flattened_image = self.ImageA*img_correction_array[0:self.YResolution, 0:self.XResolution]
                 if image_correction_source == 'ImageB':
                     flattened_image = self.ImageB*img_correction_array[0:self.YResolution, 0:self.XResolution]
@@ -6764,16 +6911,17 @@ def evaluate_FIBSEM_frame(params):
     fl, kwargs = params
     ftype = kwargs.get("ftype", 0)
     image_name = kwargs.get("image_name", 'RawImageA')
+    calculate_scaled_images = (image_name == 'ImageA') or (image_name == 'ImageB')
     thr_min = kwargs.get("threshold_min", 1e-3)
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     try:
-        frame = FIBSEM_frame(fl, ftype=ftype)
+        frame = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=calculate_scaled_images)
         if frame.EightBit ==1:
             dmin = np.uint8(0)
             dmax =  np.uint8(255)
         else:
-            dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins)
+            dmin, dmax = frame.get_image_min_max(image_name = image_name, thr_min=thr_min, thr_max=thr_max, nbins=nbins)
         if ftype == 0:
             try:
                 WD = frame.WD
@@ -6832,6 +6980,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
     data_dir : str
         data directory (path) for saving the data
+    image_name: string
+            the name of the image to perform this operations (defaulut is 'RawImageA')
     threshold_min : float
         CDF threshold for determining the minimum data value
     threshold_max : float
@@ -6888,6 +7038,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     ftype = kwargs.get("ftype", 0)
     frame_inds = kwargs.get("frame_inds", np.arange(len(fls)))
     data_dir = kwargs.get("data_dir", '')
+    image_name = kwargs.get("image_name", 'RawImageA')
+    calculate_scaled_images = (image_name == 'ImageA') or (image_name == 'ImageB')
     threshold_min = kwargs.get("threshold_min", 1e-3)
     threshold_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
@@ -6901,7 +7053,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     FIBSEM_Data_xlsx_path = os.path.join(data_dir, FIBSEM_Data_xlsx)
     disp_res = kwargs.get("disp_res", False)
 
-    frame = FIBSEM_frame(fls[0], ftype=ftype)
+    frame = FIBSEM_frame(fls[0], ftype=ftype, calculate_scaled_images=calculate_scaled_images)
     if frame.EightBit == 1 and ftype == 1:
         if disp_res:
             print('Original data is 8-bit, no need to find Min and Max for 8-bit conversion')
@@ -7057,7 +7209,7 @@ def extract_keypoints_descr_files(params):
 
     #sift = cv2.xfeatures2d.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
     sift = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
-    img, d1, d2 = FIBSEM_frame(fl, ftype=ftype).RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = dmin, data_max = dmax, nbins=256)
+    img, d1, d2 = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=False).RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = dmin, data_max = dmax, nbins=256)
     # extract keypoints and descriptors for both images
 
     xi_eval = evaluation_box[2]
@@ -7507,7 +7659,7 @@ def build_filename(fname, **kwargs):
     pad_edges =  kwargs.get("pad_edges", True)
     suffix =  kwargs.get("suffix", '')
 
-    frame = FIBSEM_frame(fname, ftype=ftype)
+    frame = FIBSEM_frame(fname, ftype=ftype, calculate_scaled_images=False)
     dformat_read = 'I8' if frame.EightBit else 'I16'
 
     if dtp == np.int16:
@@ -7956,7 +8108,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.025)
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
 
-    frame = FIBSEM_frame(fr, ftype=ftype)
+    frame = FIBSEM_frame(fr, ftype=ftype, calculate_scaled_images=False)
     if ftype == 0:
         if frame.FileVersion > 8 :
             Sample_ID = frame.Sample_ID.strip('\x00')
@@ -8020,7 +8172,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     fig2.subplots_adjust(left=0.0, bottom=0.25*(1-frame.YResolution/frame.XResolution), right=1.0, top=1.0)
     symsize = 2
     fsize = 12  
-    img2 = FIBSEM_frame(fr, ftype=ftype).RawImageA
+    img2 = FIBSEM_frame(fr, ftype=ftype, calculate_scaled_images=False).RawImageA
     ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
     
@@ -8168,7 +8320,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     start = kwargs.get('start', 'edges')
     estimation = kwargs.get('estimation', 'interval')
 
-    frame = FIBSEM_frame(fs[0], ftype=ftype)
+    frame = FIBSEM_frame(fs[0], ftype=ftype, calculate_scaled_images=False)
     if ftype == 0:
         if frame.FileVersion > 8 :
             Sample_ID = frame.Sample_ID.strip('\x00')
@@ -8223,7 +8375,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     minmax = []
     for f in fs:
-        minmax.append(FIBSEM_frame(f, ftype=ftype).get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins))
+        minmax.append(FIBSEM_frame(f, ftype=ftype, calculate_scaled_images=False).get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins))
     dmin = np.min(np.array(minmax))
     dmax = np.max(np.array(minmax))
     #print('data range: ', dmin, dmax)
@@ -8335,7 +8487,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     symsize = 2
     fsize_text = 6
     fsize_label = 10
-    img2 = FIBSEM_frame(fs[-1], ftype=ftype).RawImageA
+    img2 = FIBSEM_frame(fs[-1], ftype=ftype, calculate_scaled_images=False).RawImageA
     ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
     
@@ -8440,7 +8592,7 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
     for frame_filename, tr_matrix in zip(frame_filenames, tr_matrices):
         #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
         frame_img = np.full((ysz, xsz), fill_value, dtype=float)
-        frame = FIBSEM_frame(frame_filename, ftype=ftype)
+        frame = FIBSEM_frame(frame_filename, ftype=ftype, calculate_scaled_images=False)
 
         if ImgB_fraction < 1e-5:
             #image = frame.RawImageA.astype(float)
@@ -8559,7 +8711,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     for frame_filename, tr_matrix, image_scale, image_offset in zip(frame_filenames, tr_matrices, image_scales, image_offsets):
         #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
         frame_img = np.full((ysz, xsz), fill_value, dtype=float)
-        frame = FIBSEM_frame(frame_filename, ftype=ftype)
+        frame = FIBSEM_frame(frame_filename, ftype=ftype, calculate_scaled_images=False)
 
         if ImgB_fraction < 1e-5:
             #image = frame.RawImageA.astype(float)
@@ -8814,7 +8966,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     '''
     ftype = kwargs.get("ftype", 0)
     fill_value = kwargs.get('fill_value', 0.0)
-    test_frame = FIBSEM_frame(fls[0], ftype=ftype)
+    test_frame = FIBSEM_frame(fls[0], ftype=ftype, calculate_scaled_images=False)
     
     save_transformed_dataset = kwargs.get("save_transformed_dataset", True)
     use_DASK = kwargs.get("use_DASK", False)  # do not use DASK the data is to be saved
@@ -9023,7 +9175,7 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
             if ind0 < (len(fls)-2) and npts[ind0+1] < thr_npt:
                 frames_to_remove.append(ind0+1)
                 print('Frame to remove: {:d} : '.format(ind0+1) + ', File: ' + fls[ind0+1])
-                frame_to_remove  = FIBSEM_frame(fls[ind0+1], ftype=ftype)
+                frame_to_remove  = FIBSEM_frame(fls[ind0+1], ftype=ftype, calculate_scaled_images=False)
                 frame_to_remove.save_snapshot(dpi=300)
         print('Frames to remove:  ', frames_to_remove)
 
@@ -9122,7 +9274,9 @@ def select_blobs_LoG_analyze_transitions_2D_dataset(params):
     '''
     [fls, frame_ind, ftype, image_name, eval_bounds_single_frame, offsets, invert_data, flipY, zbin_factor, perform_transformation, tr_matr_cum_residual, int_order, pad_edges, min_sigma, max_sigma, threshold,  overlap, pixel_size, subset_size, bounds, bands, min_thr, transition_low_limit, transition_high_limit, nbins, verbose, disp_res, save_data] = params
 
-    frame = FIBSEM_frame(fls[frame_ind], ftype=ftype)
+
+    calculate_scaled_images = (image_name == 'ImageA') or (image_name == 'ImageB')
+    frame = FIBSEM_frame(fls[frame_ind], ftype=ftype, calculate_scaled_images=calculate_scaled_images)
     shape = [frame.YResolution, frame.XResolution]
     if pad_edges and perform_transformation:
         xi, yi, padx, pady = offsets
@@ -9153,7 +9307,7 @@ def select_blobs_LoG_analyze_transitions_2D_dataset(params):
 
     for j in np.arange(zbin_factor):
         if j>0:
-            frame = FIBSEM_frame(fls[frame_ind+j], ftype=ftype)
+            frame = FIBSEM_frame(fls[frame_ind+j], ftype=ftype, calculate_scaled_images=calculate_scaled_images)
         if invert_data:
             if frame.DetB != 'None':
                 if image_name == 'RawImageB':
@@ -9517,7 +9671,7 @@ class FIBSEM_dataset:
         self.nfrs = len(fls)
         self.data_dir = kwargs.get('data_dir', os.getcwd())
         self.ftype = kwargs.get("ftype", 0) # ftype=0 - Shan Xu's binary format  ftype=1 - tif files
-        mid_frame = FIBSEM_frame(fls[self.nfrs//2], ftype = self.ftype)
+        mid_frame = FIBSEM_frame(fls[self.nfrs//2], ftype = self.ftype, calculate_scaled_images=False)
         self.XResolution = kwargs.get("XResolution", mid_frame.XResolution)
         self.YResolution = kwargs.get("YResolution", mid_frame.YResolution)
         self.Scaling = kwargs.get("Scaling", mid_frame.Scaling)
@@ -9529,10 +9683,10 @@ class FIBSEM_dataset:
         if hasattr(self, 'YResolution'):
             YResolution_default = self.YResolution
         else:
-            YResolution_default = FIBSEM_frame(self.fls[len(self.fls)//2]).YResolution
+            YResolution_default = FIBSEM_frame(self.fls[len(self.fls)//2], calculate_scaled_images=False).YResolution
         YResolution = kwargs.get("YResolution", YResolution_default)
 
-        test_frame = FIBSEM_frame(fls[0], ftype=self.ftype)
+        test_frame = FIBSEM_frame(fls[0], ftype=self.ftype, calculate_scaled_images=False)
         self.DetA = test_frame.DetA
         self.DetB = test_frame.DetB
         self.ImgB_fraction = kwargs.get("ImgB_fraction", 0.0)
@@ -10666,12 +10820,12 @@ class FIBSEM_dataset:
         if hasattr(self, 'XResolution'):
             XResolution_default = self.XResolution
         else:
-            XResolution_default = FIBSEM_frame(self.fls[len(self.fls)//2]).XResolution
+            XResolution_default = FIBSEM_frame(self.fls[len(self.fls)//2], calculate_scaled_images=False).XResolution
         XResolution = kwargs.get("XResolution", XResolution_default)
         if hasattr(self, 'YResolution'):
             YResolution_default = self.YResolution
         else:
-            YResolution_default = FIBSEM_frame(self.fls[len(self.fls)//2]).YResolution
+            YResolution_default = FIBSEM_frame(self.fls[len(self.fls)//2], calculate_scaled_images=False).YResolution
         YResolution = kwargs.get("YResolution", YResolution_default)
 
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
@@ -11005,7 +11159,7 @@ class FIBSEM_dataset:
             else:
                 print('Will NOT perform transformation')
         for j,fr_ind in enumerate(frame_inds):
-            frame = FIBSEM_frame(fls[fr_ind], ftype=ftype)
+            frame = FIBSEM_frame(fls[fr_ind], ftype=ftype, calculate_scaled_images=False)
             #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
             frame_img = np.full((ysz, xsz), fill_value, dtype=float)
             frame_img[yi:yi+self.YResolution, xi:xi+self.XResolution]  = frame.RawImageA.astype(float)
@@ -11153,7 +11307,7 @@ class FIBSEM_dataset:
         eval_bounds = set_eval_bounds(shape, evaluation_box, **local_kwargs)
 
         for j, frame_ind in enumerate(tqdm(frame_inds, desc='Analyzing Auto-Correlation SNRs ')):
-            frame = FIBSEM_frame(fls[frame_ind], ftype=ftype)
+            frame = FIBSEM_frame(fls[frame_ind], ftype=ftype, calculate_scaled_images=False)
             xa = xi+frame.XResolution
             ya = yi+frame.YResolution
             xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[j, :]
@@ -11228,7 +11382,7 @@ class FIBSEM_dataset:
             ySNRFs=[]
             rSNRFs=[]
             for j, frame_ind in enumerate(tqdm(frame_inds, desc='Re-analyzing Auto-Correlation SNRs for fused image')):
-                frame = FIBSEM_frame(fls[frame_ind], ftype=ftype)
+                frame = FIBSEM_frame(fls[frame_ind], ftype=ftype, calculate_scaled_images=False)
                 xa = xi+frame.XResolution
                 ya = yi+frame.YResolution
 
@@ -11375,7 +11529,7 @@ class FIBSEM_dataset:
         nbr = len(ImgB_fractions)
         kwargs_local ={'zbin_factor' : 1}
 
-        test_frame = FIBSEM_frame(self.fls[frame_inds[0]])
+        test_frame = FIBSEM_frame(self.fls[frame_inds[0]], calculate_scaled_images=False)
         xi = 0
         yi = 0
         xsz = test_frame.XResolution 
@@ -11731,13 +11885,13 @@ class FIBSEM_dataset:
 
         vmin = 0.05
         if image_name == 'ImageA':
-            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]]).ImageA, thr_min=0.2, disp_res=False, save_res=False)
+            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]], calculate_scaled_images=True).ImageA, thr_min=0.2, disp_res=False, save_res=False)
         if image_name == 'ImageB':
-            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]]).ImageB, thr_min=0.2, disp_res=False, save_res=False)
+            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]], calculate_scaled_images=True).ImageB, thr_min=0.2, disp_res=False, save_res=False)
         if image_name == 'RawImageA':
-            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]]).RawImageA, thr_min=0.2, disp_res=False, save_res=False)
+            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]], calculate_scaled_images=False).RawImageA, thr_min=0.2, disp_res=False, save_res=False)
         if image_name == 'RawImageB':
-            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]]).RawImageB, thr_min=0.2, disp_res=False, save_res=False)
+            vmin, vmax = get_min_max_thresholds(FIBSEM_frame(self.fls[frame_inds[0]], calculate_scaled_images=False).RawImageB, thr_min=0.2, disp_res=False, save_res=False)
         threshold = kwargs.get('threshold', vmin/10.0)
         if verbose:
             print('Will use threshold : {:.4f}'.format(threshold))
@@ -11960,6 +12114,7 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
     bounds = saved_kwargs.get("bounds", [0.0, 0.0])
     bands = saved_kwargs.get("bands", [3, 2, 3])
     image_name = saved_kwargs.get("image_name", 'ImageA')
+    calculate_scaled_images = (image_name == 'ImageA') or (image_name == 'ImageB')
     perform_transformation =  saved_kwargs.get("perform_transformation", False)
     pad_edges =  saved_kwargs.get("pad_edges", True)
     ftype =  saved_kwargs.get("ftype", 0)
@@ -12024,7 +12179,7 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
         xi_eval = fl_info['xi_eval'].values[0]
         xa_eval = fl_info['xa_eval'].values[0]
 
-        frame = FIBSEM_frame(fl, ftype=ftype)
+        frame = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images = calculate_scaled_images)
         shape = [frame.YResolution, frame.XResolution]
         if pad_edges and perform_transformation:
             xi, yi, padx, pady = offsets
@@ -12052,7 +12207,7 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
                 local_ind = int(np.squeeze(np.argwhere(np.array(fls_info['Frame']) == Fs[j+jk])))
                 fl_info = fls_info[fls_info['Frame'] == Fs[j+jk]]
                 fl = fl_info['Frame Filename'].values[0]
-                frame = FIBSEM_frame(fl, ftype=ftype)
+                frame = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images = calculate_scaled_images)
                 yi_eval = fl_info['yi_eval'].values[0]
                 ya_eval = fl_info['ya_eval'].values[0]
                 xi_eval = fl_info['xi_eval'].values[0]
