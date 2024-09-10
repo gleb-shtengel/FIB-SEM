@@ -6488,7 +6488,7 @@ class FIBSEM_frame:
 
             mean_vals, var_vals, I0, PSNR, DSNR, popt, result =  Single_Image_Noise_Statistics(ImgEM, **noise_kwargs)
         else:
-            mean_vals, var_vals, I0, PSNR, DSNR, popt, result = [], [], 0.0, 0.0, np.array((0.0, 0.0)), [] 
+            mean_vals, var_vals, I0, PSNR, DSNR, popt, result = [], [], 0.0, 0.0, 0.0, np.array((0.0, 0.0)), [] 
         return mean_vals, var_vals, I0, PSNR, DSNR, popt, result
     
 
