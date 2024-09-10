@@ -6802,7 +6802,7 @@ class FIBSEM_frame:
             else:
                 img_correction_arrays = kwargs.get("img_correction_arrays", [False])
 
-        calculate_scaled_images = ((image_correction_source == 'ImageA') and (not hasattr(self, 'ImageA'))) or ((image_correction_source == 'ImageB') and (not hasattr(self, 'ImageB')))
+        calculate_scaled_images = (('ImageA' in image_correction_sources) and (not hasattr(self, 'ImageA'))) or (('ImageB' in image_correction_sources) and (not hasattr(self, 'ImageB')))
         if calculate_scaled_images:
             self.calculate_scaled_images()
 
