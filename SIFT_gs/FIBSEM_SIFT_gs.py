@@ -5335,7 +5335,7 @@ class FIBSEM_frame:
             def_ftype = 1
         #print('filename suffix: ',fname_suff, ', default filetype: ', def_ftype)
         self.ftype = kwargs.get("ftype", def_ftype) # ftype=0 - Shan Xu's binary format  ftype=1 - tif files
-        self.calculate_scaled_images = kwargs.get('calculate_scaled_images', False)
+        calculate_scaled_images_kw = kwargs.get('calculate_scaled_images', False)
         self.use_dask_arrays = kwargs.get("use_dask_arrays", False)    
 
     # for tif files
@@ -5696,14 +5696,14 @@ class FIBSEM_frame:
                     self.Scaling[3,1] = self.ElectronFactor2
                     if self.AI1 == 1:
                         self.RawImageA = Raw[:,:,0]
-                        self.ImageA = (self.RawImageA - self.Scaling[1,0]) * self.Scaling[2,0] / self.ScanRate * self.Scaling[0,0] / self.ElectronFactor1                        
+                        #self.ImageA = (self.RawImageA - self.Scaling[1,0]) * self.Scaling[2,0] / self.ScanRate * self.Scaling[0,0] / self.ElectronFactor1                        
                         # Converts raw I16 data to voltage based on self.Scaling factors
                         if self.AI2 == 1:
                             self.RawImageB = Raw[:,:,1]
-                            self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
+                            #self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
                     elif self.AI2 == 1:
                         self.RawImageB = Raw[:,:,0]
-                        self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
+                        #self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
 
             if self.SaveOversamples:
                 self.RawSamplesA = self.RawImageA.copy()
@@ -5715,6 +5715,9 @@ class FIBSEM_frame:
                 #self.ImageA = np.mean(self.SamplesA, axis=2)
                 #self.ImageB = np.mean(self.SamplesB, axis=2)
             del Raw
+
+            if calculate_scaled_images_kw:
+                self.calculate_scaled_images()
 
     def calculate_scaled_images(self):
         '''
