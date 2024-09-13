@@ -8615,7 +8615,16 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     if save_res_png :
         png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(threshold_min, threshold_max)))
         fig.savefig(png_name, dpi=300)
-            
+    if memory_profiling:
+        elapsed_time = elapsed_since(start_time)
+        rss_after, vms_after, shared_after = get_process_memory()
+        print("Profiling: Plotted Histograms: RSS: {:>8} | VMS: {:>8} | SHR {"
+              ":>8} | time: {:>8}"
+            .format(format_bytes(rss_after - rss_before),
+                    format_bytes(vms_after - vms_before),
+                    format_bytes(shared_after - shared_before),
+                    elapsed_time))
+
     xfsz = int(7 * frame.XResolution / np.max([frame.XResolution, frame.YResolution]))+1
     yfsz = int(7 * frame.YResolution / np.max([frame.XResolution, frame.YResolution]))+2
     fig2, ax = plt.subplots(1,1, figsize=(xfsz,yfsz))
@@ -8627,6 +8636,15 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     #ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.imshow(frame.RawImageA, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
+    if memory_profiling:
+        elapsed_time = elapsed_since(start_time)
+        rss_after, vms_after, shared_after = get_process_memory()
+        print("Profiling: Plotted Raw Image : RSS: {:>8} | VMS: {:>8} | SHR {"
+              ":>8} | time: {:>8}"
+            .format(format_bytes(rss_after - rss_before),
+                    format_bytes(vms_after - vms_before),
+                    format_bytes(shared_after - shared_before),
+                    elapsed_time))
     
     if n_matches > 0:
         x, y = dst_pts_filtered.T
