@@ -10003,6 +10003,8 @@ class FIBSEM_dataset:
             'edges' (default) or 'center'. start of search.
         estimation : string
             'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
+        memory_profiling : boolean
+            If True, memory profiling will be preformed. Default is False
     
         Returns:
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
@@ -10061,6 +10063,7 @@ class FIBSEM_dataset:
         start = kwargs.get('start', 'edges')
         estimation = kwargs.get('estimation', 'interval')
         verbose = kwargs.get('verbose', True)
+        memory_profiling = kwargs.get('memory_profiling', False)
 
         SIFT_evaluation_kwargs = {'DASK_client' : DASK_client,
                                 'DASK_client_retries' : DASK_client_retries,
@@ -10094,6 +10097,7 @@ class FIBSEM_dataset:
                                 'verbose' : verbose,
                                 'start' : start,
                                 'estimation' : estimation,
+                                'memory_profiling' : memory_profiling,
                                 'save_res_png'  : save_res_png}
         
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy = SIFT_evaluation_dataset(eval_fls, **SIFT_evaluation_kwargs)
