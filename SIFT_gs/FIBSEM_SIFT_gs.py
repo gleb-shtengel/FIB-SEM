@@ -5241,6 +5241,8 @@ class FIBSEM_frame:
         calculate_scaled_images : boolean
             Calculate Scaled Images from raw images using scalinfg data. Defauult is False
         use_dask_arrays : boolean
+        memory_profiling : boolean
+            If True will perfrom memory profiling. Default is False
 
     Attributes (only some more important are listed here)
     ----------
@@ -5331,6 +5333,11 @@ class FIBSEM_frame:
         use_dask_arrays : boolean
 
         '''
+        memory_profiling = kwargs.get('memory_profiling', False)
+        if memory_profiling:
+            rss_before, vms_before, shared_before = get_process_memory()
+            start_time = time.time()
+
         self.fname = fname
         def_ftype = 0
         fname_suff = Path(fname).suffix.lower()
@@ -5339,7 +5346,16 @@ class FIBSEM_frame:
         #print('filename suffix: ',fname_suff, ', default filetype: ', def_ftype)
         self.ftype = kwargs.get("ftype", def_ftype) # ftype=0 - Shan Xu's binary format  ftype=1 - tif files
         calculate_scaled_images_kw = kwargs.get('calculate_scaled_images', False)
-        self.use_dask_arrays = kwargs.get("use_dask_arrays", False)    
+        self.use_dask_arrays = kwargs.get("use_dask_arrays", False)
+        if memory_profiling:
+            elapsed_time = elapsed_since(start_time)
+            rss_after, vms_after, shared_after = get_process_memory()
+            print("Profiling: Start of Execution: RSS: {:>8} | VMS: {:>8} | SHR {"
+                  ":>8} | time: {:>8}"
+                .format(format_bytes(rss_after - rss_before),
+                        format_bytes(vms_after - vms_before),
+                        format_bytes(shared_after - shared_before),
+                        elapsed_time))
 
     # for tif files
         if self.ftype == 1:
@@ -5391,6 +5407,15 @@ class FIBSEM_frame:
             self.Sample_ID = kwargs.get("Sample_ID", '')
             self.YResolution, self.XResolution = self.RawImageA.shape
             self.Scaling = np.array([[1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 1.0]]).T
+            if memory_profiling:
+                elapsed_time = elapsed_since(start_time)
+                rss_after, vms_after, shared_after = get_process_memory()
+                print("Profiling: Finished TIFF Read: RSS: {:>8} | VMS: {:>8} | SHR {"
+                      ":>8} | time: {:>8}"
+                    .format(format_bytes(rss_after - rss_before),
+                            format_bytes(vms_after - vms_before),
+                            format_bytes(shared_after - shared_before),
+                            elapsed_time))
 
     # for Shan Xu's data files 
         if self.ftype == 0:
@@ -5580,6 +5605,15 @@ class FIBSEM_frame:
 
             self.FileLength = unpack('>q',self.header[1000:1008])[0]                                # Read in file length in bytes 
 
+            if memory_profiling:
+                elapsed_time = elapsed_since(start_time)
+                rss_after, vms_after, shared_after = get_process_memory()
+                print("Profiling: Finish Read Header: RSS: {:>8} | VMS: {:>8} | SHR {"
+                      ":>8} | time: {:>8}"
+                    .format(format_bytes(rss_after - rss_before),
+                            format_bytes(vms_after - vms_before),
+                            format_bytes(shared_after - shared_before),
+                            elapsed_time))            
 #                Finish self.header read
 #
 #                Read raw data
@@ -5614,6 +5648,15 @@ class FIBSEM_frame:
                 else:
                     Raw = np.frombuffer(fid.read(2*n_elements),dtype=dt)
             fid.close()
+            if memory_profiling:
+                elapsed_time = elapsed_since(start_time)
+                rss_after, vms_after, shared_after = get_process_memory()
+                print("Profiling: Finish File Header: RSS: {:>8} | VMS: {:>8} | SHR {"
+                      ":>8} | time: {:>8}"
+                    .format(format_bytes(rss_after - rss_before),
+                            format_bytes(vms_after - vms_before),
+                            format_bytes(shared_after - shared_before),
+                            elapsed_time))   
             # finish reading raw data
      
             if self.SaveOversamples:
@@ -5718,9 +5761,36 @@ class FIBSEM_frame:
                 #self.ImageA = np.mean(self.SamplesA, axis=2)
                 #self.ImageB = np.mean(self.SamplesB, axis=2)
             del Raw
+            if memory_profiling:
+                elapsed_time = elapsed_since(start_time)
+                rss_after, vms_after, shared_after = get_process_memory()
+                print("Profiling: Finished Raw Conv.: RSS: {:>8} | VMS: {:>8} | SHR {"
+                      ":>8} | time: {:>8}"
+                    .format(format_bytes(rss_after - rss_before),
+                            format_bytes(vms_after - vms_before),
+                            format_bytes(shared_after - shared_before),
+                            elapsed_time))   
 
             if calculate_scaled_images_kw:
                 self.calculate_scaled_images()
+                if memory_profiling:
+                    elapsed_time = elapsed_since(start_time)
+                    rss_after, vms_after, shared_after = get_process_memory()
+                    print("Profiling: Calc.Scaled Images: RSS: {:>8} | VMS: {:>8} | SHR {"
+                          ":>8} | time: {:>8}"
+                        .format(format_bytes(rss_after - rss_before),
+                                format_bytes(vms_after - vms_before),
+                                format_bytes(shared_after - shared_before),
+                                elapsed_time))  
+            if memory_profiling:
+                elapsed_time = elapsed_since(start_time)
+                rss_after, vms_after, shared_after = get_process_memory()
+                print("Profiling: Finished Execution: RSS: {:>8} | VMS: {:>8} | SHR {"
+                      ":>8} | time: {:>8}"
+                    .format(format_bytes(rss_after - rss_before),
+                            format_bytes(vms_after - vms_before),
+                            format_bytes(shared_after - shared_before),
+                            elapsed_time))   
 
     def calculate_scaled_images(self):
         '''
