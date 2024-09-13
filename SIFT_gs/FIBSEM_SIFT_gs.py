@@ -8529,7 +8529,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
                 rss_after, vms_after, shared_after = get_process_memory()
                 print("Profiling: Extr.kpts try {:d}: RSS: {:>8} | VMS: {:>8} | SHR {"
                       ":>8} | time: {:>8}"
-                    .format(format_bytes(j, rss_after - rss_before),
+                    .format(j, format_bytes(rss_after - rss_before),
                             format_bytes(vms_after - vms_before),
                             format_bytes(shared_after - shared_before),
                             elapsed_time))
