@@ -8,6 +8,9 @@ import re
 import gc
 from copy import deepcopy
 
+import psutil
+import inspect
+
 import matplotlib
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
@@ -8280,10 +8283,15 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         'edges' (default) or 'center'. start of search.
     estimation : string
         'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
-
+    memory_profiling : boolean
+        If True will perfrom memory profiling. Default is False
     Returns:
     dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
     '''
+    memory_profiling = kwargs.get('memory_profiling', False)
+    if memory_profiling:
+        rss_before, vms_before, shared_before = get_process_memory()
+        start_time = time.time()
     DASK_client = kwargs.get('DASK_client', '')
     if DASK_client == '':
         use_DASK = False
@@ -8323,7 +8331,26 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     start = kwargs.get('start', 'edges')
     estimation = kwargs.get('estimation', 'interval')
 
+    if memory_profiling:
+        elapsed_time = elapsed_since(start_time)
+        rss_after, vms_after, shared_after = get_process_memory()
+        print("Profiling: Start of Execution: RSS: {:>8} | VMS: {:>8} | SHR {"
+              ":>8} | time: {:>8}"
+            .format(format_bytes(rss_after - rss_before),
+                    format_bytes(vms_after - vms_before),
+                    format_bytes(shared_after - shared_before),
+                    elapsed_time))
+    
     frame = FIBSEM_frame(fs[0], ftype=ftype, calculate_scaled_images=False)
+    if memory_profiling:
+        elapsed_time = elapsed_since(start_time)
+        rss_after, vms_after, shared_after = get_process_memory()
+        print("Profiling: Read First Frame  : RSS: {:>8} | VMS: {:>8} | SHR {"
+              ":>8} | time: {:>8}"
+            .format(format_bytes(rss_after - rss_before),
+                    format_bytes(vms_after - vms_before),
+                    format_bytes(shared_after - shared_before),
+                    elapsed_time))
     if ftype == 0:
         if frame.FileVersion > 8 :
             Sample_ID = frame.Sample_ID.strip('\x00')
@@ -8333,7 +8360,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         Sample_ID = frame.Sample_ID
     Sample_ID = kwargs.get("Sample_ID", Sample_ID)
 
-    print(Sample_ID)
+    print("Sample ID:   ", Sample_ID)
 
     if BFMatcher:
         matcher = 'BFMatcher'
@@ -8349,6 +8376,16 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins)
     xi = dmin-(np.abs(dmax-dmin)/10)
     xa = dmax+(np.abs(dmax-dmin)/10)
+    
+    if memory_profiling:
+        elapsed_time = elapsed_since(start_time)
+        rss_after, vms_after, shared_after = get_process_memory()
+        print("Profiling: Calculated Min/Max: RSS: {:>8} | VMS: {:>8} | SHR {"
+              ":>8} | time: {:>8}"
+            .format(format_bytes(rss_after - rss_before),
+                    format_bytes(vms_after - vms_before),
+                    format_bytes(shared_after - shared_before),
+                    elapsed_time))
 
     fig, axs = plt.subplots(2,2, figsize=(12,8))
     fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFT_contrastThreshold={:.3f}'.format(threshold_min, threshold_max, SIFT_contrastThreshold), fontsize=fszl)
@@ -8377,12 +8414,20 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     axs[0,0].set_title('Data Min and Max with thr_min={:.0e},  thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize = fsz)
 
     minmax = []
-    for f in fs:
+    for j,f in enumerate(fs):
         minmax.append(FIBSEM_frame(f, ftype=ftype, calculate_scaled_images=False).get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins))
+        if memory_profiling:
+            elapsed_time = elapsed_since(start_time)
+            rss_after, vms_after, shared_after = get_process_memory()
+            print("Profiling: Re-calc {:d} Min/Max : RSS: {:>8} | VMS: {:>8} | SHR {"
+                  ":>8} | time: {:>8}"
+                .format(j, format_bytes(rss_after - rss_before),
+                        format_bytes(vms_after - vms_before),
+                        format_bytes(shared_after - shared_before),
+                        elapsed_time))
     dmin = np.min(np.array(minmax))
     dmax = np.max(np.array(minmax))
     #print('data range: ', dmin, dmax)
-    
     t0 = time.time()
 
     params1 = [fs[0], dmin, dmax, kwargs]
@@ -8409,6 +8454,15 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         results = []
         for j in tqdm(np.arange(number_of_repeats), desc='Repeating SIFT calculation {:d} times'.format(number_of_repeats)):
             results.append(determine_transformations_files(params_dsf))
+            if memory_profiling:
+                elapsed_time = elapsed_since(start_time)
+                rss_after, vms_after, shared_after = get_process_memory()
+                print("Profiling: Extr.kpts try {:d}: RSS: {:>8} | VMS: {:>8} | SHR {"
+                      ":>8} | time: {:>8}"
+                    .format(format_bytes(j, rss_after - rss_before),
+                            format_bytes(vms_after - vms_before),
+                            format_bytes(shared_after - shared_before),
+                            elapsed_time))
 
     n_matches_tot = np.array([len(res[2][0]) for res in results])
     transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = results[np.argmin(n_matches_tot)]
@@ -8430,6 +8484,15 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         xshifts = (dst_pts_filtered - src_pts_transformed)[:,0]
         yshifts = (dst_pts_filtered - src_pts_transformed)[:,1]
     
+    if memory_profiling:
+        elapsed_time = elapsed_since(start_time)
+        rss_after, vms_after, shared_after = get_process_memory()
+        print("Profiling: Finished Calcs.   : RSS: {:>8} | VMS: {:>8} | SHR {"
+              ":>8} | time: {:>8}"
+            .format(format_bytes(rss_after - rss_before),
+                    format_bytes(vms_after - vms_before),
+                    format_bytes(shared_after - shared_before),
+                    elapsed_time))
     t1 = time.time()
     comp_time = (t1-t0)
     #print('Time to compute: {:.1f}sec'.format(comp_time))
@@ -8490,8 +8553,9 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     symsize = 2
     fsize_text = 6
     fsize_label = 10
-    img2 = FIBSEM_frame(fs[-1], ftype=ftype, calculate_scaled_images=False).RawImageA
-    ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
+    #img2 = FIBSEM_frame(fs[-1], ftype=ftype, calculate_scaled_images=False).RawImageA
+    #ax.imshow(img2, cmap='Greys', vmin=dmin, vmax=dmax)
+    ax.imshow(frame.RawImageA, cmap='Greys', vmin=dmin, vmax=dmax)
     ax.axis(False)
     
     if n_matches > 0:
@@ -8525,7 +8589,15 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     if save_res_png :
         fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(threshold_min, threshold_max)))
         fig2.savefig(fig2_fnm, dpi=600)
-
+    if memory_profiling:
+        elapsed_time = elapsed_since(start_time)
+        rss_after, vms_after, shared_after = get_process_memory()
+        print("Profiling: End of Execution  : RSS: {:>8} | VMS: {:>8} | SHR {"
+              ":>8} | time: {:>8}"
+            .format(format_bytes(rss_after - rss_before),
+                    format_bytes(vms_after - vms_before),
+                    format_bytes(shared_after - shared_before),
+                    elapsed_time))
     return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy)
 
 
