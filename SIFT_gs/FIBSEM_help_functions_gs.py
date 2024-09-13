@@ -908,7 +908,11 @@ def elapsed_since(start):
 def get_process_memory():
     process = psutil.Process(os.getpid())
     mi = process.memory_info()
-    return mi.rss, mi.vms, mi.private
+    try:
+        return mi.rss, mi.vms, mi.shared
+    except:
+        return mi.rss, mi.vms, mi.private
+
 
 def format_bytes(bytes):
     if abs(bytes) < 1000:
