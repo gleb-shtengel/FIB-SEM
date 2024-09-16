@@ -5608,7 +5608,7 @@ class FIBSEM_frame:
             if memory_profiling:
                 elapsed_time = elapsed_since(start_time)
                 rss_after, vms_after, shared_after = get_process_memory()
-                print("Profiling: Finish Read Header: RSS: {:>8} | VMS: {:>8} | SHR {"
+                print("Profiling: Finish Header Read: RSS: {:>8} | VMS: {:>8} | SHR {"
                       ":>8} | time: {:>8}"
                     .format(format_bytes(rss_after - rss_before),
                             format_bytes(vms_after - vms_before),
@@ -5651,7 +5651,7 @@ class FIBSEM_frame:
             if memory_profiling:
                 elapsed_time = elapsed_since(start_time)
                 rss_after, vms_after, shared_after = get_process_memory()
-                print("Profiling: Finish File Header: RSS: {:>8} | VMS: {:>8} | SHR {"
+                print("Profiling: Finished File Read: RSS: {:>8} | VMS: {:>8} | SHR {"
                       ":>8} | time: {:>8}"
                     .format(format_bytes(rss_after - rss_before),
                             format_bytes(vms_after - vms_before),
