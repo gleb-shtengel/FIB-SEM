@@ -18,6 +18,13 @@ The main features of this workflow:
 
 In order to run the Python Notebook code, first, install basic Anaconda:
 https://www.anaconda.com/products/individual
+
+I have recently (2024) come across a problem. RANSAC implementation in skimage.measure (from skimage.measure import ransac) started working less reliably, and frequently converges to incorrect solution with very small muber of inliers.
+I hhave not yest found the cause, but I have found that the problem does not exist with anaconda distribution as of 2022.10.
+So to be safe, download it form here:
+https://repo.anaconda.com/archive/
+For example, Anaconda3-2022.10-Windows-x86_64.exe distribution.
+
 This notebook uses OpenCV implementation of SIFT. SIFT is part of standard OpenCV releases for version 3.4.1 or earlier. If you have newer version of OpenCV-python installed, SIFT will most likely be not part of it (because of patent issues), and the Python command sift = cv2.xfeatures2d.SIFT_create() will generate error. In this case replace it with a version supporting SIFT using these commands (in anaconda command window):
 
 Uninstall the OpenCV:
