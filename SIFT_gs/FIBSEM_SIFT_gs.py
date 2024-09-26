@@ -2355,7 +2355,8 @@ def destreak_single_frame_kernel_shared(destreak_kernel, params):
         data_min, data_max : floats
     Returns : target_frame_ID, transformed_frame
     '''
-    mrc_filename, dt, source_frame_ID, target_frame_ID, data_min, data_max = params
+    mrc_filename, dt, source_frame_ID, target_frame_ID, data_min, data_max, partial_destreaking_params = params
+    partial_destreaking, transition_direction, xi, xa, yi, ya = partial_destreaking_params
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     read_fr = mrc_obj.data[source_frame_ID, :, :]
     mrc_obj.close()
@@ -2384,6 +2385,8 @@ def destreak_single_frame_kernel_shared(destreak_kernel, params):
         padded_fr = read_fr
     destreaked_fft = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(padded_fr))) * destreak_kernel
     transformed_frame = np.real(np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(destreaked_fft)))).astype(dt) * clip_mask
+    if partial_destreaking:
+        transformed_frame = merge_images_with_transition(padded_fr, transformed_frame, transition_direction=transition_direction, xi=xi, xa=xa, yi=yi, ya=ya)
     
     return target_frame_ID, transformed_frame
 
@@ -2420,6 +2423,20 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         start frame
     fra : int
         stop frame
+
+
+    partial_destreaking : boolean
+        Default is False. if True, only part of the image is destreaked. This is accomplished by destreaking the full image and then building a composite image with a smooth transition from non-destreaked to destreaked.
+    transition_direction : str
+        'Y' (default), or 'X'.
+    xi : int
+        Start index of transion if transition_direction is 'X'. Default is 1/2 of the image.
+    xa : int
+        Stop index of transion if transition_direction is 'X'. Default is 3/4 of the image.
+    yi : int
+        Start index of transion if transition_direction is 'Y'. Default is 1/2 of the image.
+    ya : int
+        Stop index of transion if transition_direction is 'Y'. Default is 3/4 of the image.
     save_filename : str
         Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used
     
@@ -2464,6 +2481,14 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
 
+    partial_destreaking = kwargs.get('partial_destreaking', False)
+    transition_direction = kwargs.get('transition_direction', 'Y')
+    xi = kwargs.get('xi', nx//2)
+    xa = kwargs.get('xa', nx//4*3)
+    yi = kwargs.get('yi', ny//2)
+    ya = kwargs.get('ya', ny//4*3)
+    partial_destreaking_params = [partial_destreaking, transition_direction, xi, xa, yi, ya]
+
     dt = type(mrc_obj.data[0,0,0])
     mrc_obj.close()
     
@@ -2485,7 +2510,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     # mrc_source_obj, mrc_target_obj, dt, source_frame, target_frame, destreak_kernel, data_min, data_max = params
     params_mult = []
     for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
-        params = [mrc_filename, dt, st_frame, j, data_min, data_max]
+        params = [mrc_filename, dt, st_frame, j, data_min, data_max, partial_destreaking_params]
         params_mult.append(params)
     
     if use_DASK:

@@ -162,8 +162,8 @@ def get_min_max_thresholds(image, **kwargs):
         hist, bins = np.histogram(image.ravel(), bins=nbins)
     pdf = hist / np.prod(image.shape)
     cdf = np.cumsum(pdf)
-    data_max = bins[np.argmin(abs(cdf-(1.0-thr_max)))]
-    data_min = bins[np.argmin(abs(cdf-thr_min))]
+    data_max = bins[np.argmin(np.abs(cdf-(1.0-thr_max)))]
+    data_min = bins[np.argmin(np.abs(cdf-thr_min))]
     
     if disp_res:
         xCDF = bins[0:-1]+(bins[1]-bins[0])/2.0
@@ -393,7 +393,7 @@ def radial_profile_select_angles(data, center, **kwargs):
         for i in np.arange(symm*2):
             ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
             aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
-            if abs(ai-aa)>1e-10:
+            if np.abs(ai-aa)>1e-10:
                 #print(ai, aa)
                 cond = (r_ang > ai)*(r_ang < aa)
                 cond_tot[cond] = 1.0
@@ -453,7 +453,7 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
         for i in np.arange(symm*2):
             ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
             aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
-            if abs(ai-aa)>1e-10:
+            if np.abs(ai-aa)>1e-10:
                 #print(ai, aa)
                 cond = (r_ang > ai)*(r_ang < aa)*(r >= rmin)*(r <= rmax)
                 rescaler[cond] = 0.0
@@ -507,7 +507,7 @@ def rescale_FFT_select_radii_angles(data, scale, center, **kwargs):
         for i in np.arange(symm*2):
             ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
             aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
-            if abs(ai-aa)>1e-10:
+            if np.abs(ai-aa)>1e-10:
                 #print(ai, aa)
                 cond = (r_ang > ai)*(r_ang < aa)*(r >= rmin)*(r <= rmax)
                 newdata[cond] = data[cond] * scale[cond]
@@ -583,6 +583,46 @@ def add_scale_bar(ax, **kwargs):
     ax.text(xi_text, yi_text, bar_label, color = label_color, fontsize = label_font_size)
 
 
+def merge_images_with_transition(img1, img2, **kwargs):
+    '''
+    Merges two images with smooth transition.
+    ©G.Shtengel 09/2024 gleb.shtengel@gmail.com
+
+    Parameters:
+    img1 : 2D array
+    img2 : 2D array
+
+    kwargs
+    transition_direction : str
+        'Y' (default), or 'X'.
+    xi : int
+        Start index of transion if transition_direction is 'X'. Default is 1/2 of the image.
+    xa : int
+        Stop index of transion if transition_direction is 'X'. Default is 3/4 of the image.
+    yi : int
+        Start index of transion if transition_direction is 'Y'. Default is 1/2 of the image.
+    ya : int
+        Stop index of transion if transition_direction is 'Y'. Default is 3/4 of the image.
+
+    Returns
+        composite image : 2D array
+    '''
+    transition_direction = kwargs.get('transition_direction', 'Y')
+    
+    ds = img1.shape
+    y, x = np.indices(ds)
+    
+    if transition_direction == 'Y':
+        yi = kwargs.get('yi', ds[0]//2)
+        ya = kwargs.get('ya', ds[0]//4*3)
+        r = (1.0 + np.tanh((y - (ya+yi)/2)/(ya-yi)*2.0))/2.0
+    else:
+        xi = kwargs.get('xi', ds[1]//2)
+        xa = kwargs.get('xa', ds[1]//4*3)
+        r = (1.0 + np.tanh((x - (xa+xi)/2)/(xa-xi)*2.0))/2.0
+    return img1 * r  + (img2 + np.mean(img1-img2))*(1.0-r)
+
+
 def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
     '''
     Builds a de-streaking kernel to zero FFT data within a select range of angles.
@@ -626,7 +666,7 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
         for i in np.arange(symm*2):
             ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
             aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
-            if abs(ai-aa)>1e-10:
+            if np.abs(ai-aa)>1e-10:
                 #print(ai, aa)
                 cond = (r_ang > ai)*(r_ang < aa)*(r >= rmin)*(r <= rmax)
                 rescaler_kernel[cond] = 0.0
@@ -676,6 +716,88 @@ def build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
     cond = (xa > xstart)*(xa < xstop)*(ya<=dy/2.0)
     rescaler_kernel[cond] = 0.0
     
+    return rescaler_kernel
+
+
+def build_kernel_FFT_destreaker_autodetect(data, **kwargs):
+    '''
+    Builds a de-streaking kernel to zero FFT data within a select range of angles.
+    ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
+
+    Parameters:
+    data : 2D array
+
+    kwargs
+    astart_reference : float
+        Start angle for radial segment for analysis. Default is 2.0.
+    astop_reference : float
+        Stop angle for radial segment for analysis. Default is 88.0.
+    thr_reference: float
+        Threshold for referencing. Default is 1.1
+    symm_reference : int
+        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 4.
+    astart_limit : float
+        Start angle for radial segment for analysis. Default is -5.0. Only perfrom autodetection in this range
+    astop_limit : float
+        Stop angle for radial segment for analysis. Default is 5.0. Only perfrom autodetection in this range
+    rstart_limit : float
+        Low bound for spatial frequencies in FFT space. Default is 0.01. Only perfrom autodetection in this range.
+    rstop_limit : float
+        High bound for spatial frequencies in FFT space. Default is 0.50. Only perfrom autodetection in this range.
+    symm_limit : int
+         Symmetry factor for autodetection limit. Default is 2.
+    rescale : boolean
+        If False, rescaler is 0 in the "suspect areas". If True, they are scaeled down according to the FFT mag.
+
+    Returns
+        rescaler_kernel : float array
+    '''
+    astart_reference = kwargs.get('astart_reference', 2.0)
+    astop_reference = kwargs.get('astop_reference', 88.0)
+    astart_limit = kwargs.get('astart_limit', -5.0)
+    astop_limit = kwargs.get('astop_limit', 5.0)
+    rstart_limit = kwargs.get('rstart_limit', 0.01)
+    rstop_limit = kwargs.get('rstop_limit', 0.50)
+    symm_reference = kwargs.get('symm_reference', 4)
+    thr_reference = kwargs.get('thr_reference', 2.0)
+    smooth_sigma = kwargs.get('smooth_sigma', 2.0)
+    symm_limit = kwargs.get('symm_limit', 2)
+    rescale = kwargs.get('rescale', False)
+    
+    abs_data = np.abs(data)
+    ds = abs_data.shape
+    y, x = np.indices(ds)
+    yc, xc = ds[0]//2, ds[1]//2
+
+    ref = radial_profile_select_angles(abs_data, [xc, yc], astart=astart_reference, astop = astop_reference, symm=symm_reference)
+    r = np.sqrt((x - xc)**2 + (y - yc)**2)
+    ref_array = np.interp(r, np.arange(len(ref)), ref, left=ref[0], right=ref[-1])
+
+    cr = np.nan_to_num(abs_data/ref_array, nan=1.0)
+    cr_smoothed = gaussian_filter(cr, smooth_sigma)
+    rescaler_kernel = np.ones(ds, dtype=float)
+    rescaler_kernel[cr_smoothed>thr_reference] = 0.0
+        
+    rmin = np.max(r) * rstart_limit
+    rmax = np.max(r) * rstop_limit
+    r_ang = (np.angle(x - xc+1j*(y - yc), deg=True))
+    
+    limit_kernel = np.ones(ds, dtype=float)
+    if symm_limit>0:
+        for i in np.arange(symm_limit*2):
+            ai = max((min(((astart_limit + 360.0/symm_limit*i-360), 180.000001)), - 180.000001))
+            aa = max((min(((astop_limit  + 360.0/symm_limit*i-360), 180.000001)), - 180.000001))
+            if np.abs(ai-aa)>1e-10:
+                #print(ai, aa)
+                cond = (r_ang > ai)*(r_ang < aa)*(r >= rmin)*(r <= rmax)
+                limit_kernel[cond] = 0.0
+    else:
+        cond = (r_ang > astart_limit)*(r_ang < astop_limit)*(r >= rmin)*(r <= rmax)
+        limit_kernel[cond] = 0.0
+    rescaler_kernel = np.clip((rescaler_kernel + limit_kernel), 0.0, 1.0)
+    if rescale:
+        rescaler_kernel = np.clip((rescaler_kernel +  (1.0-rescaler_kernel)/cr_smoothed), 0.0, 1.0)
+
     return rescaler_kernel
 
 
@@ -915,11 +1037,11 @@ def get_process_memory():
 
 
 def format_bytes(bytes):
-    if abs(bytes) < 1000:
+    if np.abs(bytes) < 1000:
         return str(bytes)+"B"
-    elif abs(bytes) < 1e6:
+    elif np.abs(bytes) < 1e6:
         return str(round(bytes/1e3,2)) + "kB"
-    elif abs(bytes) < 1e9:
+    elif np.abs(bytes) < 1e9:
         return str(round(bytes / 1e6, 2)) + "MB"
     else:
         return str(round(bytes / 1e9, 2)) + "GB"
