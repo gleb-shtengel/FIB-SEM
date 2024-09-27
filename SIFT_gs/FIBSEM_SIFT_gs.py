@@ -2592,9 +2592,12 @@ def smooth_single_frame_kernel_shared(smooth_kernel, params):
         xa = nx-np.max(np.where(clip_mask[ny//2, :]))
     except:
         xa = 0
-    pad_width = np.max((xi, xa, yi, ya))
+    
+    clip_mask[yi:-ya, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
+    #pad_width = np.max((xi, xa, yi, ya))
     if pad_width > 0:
-        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+        #padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[yi:-ya, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
     else:
         padded_fr = read_fr
     transformed_frame = convolve2d(padded_fr, smooth_kernel, mode='same').astype(dt) * clip_mask
