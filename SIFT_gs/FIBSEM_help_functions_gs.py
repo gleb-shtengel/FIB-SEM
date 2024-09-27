@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.signal import savgol_filter
+from scipy.ndimage import gaussian_filter
 
 import pandas as pd
 import os
