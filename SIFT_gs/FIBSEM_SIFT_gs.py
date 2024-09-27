@@ -2380,7 +2380,7 @@ def destreak_single_frame_kernel_shared(destreak_kernel, params):
         xa = 0
 
     clip_mask[yi:-ya, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
-    #pad_width = np.max((xi, xa, yi, ya))
+    pad_width = np.max((xi, xa, yi, ya))
     if pad_width > 0:
         #padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
         padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[yi:-ya, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
@@ -2597,7 +2597,7 @@ def smooth_single_frame_kernel_shared(smooth_kernel, params):
         xa = 0
     
     clip_mask[yi:-ya, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
-    #pad_width = np.max((xi, xa, yi, ya))
+    pad_width = np.max((xi, xa, yi, ya))
     if pad_width > 0:
         #padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
         padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[yi:-ya, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
@@ -2826,8 +2826,13 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
         xi = np.min(np.where(clip_mask[ny//2, :]))
         xa = nx-np.max(np.where(clip_mask[nx//2, :]))
         #print(xi, xa, yi, ya)
+        clip_mask[yi:-ya, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
         pad_width = np.max((xi, xa, yi, ya))
-        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+        if pad_width > 0:
+            #padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+            padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[yi:-ya, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
+        else:
+            padded_fr = read_fr
         destreaked_fft = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(padded_fr))) * destreak_kernel
         destreaked_data = np.real(np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(destreaked_fft)))).astype(dt)
         mrc_new_destreaked.data[j,:,:] = destreaked_data * clip_mask       
