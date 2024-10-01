@@ -596,6 +596,10 @@ def merge_images_with_transition(img1, img2, **kwargs):
     kwargs
     transition_direction : str
         'Y' (default), or 'X'.
+    flip_transitionY : boolean
+        Default is False. flip transition in Y direction.
+    flip_transitionX : boolean
+        Default is False. flip transition in X direction
     xi : int
         Start index of transion if transition_direction is 'X'. Default is 1/2 of the image.
     xa : int
@@ -609,6 +613,8 @@ def merge_images_with_transition(img1, img2, **kwargs):
         composite image : 2D array
     '''
     transition_direction = kwargs.get('transition_direction', 'Y')
+    flip_transitionY = kwargs.get('flip_transitionY', False)
+    flip_transitionX = kwargs.get('flip_transitionX', False)
     
     ds = img1.shape
     y, x = np.indices(ds)
@@ -621,6 +627,10 @@ def merge_images_with_transition(img1, img2, **kwargs):
         xi = kwargs.get('xi', ds[1]//2)
         xa = kwargs.get('xa', ds[1]//4*3)
         r = (1.0 + np.tanh((x - (xa+xi)/2)/(xa-xi)*2.0))/2.0
+    if flip_transitionY:
+        r = np.flip(r, axis=0)
+    if flip_transitionX:
+        r = np.flip(r, axis=1)
     return img1 * r  + (img2 + np.mean(img1-img2))*(1.0-r)
 
 
