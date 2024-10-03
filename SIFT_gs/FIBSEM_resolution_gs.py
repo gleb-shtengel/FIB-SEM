@@ -1006,7 +1006,7 @@ def analyze_edge_transitions_image(image, **kwargs):
             image0 = convolve2d(image, kernel, mode='same')
         else:
             image0 = image
-        if type(image[0,0]) == uint8:
+        if type(image[0,0]) == np.uint8:
             #print('8-bit image already - no need to convert')
             image_I8 = image0
         else:
