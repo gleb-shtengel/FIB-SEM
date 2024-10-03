@@ -740,7 +740,7 @@ def estimate_edge_transition(image, center, gradient, **kwargs):
     min_criterion, max_criterion = get_min_max_thresholds(image_subset, thr_min=thr_min_criterion, thr_max=thr_max_criterion, disp_res=False )
 
     GrY, GrX = gradient
-    cosY, cosX = gradient/sqrt(GrX*GrX+GrY*GrY)
+    cosY, cosX = gradient/np.sqrt(GrX*GrX+GrY*GrY)
     dist_pix = np.arange(-section_length//2+1,section_length//2+1)
     # center point is (section_length-1)//2
     x_positions = X + cosX*dist_pix
@@ -1099,8 +1099,8 @@ def analyze_edge_transitions_image(image, **kwargs):
     Y_grads_selected = Y_grads[error_flags==0]
     centers_selected = centers[error_flags==0]
     center_grads_selected = center_grads[error_flags==0]
-    cosXs = X_grads/sqrt(X_grads*X_grads+Y_grads*Y_grads)
-    cosYs = Y_grads/sqrt(X_grads*X_grads+Y_grads*Y_grads)
+    cosXs = X_grads/np.sqrt(X_grads*X_grads+Y_grads*Y_grads)
+    cosYs = Y_grads/np.sqrt(X_grads*X_grads+Y_grads*Y_grads)
     cosXs_selected = cosXs[error_flags==0]
     cosYs_selected = cosYs[error_flags==0]
     tr_mean = np.mean(transition_distances_selected)
@@ -1411,8 +1411,8 @@ def plot_edge_transition_analysis_details(image, results_xlsx, **kwargs):
     Y_selected = Y[error_flags==0]
     X_grads_selected = X_grads[error_flags==0]
     Y_grads_selected = Y_grads[error_flags==0]
-    cosXs_selected = X_grads_selected/sqrt(X_grads_selected*X_grads_selected+Y_grads_selected*Y_grads_selected)
-    cosYs_selected = Y_grads_selected/sqrt(X_grads_selected*X_grads_selected+Y_grads_selected*Y_grads_selected)
+    cosXs_selected = X_grads_selected/np.sqrt(X_grads_selected*X_grads_selected+Y_grads_selected*Y_grads_selected)
+    cosYs_selected = Y_grads_selected/np.sqrt(X_grads_selected*X_grads_selected+Y_grads_selected*Y_grads_selected)
     
     trans_str = '{:.2f} to {:.2f} trasntition (pix)'.format(bounds[0], bounds[1])
     transition_distances = int_results[trans_str] 
@@ -1545,8 +1545,8 @@ def plot_edge_transition_points_map(image, results_xlsx, **kwargs):
     ax.imshow(image, cmap='Greys_r')
     dist_pix = np.arange(-section_length//2+1,section_length//2+1)
     for X, Y, GrX, GrY in zip(X_selected, Y_selected, X_grads_selected, Y_grads_selected):
-        cosX = GrX/sqrt(GrX*GrX+GrY*GrY)
-        cosY = GrY/sqrt(GrX*GrX+GrY*GrY)
+        cosX = GrX/np.sqrt(GrX*GrX+GrY*GrY)
+        cosY = GrY/np.sqrt(GrX*GrX+GrY*GrY)
         # center point is (section_length-1)//2
         x_positions = X + cosX*dist_pix
         y_positions = Y + cosY*dist_pix
