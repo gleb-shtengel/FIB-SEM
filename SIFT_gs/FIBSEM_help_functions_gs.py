@@ -586,7 +586,7 @@ def add_scale_bar(ax, **kwargs):
 
 def clip_pad_image(orig_img, data_min, data_max):
     '''
-    Clips the frame and adds pads for the clipped margins. ©G.Shtengel 10/2024 gleb.shtengel@gmail.com
+    Clips the image and adds pads for the clipped margins. ©G.Shtengel 10/2024 gleb.shtengel@gmail.com
     
     Parameters:
     orig_img : 2D image
