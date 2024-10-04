@@ -2363,9 +2363,11 @@ def destreak_single_frame_kernel_shared(destreak_kernel, params):
 
     padded_fr, clip_mask = clip_pad_image(read_fr, data_min, data_max)
     destreaked_fft = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(padded_fr))) * destreak_kernel
-    transformed_frame = np.real(np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(destreaked_fft)))).astype(float) * clip_mask
+    transformed_frame = np.real(np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(destreaked_fft)))).astype(float)
     if partial_destreaking:
-        transformed_frame = merge_images_with_transition(padded_fr, transformed_frame, transition_direction=transition_direction, flip_transitionX=flip_transitionX, flip_transitionY=flip_transitionY, xi=xi, xa=xa, yi=yi, ya=ya)
+        transformed_frame = merge_images_with_transition(padded_fr, transformed_frame, transition_direction=transition_direction, flip_transitionX=flip_transitionX, flip_transitionY=flip_transitionY, xi=xi, xa=xa, yi=yi, ya=ya) * clip_mask
+    else:
+        transformed_frame = transformed_frame * clip_mask
     
     return target_frame_ID, transformed_frame
 
