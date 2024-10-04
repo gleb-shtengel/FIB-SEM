@@ -2360,32 +2360,8 @@ def destreak_single_frame_kernel_shared(destreak_kernel, params):
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     read_fr = mrc_obj.data[source_frame_ID, :, :]
     mrc_obj.close()
-    clip_mask = (read_fr>data_min)*(read_fr<data_max)
-    ny, nx = np.shape(clip_mask)
-    try:
-        yi = np.min(np.where(clip_mask[:, nx//2]))
-    except:
-        yi = 0
-    try:
-        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
-    except:
-        ya = 0
-    try:
-        xi = np.min(np.where(clip_mask[ny//2, :]))
-    except:
-        xi = 0
-    try:
-        xa = nx-np.max(np.where(clip_mask[ny//2, :]))
-    except:
-        xa = 0
-    clip_mask[yi:-ya, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
 
-    pad_width = np.max((xi, xa, yi, ya))
-    if pad_width > 0:
-        #padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
-        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[yi:-ya, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
-    else:
-        padded_fr = read_fr
+    padded_fr, clip_mask = clip_pad_image(read_fr, data_min, data_max)
     destreaked_fft = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(padded_fr))) * destreak_kernel
     transformed_frame = np.real(np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(destreaked_fft)))).astype(float) * clip_mask
     if partial_destreaking:
@@ -2583,32 +2559,7 @@ def smooth_single_frame_kernel_shared(smooth_kernel, params):
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     read_fr = mrc_obj.data[source_frame_ID, :, :]
     mrc_obj.close()
-    clip_mask = (read_fr>data_min)*(read_fr<data_max)
-    ny, nx = np.shape(clip_mask)
-    try:
-        yi = np.min(np.where(clip_mask[:, nx//2]))
-    except:
-        yi = 0
-    try:
-        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
-    except:
-        ya = 0
-    try:
-        xi = np.min(np.where(clip_mask[ny//2, :]))
-    except:
-        xi = 0
-    try:
-        xa = nx-np.max(np.where(clip_mask[ny//2, :]))
-    except:
-        xa = 0
-    
-    clip_mask[yi:-ya, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
-    pad_width = np.max((xi, xa, yi, ya))
-    if pad_width > 0:
-        #padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
-        padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[yi:-ya, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
-    else:
-        padded_fr = read_fr
+    padded_fr, clip_mask = clip_pad_image(read_fr, data_min, data_max)
     transformed_frame = convolve2d(padded_fr, smooth_kernel, mode='same').astype(float) * clip_mask
     
     return target_frame_ID, transformed_frame
@@ -2825,32 +2776,7 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
 
     for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
         read_fr = mrc_obj.data[st_frame, :, :]
-        clip_mask = (read_fr>data_min)*(read_fr<data_max)
-        ny, nx = np.shape(clip_mask)
-        try:
-            yi = np.min(np.where(clip_mask[:, nx//2]))
-        except:
-            yi = 0
-        try:
-            ya = ny-np.max(np.where(clip_mask[:, nx//2]))
-        except:
-            ya = 0
-        try:
-            xi = np.min(np.where(clip_mask[ny//2, :]))
-        except:
-            xi = 0
-        try:
-            xa = nx-np.max(np.where(clip_mask[ny//2, :]))
-        except:
-            xa = 0
-        clip_mask[yi:-ya, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
-
-        pad_width = np.max((xi, xa, yi, ya))
-        if pad_width > 0:
-            #padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
-            padded_fr = clip_mask*read_fr + (1-clip_mask)*np.pad(read_fr[yi:-ya, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
-        else:
-            padded_fr = read_fr
+        padded_fr, clip_mask = clip_pad_image(read_fr, data_min, data_max)
         destreaked_fft = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(padded_fr))) * destreak_kernel
         destreaked_data = np.real(np.fft.fftshift(np.fft.ifftn(np.fft.ifftshift(destreaked_fft)))).astype(float)
         mrc_new_destreaked.data[j,:,:] = destreaked_data * clip_mask       

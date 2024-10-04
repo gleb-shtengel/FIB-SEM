@@ -584,6 +584,61 @@ def add_scale_bar(ax, **kwargs):
     ax.text(xi_text, yi_text, bar_label, color = label_color, fontsize = label_font_size)
 
 
+def clip_pad_image(orig_img, data_min, data_max):
+    '''
+    Clips the frame and adds pads for the clipped margins. ©G.Shtengel 10/2024 gleb.shtengel@gmail.com
+    
+    Parameters:
+    orig_img : 2D image
+        original image
+    data_min : float
+        Low bound for determinung the real data edges
+    data_max : float
+        High bound for determinung the real data edges
+
+    Returns: padded_img, clip_mask
+    '''
+    clip_mask = (orig_img>data_min)*(orig_img<data_max)
+    ny, nx = np.shape(clip_mask)
+
+    try:
+        yi = np.min(np.where(clip_mask[:, nx//2]))
+    except:
+        yi = 0
+    try:
+        ya = ny-np.max(np.where(clip_mask[:, nx//2]))
+    except:
+        ya = 0
+    try:
+        xi = np.min(np.where(clip_mask[ny//2, :]))
+    except:
+        xi = 0
+    try:
+        xa = nx-np.max(np.where(clip_mask[ny//2, :]))
+    except:
+        xa = 0
+
+    pad_width = np.max((xi, xa, yi, ya))
+    if pad_width > 0:
+        #padded_img = clip_mask*orig_img + (1-clip_mask)*np.pad(orig_img[pad_width:-pad_width, pad_width:-pad_width], pad_width = pad_width, mode='symmetric')
+        if xa>0 and ya>0:
+            clip_mask[yi:-ya, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
+            padded_img = clip_mask*orig_img + (1-clip_mask)*np.pad(orig_img[yi:-ya, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
+        if xa>0 and ya==0:
+            clip_mask[yi:, xi:-xa] = True  # make sure clip_mask is filled with ones (True)
+            padded_img = clip_mask*orig_img + (1-clip_mask)*np.pad(orig_img[yi:, xi:-xa], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
+        if ya>0 and xa==0:
+            clip_mask[yi:-ya, xi:] = True  # make sure clip_mask is filled with ones (True)
+            padded_img = clip_mask*orig_img + (1-clip_mask)*np.pad(orig_img[yi:-ya, xi:], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
+        if ya==0 and xa==0:
+            clip_mask[yi:, xi:] = True  # make sure clip_mask is filled with ones (True)
+            padded_img = clip_mask*orig_img + (1-clip_mask)*np.pad(orig_img[yi:, xi:], pad_width = np.array([[yi, ya], [xi, xa]]), mode='symmetric')
+    else:
+        padded_img = orig_img
+
+    return padded_img, clip_mask
+
+
 def merge_images_with_transition(img1, img2, **kwargs):
     '''
     Merges two images with smooth transition.
