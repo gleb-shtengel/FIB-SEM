@@ -584,21 +584,24 @@ def add_scale_bar(ax, **kwargs):
     ax.text(xi_text, yi_text, bar_label, color = label_color, fontsize = label_font_size)
 
 
-def clip_pad_image(orig_img, data_min, data_max):
+def clip_pad_image(orig_img, data_min, data_max, **kwargs):
     '''
     Clips the image and adds pads for the clipped margins. ©G.Shtengel 10/2024 gleb.shtengel@gmail.com
     
     Parameters:
-    orig_img : 2D image
+    orig_img : 2D array
         original image
     data_min : float
         Low bound for determinung the real data edges
     data_max : float
         High bound for determinung the real data edges
-
+    
+    kwargs:
+        clip_mask : 2D array
+        if supplied, it will be used instead of data_min and data max criteria
     Returns: padded_img, clip_mask
     '''
-    clip_mask = (orig_img>data_min)*(orig_img<data_max)
+    clip_mask = kwargs.get('clip_mask', (orig_img>data_min)*(orig_img<data_max))
     ny, nx = np.shape(clip_mask)
 
     try:
