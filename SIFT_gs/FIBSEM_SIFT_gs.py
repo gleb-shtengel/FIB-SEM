@@ -2374,7 +2374,7 @@ def destreak_single_frame_kernel_shared(destreak_kernel, params):
 
 def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data_max, **kwargs):
     '''
-    Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it.
+    Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it into MRC or HS stack.
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
 
     Parameters
@@ -2404,6 +2404,11 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         start frame
     fra : int
         stop frame
+    disp_res : bolean
+        Display messages and intermediate results
+    fnm_types : list of strings
+        File type(s) for output data. Options are: ['h5', 'mrc'].
+        Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
 
 
     partial_destreaking : boolean
@@ -2425,11 +2430,13 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     save_filename : str
         Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used
     
-    Returns the name of the destreaked MRC stack
+    Returns the names of the destreaked stacks
     '''
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
     max_futures = kwargs.get('max_futures', 5000)
+    disp_res  = kwargs.get("disp_res", False )
+    fnm_types = kwargs.get("fnm_types", ['mrc'])
     try:
         client_services = DASK_client.scheduler_info()['services']
         if client_services:
@@ -2465,6 +2472,8 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
+    st_frames = np.arange(fri, fra)
+
 
     partial_destreaking = kwargs.get('partial_destreaking', False)
     transition_direction = kwargs.get('transition_direction', 'Y')
@@ -2479,22 +2488,34 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     dt = type(mrc_obj.data[0,0,0])
     mrc_obj.close()
     
-    print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    print('Source Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, nz))
-    print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    if disp_res:
+        print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+        print('Source Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, nz))
+        print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     mrc_mode = 1
     dt = np.int16
-    print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-    st_frames = np.arange(fri, fra)
-    print('New Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
+    if disp_res:
+        print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+        print('Result Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
+        print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     
-    mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
-    mrc_new.voxel_size = voxel_size_angstr
-    #mrc_new.header.cella = voxel_size_angstr
-    print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+    if 'mrc' in fnm_types:
+        mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
+        mrc_new.voxel_size = voxel_size_angstr
+
+    if 'h5' in fnm_types:
+        save_filename_h5 = save_filename.replace('.mrc', '.h5')
+        try:
+            os.remove(save_filename_h5)
+        except:
+            pass
+        fnms_saved.append(save_filename_h5)
+        if disp_res:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving dataset into Big Data Viewer HDF5 file: ', save_filename_h5)
+        bdv_writer = npy2bdv.BdvWriter(save_filename_h5, nchannels=1, blockdim=((1, 256, 256),))
+        bdv_writer.append_view(stack=None, virtual_stack_dim=(nz,ny,nx), time=0, channel=0)
     
     desc = 'Creating params list'
-    # mrc_source_obj, mrc_target_obj, dt, source_frame, target_frame, destreak_kernel, data_min, data_max = params
     params_mult = []
     for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
         params = [mrc_filename, dt, st_frame, j, data_min, data_max, partial_destreaking_params]
@@ -2513,14 +2534,20 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
             params_mult = params_mult[max_futures:]
             for future in as_completed(futures):
                 target_frame_ID, transformed_frame = future.result()
-                mrc_new.data[target_frame_ID,:,:] = transformed_frame
+                if 'mrc' in fnm_types:
+                    mrc_new.data[target_frame_ID,:,:] = transformed_frame
+                if 'h5' in fnm_types:
+                    bdv_writer.append_plane(plane=transformed_frame, z=target_frame_ID, time=0, channel=0)
                 future.cancel()
         if len(params_mult) > 0:
             print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting DASK batch {:d} with {:d} jobs'.format(DASK_batch, len(params_mult)))
             futures = [DASK_client.submit(destreak_single_frame_kernel_shared, destreak_kernel_future, params) for params in params_mult]
             for future in as_completed(futures):
                 target_frame_ID, transformed_frame = future.result()
-                mrc_new.data[target_frame_ID,:,:] = transformed_frame
+                if 'mrc' in fnm_types:
+                    mrc_new.data[target_frame_ID,:,:] = transformed_frame
+                if 'h5' in fnm_types:
+                    bdv_writer.append_plane(plane=transformed_frame, z=target_frame_ID, time=0, channel=0)
                 future.cancel()
         '''   this is what processing used to be before I added staging in case of a very large data set
         [future] = DASK_client.scatter([destreak_kernel], broadcast=True)
@@ -2535,10 +2562,21 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         desc = 'Saving the destreaked data stack into MRC file'    
         for params in tqdm(params_mult, desc=desc):
             target_frame_ID, transformed_frame = destreak_single_frame_kernel_shared(destreak_kernel, params)
-            mrc_new.data[target_frame_ID,:,:] = transformed_frame
-    mrc_new.close()
-    
-    return save_filename
+            if 'mrc' in fnm_types:
+                mrc_new.data[target_frame_ID,:,:] = transformed_frame
+            if 'h5' in fnm_types:
+                bdv_writer.append_plane(plane=transformed_frame, z=target_frame_ID, time=0, channel=0)
+
+    save_filenames = []
+    if 'mrc' in fnm_types:
+        mrc_new.close()
+        save_filenames.append(save_filename)
+    if 'h5' in fnm_types:
+        bdv_writer.write_xml()
+        bdv_writer.close()
+        save_filenames.append(save_filename_h5)
+
+    return save_filenames
 
 
 def smooth_single_frame_kernel_shared(smooth_kernel, params):
@@ -9248,7 +9286,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
     nz, ny, nx = FIBSEMstack.shape
     if disp_res:
         print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d},  data type:'.format(nx, ny, nz), dtp)
-        print('Voxel Size (nm): {:2f} x {:2f} x {:2f}'.format(voxel_size.x, voxel_size.y, voxel_size.z))
+        print('Voxel destreak_mrc_stackSize (nm): {:2f} x {:2f} x {:2f}'.format(voxel_size.x, voxel_size.y, voxel_size.z))
 
     fnms_saved = []
     if len(fnm_types)>0:
