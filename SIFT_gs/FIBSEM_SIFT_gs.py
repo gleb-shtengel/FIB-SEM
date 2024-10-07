@@ -2499,6 +2499,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         print('Result Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
         print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     
+    fnms_saved = []
     if 'mrc' in fnm_types:
         mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
         mrc_new.voxel_size = voxel_size_angstr
@@ -2509,7 +2510,6 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
             os.remove(save_filename_h5)
         except:
             pass
-        fnms_saved.append(save_filename_h5)
         if disp_res:
             print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving dataset into Big Data Viewer HDF5 file: ', save_filename_h5)
         bdv_writer = npy2bdv.BdvWriter(save_filename_h5, nchannels=1, blockdim=((1, 256, 256),))
@@ -2567,16 +2567,15 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
             if 'h5' in fnm_types:
                 bdv_writer.append_plane(plane=transformed_frame, z=target_frame_ID, time=0, channel=0)
 
-    save_filenames = []
     if 'mrc' in fnm_types:
         mrc_new.close()
-        save_filenames.append(save_filename)
+        fnms_saved.append(save_filename)
     if 'h5' in fnm_types:
         bdv_writer.write_xml()
         bdv_writer.close()
-        save_filenames.append(save_filename_h5)
+        fnms_saved.append(save_filename_h5)
 
-    return save_filenames
+    return fnms_saved
 
 
 def smooth_single_frame_kernel_shared(smooth_kernel, params):
