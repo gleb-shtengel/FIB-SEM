@@ -2374,7 +2374,7 @@ def destreak_single_frame_kernel_shared(destreak_kernel, params):
 
 def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data_max, **kwargs):
     '''
-    Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it into MRC or HS stack.
+    Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it into MRC or H5 stack.
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
 
     Parameters
@@ -2404,6 +2404,8 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         start frame
     fra : int
         stop frame
+    voxel_size : rec array of 3 elemets
+        voxel size in nm. Default is the data that was stored in the initial file.
     disp_res : bolean
         Display messages and intermediate results
     fnm_types : list of strings
@@ -2468,7 +2470,15 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         mode 6 -> uint16
     '''
     mrc_mode = mrc_obj.header.mode
-    voxel_size_angstr = mrc_obj.voxel_size
+    voxel_size_from_mrc = voxel_size_angstr.copy()
+    voxel_size_from_mrc.x = voxel_size_angstr.x/1000.0
+    voxel_size_from_mrc.y = voxel_size_angstr.y/1000.0
+    voxel_size_from_mrc.z = voxel_size_angstr.z/1000.0
+    voxel_size = kwargs.get("voxel_size", voxel_size_from_mrc)
+    voxel_size_angstr = voxel_size.copy()
+    voxel_size_angstr.x = voxel_size.x*1000.0
+    voxel_size_angstr.y = voxel_size.y*1000.0
+    voxel_size_angstr.z = voxel_size.z*1000.0
     nx, ny, nz = np.int32(header['nx']), np.int32(header['ny']), np.int32(header['nz'])
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
@@ -2513,7 +2523,12 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         if disp_res:
             print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving dataset into Big Data Viewer HDF5 file: ', save_filename_h5)
         bdv_writer = npy2bdv.BdvWriter(save_filename_h5, nchannels=1, blockdim=((1, 256, 256),))
-        bdv_writer.append_view(stack=None, virtual_stack_dim=(nz,ny,nx), time=0, channel=0)
+        bdv_writer.append_view(stack=None,
+            virtual_stack_dim=(nz,ny,nx),
+            time=0,
+            channel=0,
+            voxel_size_xyz=(voxel_size.x, voxel_size.y, voxel_size.z),
+            voxel_units='nm')                   
     
     desc = 'Creating params list'
     params_mult = []
