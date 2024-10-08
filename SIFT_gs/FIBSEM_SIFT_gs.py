@@ -2484,6 +2484,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
     st_frames = np.arange(fri, fra)
+    nz_new = len(st_frames)
 
     partial_destreaking = kwargs.get('partial_destreaking', False)
     transition_direction = kwargs.get('transition_direction', 'Y')
@@ -2506,12 +2507,12 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     dt = np.int16
     if disp_res:
         print('Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
-        print('Result Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, len(st_frames)))
+        print('Result Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, nz_new))
         print('Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     
     fnms_saved = []
     if 'mrc' in fnm_types:
-        mrc_new = mrcfile.new_mmap(save_filename, shape=(len(st_frames), ny, nx), mrc_mode=mrc_mode, overwrite=True)
+        mrc_new = mrcfile.new_mmap(save_filename, shape=(nz_new, ny, nx), mrc_mode=mrc_mode, overwrite=True)
         mrc_new.voxel_size = voxel_size_angstr
 
     if 'h5' in fnm_types:
@@ -2524,7 +2525,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
             print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving dataset into Big Data Viewer HDF5 file: ', save_filename_h5)
         bdv_writer = npy2bdv.BdvWriter(save_filename_h5, nchannels=1, blockdim=((1, 256, 256),))
         bdv_writer.append_view(stack=None,
-            virtual_stack_dim=(nz,ny,nx),
+            virtual_stack_dim=(nz_new, ny, nx),
             time=0,
             channel=0,
             voxel_size_xyz=(voxel_size.x, voxel_size.y, voxel_size.z),
