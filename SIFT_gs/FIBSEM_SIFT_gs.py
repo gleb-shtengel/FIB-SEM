@@ -2470,10 +2470,10 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
         mode 6 -> uint16
     '''
     mrc_mode = mrc_obj.header.mode
-    voxel_size_from_mrc = voxel_size_angstr.copy()
-    voxel_size_from_mrc.x = voxel_size_angstr.x/1000.0
-    voxel_size_from_mrc.y = voxel_size_angstr.y/1000.0
-    voxel_size_from_mrc.z = voxel_size_angstr.z/1000.0
+    voxel_size_angstr_from_mrc = mrc_obj.voxel_size
+    voxel_size_from_mrc.x = voxel_size_angstr_from_mrc.x/1000.0
+    voxel_size_from_mrc.y = voxel_size_angstr_from_mrc.y/1000.0
+    voxel_size_from_mrc.z = voxel_size_angstr_from_mrc.z/1000.0
     voxel_size = kwargs.get("voxel_size", voxel_size_from_mrc)
     voxel_size_angstr = voxel_size.copy()
     voxel_size_angstr.x = voxel_size.x*1000.0
@@ -2501,7 +2501,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     if disp_res:
         print('Source mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
         print('Source Data Shape:  {:d} x {:d} x {:d}'.format(nx, ny, nz))
-        print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
+        print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_from_mrc.x, voxel_size_angstr_from_mrc.y, voxel_size_angstr_from_mrc.z))
     mrc_mode = 1
     dt = np.int16
     if disp_res:
