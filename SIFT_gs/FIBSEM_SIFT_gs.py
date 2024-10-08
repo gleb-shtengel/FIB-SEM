@@ -2471,6 +2471,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     '''
     mrc_mode = mrc_obj.header.mode
     voxel_size_angstr_from_mrc = mrc_obj.voxel_size
+    voxel_size_from_mrc = voxel_size_angstr_from_mrc.copy()
     voxel_size_from_mrc.x = voxel_size_angstr_from_mrc.x/1000.0
     voxel_size_from_mrc.y = voxel_size_angstr_from_mrc.y/1000.0
     voxel_size_from_mrc.z = voxel_size_angstr_from_mrc.z/1000.0
@@ -2483,7 +2484,6 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     fri = kwargs.get('fri', 0)
     fra = kwargs.get('fra', nz)
     st_frames = np.arange(fri, fra)
-
 
     partial_destreaking = kwargs.get('partial_destreaking', False)
     transition_direction = kwargs.get('transition_direction', 'Y')
