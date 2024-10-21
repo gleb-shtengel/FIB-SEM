@@ -5919,27 +5919,22 @@ class FIBSEM_frame:
                     self.Scaling[3,1] = self.ElectronFactor2
                     if self.AI1 == 1:
                         #self.RawImageA = Raw[:,:,0]
-                        self.ImageA = (self.RawImageA - self.Scaling[1,0]) * self.Scaling[2,0] / self.ScanRate * self.Scaling[0,0] / self.ElectronFactor1                        
+                        self.ImageA = (self.RawImageA - self.Scaling[1,0]) * self.Scaling[2,0] / self.ScanRate * self.Scaling[0,0] / self.ElectronFactor1
+                        if self.SaveOversamples:
+                            self.SamplesA = (self.RawSamplesA - self.Scaling[1,0]) * self.Scaling[2,0] / self.ScanRate * self.Scaling[0,0] / self.ElectronFactor1
                         # Converts raw I16 data to voltage based on self.Scaling factors
                         if self.AI2 == 1:
                             #self.RawImageB = Raw[:,:,1]
                             self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
+                            if self.SaveOversamples:
+                                self.SamplesB = (self.RawSamplesB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
+                        # Converts raw I16 data to voltage based on self.Scaling factors
                     elif self.AI2 == 1:
                         #self.RawImageB = Raw[:,:,0]
                         self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
-
-            if self.SaveOversamples:
-                #self.RawSamplesA = self.RawImageA.copy()
-                #self.RawSamplesB = self.RawImageB.copy()
-                self.SamplesA = self.ImageA.copy()
-                self.SamplesB = self.ImageB.copy()
-                #self.RawImageA = np.mean(self.RawSamplesA, axis=2)
-                #self.RawImageB = np.mean(self.RawSamplesB, axis=2)
-                self.ImageA = np.mean(self.SamplesA, axis=2)
-                self.ImageB = np.mean(self.SamplesB, axis=2)
-
-
-
+                        if self.SaveOversamples:
+                            self.SamplesB = (self.RawSamplesB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
+                            
 
     def print_header(self):
         '''
