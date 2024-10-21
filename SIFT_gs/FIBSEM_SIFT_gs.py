@@ -97,7 +97,7 @@ def Single_Image_SNR(img, **kwargs):
     '''
     Estimates SNR based on a single image.
     ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
-    Calculates SNR of a single image base on auto-correlation analysis after [1].
+    Calculates SNR of a single image based on auto-correlation analysis after [1].
     
     Parameters
     ---------
@@ -108,6 +108,8 @@ def Single_Image_SNR(img, **kwargs):
         fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
     extrapolate_signal : boolean
         extrapolate to find signal autocorrelationb at 0-point (without noise). Default is True
+    zero_mean: boolean
+        if True (default), auto-correlation is zero-mean
     disp_res : boolean
         display results (plots) (default is True)
     save_res_png : boolean
@@ -131,6 +133,7 @@ def Single_Image_SNR(img, **kwargs):
     '''
     edge_fraction = kwargs.get("edge_fraction", 0.10)
     extrapolate_signal = kwargs.get('extrapolate_signal', True)
+    zero_mean = kwargs.get('zero_mean', True)
     disp_res = kwargs.get("disp_res", True)
     nbins_disp = kwargs.get("nbins_disp", 256)
     thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])
@@ -145,7 +148,10 @@ def Single_Image_SNR(img, **kwargs):
     ysz, xsz = img.shape
 
     xy_ratio = xsz/ysz
-    data_FT = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img-img.mean())))
+    if zero_mean:
+        data_FT = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img-img.mean())))
+    else:
+        data_FT = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img)))
     data_FC = (np.multiply(data_FT,np.conj(data_FT)))/xsz/ysz
     data_ACR = np.abs(np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(data_FC))))
     data_ACR_peak = data_ACR[ysz//2, xsz//2]
@@ -210,17 +216,22 @@ def Single_Image_SNR(img, **kwargs):
     x_acr = data_ACR[ysz//2, xsz//2]
     x_noise_free_acr = xacr_right[0]
     xedge = np.int32(xsz*edge_fraction)
-    x_mean_value = np.mean(data_ACR[ysz//2, 0:xedge])
-    xx_mean_value = np.linspace(-xsz//2, (-xsz//2+xedge-1), xedge)
     yedge = np.int32(ysz*edge_fraction)
     y_acr = data_ACR[ysz//2, xsz//2]
     y_noise_free_acr = yacr_right[0]
-    y_mean_value = np.mean(data_ACR[0:yedge, xsz//2])
-    yy_mean_value = np.linspace(-ysz//2, (-ysz//2+yedge-1), yedge)
     redge = np.int32(rsz*edge_fraction)
     r_acr = data_ACR[ysz//2, xsz//2]
     r_noise_free_acr = racr_right[0]
-    r_mean_value = np.mean(r_ACR[0:redge])
+    if zero_mean:
+        x_mean_value = np.mean(data_ACR[ysz//2, 0:xedge])
+        y_mean_value = np.mean(data_ACR[0:yedge, xsz//2])
+        r_mean_value = np.mean(r_ACR[0:redge])
+    else:    
+        x_mean_value = 0.0
+        y_mean_value = 0.0
+        r_mean_value = 0.0
+    xx_mean_value = np.linspace(-xsz//2, (-xsz//2+xedge-1), xedge)
+    yy_mean_value = np.linspace(-ysz//2, (-ysz//2+yedge-1), yedge)
     rr_mean_value = np.linspace(-rsz//2, (-rsz//2+redge-1), redge)
     
     xSNR = (x_noise_free_acr-x_mean_value)/(x_acr - x_noise_free_acr)
