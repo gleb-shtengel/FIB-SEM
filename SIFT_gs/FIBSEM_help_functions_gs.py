@@ -4,6 +4,8 @@ from scipy.ndimage import gaussian_filter
 
 import pandas as pd
 import os
+import socket
+import platform
 from pathlib import Path
 import time
 import glob
@@ -27,6 +29,50 @@ try:
 except:
     raise RuntimeError("Unable to load FIBSEM_custom_transforms_gs")
 
+
+######################################################
+#  DASK client help functions
+######################################################
+
+def check_DASK(DASK_client, **kwargs):
+    '''
+    Checks DASK client and returns use_DASK and DASK monitor port. ©G.Shtengel 10/2024 gleb.shtengel@gmail.com
+    
+    Parameters:
+    
+    
+    kwargs:
+    disp_res : bolean
+        If True (default), intermediate messages and results will be displayed
+    
+    '''
+    disp_res  = kwargs.get("disp_res", True )
+    use_DASK = False
+    status_update_address = ''
+    try:
+        client_services = DASK_client.scheduler_info()['services']
+        if client_services:
+            try:
+                dport = client_services['dashboard']
+            except:
+                dport = client_services['bokeh']
+            if platform.system() == 'Linux':
+                hostname = socket.gethostname()
+                status_update_address = 'http://' + hostname + ':{:d}/status'.format(dport)
+            if platform.system() == 'Windows':
+                status_update_address = 'http://localhost:{:d}/status'.format(dport)
+            if disp_res:
+                print('DASK client exists. Will perform distributed computations')
+                print('Use ' + status_update_address +' to monitor DASK progress')
+            use_DASK = True
+        else:
+            if disp_res:
+                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
+    except:
+        if disp_res:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
+            
+    return use_DASK, status_update_address
 
 
 ######################################################

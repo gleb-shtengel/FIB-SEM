@@ -1,6 +1,8 @@
 import numpy as np
 import pandas as pd
 import os
+import socket
+import platform
 from pathlib import Path
 import time
 import glob
@@ -1508,23 +1510,8 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     Sample_ID = kwargs.get("Sample_ID", '')
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
-    try:
-        client_services = DASK_client.scheduler_info()['services']
-        if client_services:
-            try:
-                dport = client_services['dashboard']
-            except:
-                dport = client_services['bokeh']
-            status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
-            print('Use ' + status_update_address +' to monitor DASK progress')
-            use_DASK = True
-        else:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
-    except:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-        use_DASK = False
+    use_DASK, status_update_address = check_DASK(DASK_client)
+
     invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", mrc_filename )
@@ -2167,23 +2154,7 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
     max_futures = kwargs.get('max_futures', 5000)
-    try:
-        client_services = DASK_client.scheduler_info()['services']
-        if client_services:
-            try:
-                dport = client_services['dashboard']
-            except:
-                dport = client_services['bokeh']
-            status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
-            print('Use ' + status_update_address +' to monitor DASK progress')
-            use_DASK = True
-        else:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
-    except:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-        use_DASK = False
+    use_DASK, status_update_address = check_DASK(DASK_client)
     
     mrc_filename  = os.path.normpath(mrc_filename)
 
@@ -2450,23 +2421,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     max_futures = kwargs.get('max_futures', 5000)
     disp_res  = kwargs.get("disp_res", False )
     fnm_types = kwargs.get("fnm_types", ['mrc'])
-    try:
-        client_services = DASK_client.scheduler_info()['services']
-        if client_services:
-            try:
-                dport = client_services['dashboard']
-            except:
-                dport = client_services['bokeh']
-            status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
-            print('Use ' + status_update_address +' to monitor DASK progress')
-            use_DASK = True
-        else:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
-    except:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-        use_DASK = False
+    use_DASK, status_update_address = check_DASK(DASK_client)
     
     mrc_filename  = os.path.normpath(mrc_filename)
     save_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_destreaked.mrc'))
@@ -2671,23 +2626,7 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
     max_futures = kwargs.get('max_futures', 5000)
-    try:
-        client_services = DASK_client.scheduler_info()['services']
-        if client_services:
-            try:
-                dport = client_services['dashboard']
-            except:
-                dport = client_services['bokeh']
-            status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
-            print('Use ' + status_update_address +' to monitor DASK progress')
-            use_DASK = True
-        else:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
-    except:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-        use_DASK = False
+    use_DASK, status_update_address = check_DASK(DASK_client)
     
     mrc_filename  = os.path.normpath(mrc_filename)
     save_filename = kwargs.get('save_filename', mrc_filename.replace('.mrc', '_smoothed.mrc'))
@@ -2936,23 +2875,8 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     kwargs['mrc_filename'] = mrc_filename
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
-    try:
-        client_services = DASK_client.scheduler_info()['services']
-        if client_services:
-            try:
-                dport = client_services['dashboard']
-            except:
-                dport = client_services['bokeh']
-            status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
-            print('Use ' + status_update_address +' to monitor DASK progress')
-            use_DASK = True
-        else:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
-    except:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-        use_DASK = False
+    use_DASK, status_update_address = check_DASK(DASK_client)
+
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
     sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
     start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
@@ -3689,23 +3613,8 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     Sample_ID = kwargs.get("Sample_ID", '')
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
-    try:
-        client_services = DASK_client.scheduler_info()['services']
-        if client_services:
-            try:
-                dport = client_services['dashboard']
-            except:
-                dport = client_services['bokeh']
-            status_update_address = 'http://localhost:{:d}/status'.format(dport)
-            print('DASK client exists. Will perform distributed computations')
-            print('Use ' + status_update_address +' to monitor DASK progress')
-            use_DASK = True
-        else:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
-    except:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-        use_DASK = False
+    use_DASK, status_update_address = check_DASK(DASK_client)
+ 
     invert_data =  kwargs.get("invert_data", False)
     save_res_png  = kwargs.get("save_res_png", True )
     save_filename = kwargs.get("save_filename", tif_filename )
@@ -5934,7 +5843,7 @@ class FIBSEM_frame:
                         self.ImageB = (self.RawImageB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
                         if self.SaveOversamples:
                             self.SamplesB = (self.RawSamplesB - self.Scaling[1,1]) * self.Scaling[2,1] / self.ScanRate * self.Scaling[0,1] / self.ElectronFactor2
-                            
+
 
     def print_header(self):
         '''
@@ -10069,23 +9978,7 @@ class FIBSEM_dataset:
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
         '''
         DASK_client = kwargs.get('DASK_client', '')
-        try:
-            client_services = DASK_client.scheduler_info()['services']
-            if client_services:
-                try:
-                    dport = client_services['dashboard']
-                except:
-                    dport = client_services['bokeh']
-                status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
-                print('Use ' + status_update_address +' to monitor DASK progress')
-                use_DASK = True
-            else:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                use_DASK = False
-        except:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
+        use_DASK, status_update_address = check_DASK(DASK_client)
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
@@ -10179,23 +10072,7 @@ class FIBSEM_dataset:
             Number of allowed automatic retries if a task fails
         '''
         DASK_client = kwargs.get('DASK_client', '')
-        try:
-            client_services = DASK_client.scheduler_info()['services']
-            if client_services:
-                try:
-                    dport = client_services['dashboard']
-                except:
-                    dport = client_services['bokeh']
-                status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
-                print('Use ' + status_update_address +' to monitor DASK progress')
-                use_DASK = True
-            else:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                use_DASK = False
-        except:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
+        use_DASK, status_update_address = check_DASK(DASK_client)
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
@@ -10281,23 +10158,7 @@ class FIBSEM_dataset:
                 FOV Center Y-coordinate extrated from the header data
         '''
         DASK_client = kwargs.get('DASK_client', '')
-        try:
-            client_services = DASK_client.scheduler_info()['services']
-            if client_services:
-                try:
-                    dport = client_services['dashboard']
-                except:
-                    dport = client_services['bokeh']
-                status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
-                print('Use ' + status_update_address +' to monitor DASK progress')
-                use_DASK = True
-            else:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                use_DASK = False
-        except:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
+        use_DASK, status_update_address = check_DASK(DASK_client)
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
@@ -10422,23 +10283,7 @@ class FIBSEM_dataset:
             fnms = []
         else:  
             DASK_client = kwargs.get('DASK_client', '')
-            try:
-                client_services = DASK_client.scheduler_info()['services']
-                if client_services:
-                    try:
-                        dport = client_services['dashboard']
-                    except:
-                        dport = client_services['bokeh']
-                    status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                    print('DASK client exists. Will perform distributed computations')
-                    print('Use ' + status_update_address +' to monitor DASK progress')
-                    use_DASK = True
-                else:
-                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                    use_DASK = False
-            except:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                use_DASK = False
+            use_DASK, status_update_address = check_DASK(DASK_client)
             if hasattr(self, "DASK_client_retries"):
                 DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
             else:
@@ -10552,23 +10397,7 @@ class FIBSEM_dataset:
             results_s4 = []
         else:
             DASK_client = kwargs.get('DASK_client', '')
-            try:
-                client_services = DASK_client.scheduler_info()['services']
-                if client_services:
-                    try:
-                        dport = client_services['dashboard']
-                    except:
-                        dport = client_services['bokeh']
-                    status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                    print('DASK client exists. Will perform distributed computations')
-                    print('Use ' + status_update_address +' to monitor DASK progress')
-                    use_DASK = True
-                else:
-                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                    use_DASK = False
-            except:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                use_DASK = False
+            use_DASK, status_update_address = check_DASK(DASK_client)
             if hasattr(self, "DASK_client_retries"):
                 DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
             else:
@@ -10997,23 +10826,7 @@ class FIBSEM_dataset:
         '''
 
         DASK_client = kwargs.get('DASK_client', '')
-        try:
-            client_services = DASK_client.scheduler_info()['services']
-            if client_services:
-                try:
-                    dport = client_services['dashboard']
-                except:
-                    dport = client_services['bokeh']
-                status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
-                print('Use ' + status_update_address +' to monitor DASK progress')
-                use_DASK = True
-            else:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                use_DASK = False
-        except:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
+        use_DASK, status_update_address = check_DASK(DASK_client)
 
         save_transformed_dataset = kwargs.get('save_transformed_dataset', True)
         save_registration_summary = kwargs.get('save_registration_summary', True)
@@ -11698,23 +11511,7 @@ class FIBSEM_dataset:
         data_dir = kwargs.get("data_dir", self.data_dir)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         DASK_client = kwargs.get('DASK_client', '')
-        try:
-            client_services = DASK_client.scheduler_info()['services']
-            if client_services:
-                try:
-                    dport = client_services['dashboard']
-                except:
-                    dport = client_services['bokeh']
-                status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
-                print('Use ' + status_update_address +' to monitor DASK progress')
-                use_DASK = True
-            else:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                use_DASK = False
-        except:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
+        use_DASK, status_update_address = check_DASK(DASK_client)
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
@@ -11993,23 +11790,8 @@ class FIBSEM_dataset:
         '''
         DASK_client = kwargs.get('DASK_client', '')
         DASK_client_retries = kwargs.get('DASK_client_retries', 3)
-        try:
-            client_services = DASK_client.scheduler_info()['services']
-            if client_services:
-                try:
-                    dport = client_services['dashboard']
-                except:
-                    dport = client_services['bokeh']
-                status_update_address = 'http://localhost:{:d}/status'.format(dport)
-                print('DASK client exists. Will perform distributed computations')
-                print('Use ' + status_update_address +' to monitor DASK progress')
-                use_DASK = True
-            else:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-                use_DASK = False
-        except:
-            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   DASK client does not exist. Will perform local computations')
-            use_DASK = False
+        use_DASK, status_update_address = check_DASK(DASK_client)
+
         image_name = kwargs.get("image_name", 'ImageA')
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
