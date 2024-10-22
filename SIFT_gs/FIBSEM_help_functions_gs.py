@@ -56,11 +56,11 @@ def check_DASK(DASK_client, **kwargs):
                 dport = client_services['dashboard']
             except:
                 dport = client_services['bokeh']
-            if platform.system() == 'Linux':
-                hostname = socket.gethostname()
-                status_update_address = 'http://' + hostname + ':{:d}/status'.format(dport)
-            if platform.system() == 'Windows':
-                status_update_address = 'http://localhost:{:d}/status'.format(dport)
+            #if platform.system() == 'Linux':
+            hostname = socket.gethostname()
+            status_update_address = 'http://' + hostname + ':{:d}/status'.format(dport)
+            #if platform.system() == 'Windows':
+            #    status_update_address = 'http://localhost:{:d}/status'.format(dport)
             if disp_res:
                 print('DASK client exists. Will perform distributed computations')
                 print('Use ' + status_update_address +' to monitor DASK progress')
