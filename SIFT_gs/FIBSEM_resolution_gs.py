@@ -419,8 +419,9 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
 
     error_flags = []
     tr_results = []
-
     subset_mags = []
+    hst_datas = []
+
     for j, blob in enumerate(tqdm(blobs_LoG, desc='Sortings blobs by magnitude', display=verbose)):
         y, x, r = blob
         xc = int(x)
@@ -526,12 +527,11 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
         
         fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
         sheet_names = ['{:.0f}%-{:.0f}% summary (pts)'.format(bounds[0]*100, bounds[1]*100),
-            '{:.0f}%-{:.0f}% summary (slopes)'.format(bounds[0]*100, bounds[1]*100)]
-        
+            '{:.0f}%-{:.0f}% summary (slopes)'.format(bounds[0]*100, bounds[1]*100)]    
 
         hranges = [(0, 10.0), 
                (0, 10.0)]  # histogram range for the transition distance (in nm))
-        hst_datas = []
+
         for [tr_xs, tr_ys], fext, sheet_name, hrange in zip(tr_sets, fexts, sheet_names, hranges):
             trs = np.squeeze(np.array((tr_xs, tr_ys)).flatten())
             tr_x = np.array(tr_xs).flatten()
