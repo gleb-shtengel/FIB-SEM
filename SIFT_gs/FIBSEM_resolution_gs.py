@@ -531,7 +531,6 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
 
         hranges = [(0, 10.0), 
                (0, 10.0)]  # histogram range for the transition distance (in nm))
-
         for [tr_xs, tr_ys], fext, sheet_name, hrange in zip(tr_sets, fexts, sheet_names, hranges):
             trs = np.squeeze(np.array((tr_xs, tr_ys)).flatten())
             tr_x = np.array(tr_xs).flatten()
