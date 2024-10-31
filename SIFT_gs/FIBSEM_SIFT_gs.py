@@ -11628,10 +11628,13 @@ class FIBSEM_dataset:
                 frame_imgA_reg = np.flip(frame_imgA_reg, axis=0)
                 if self.DetB != 'None':
                     frame_imgB_reg = np.flip(frame_imgB_reg, axis=0)
-
-            frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval]
+            if zero_mean:
+                frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval]
+            else:
+                frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval] - self.Scaling[1,0]
             SNR_png = os.path.splitext(os.path.split(fls[frame_ind])[1])[0] + '.png'
             SNR_png_fname = os.path.join(data_dir, SNR_png)
+            print('Analyzing the Detector A Image')
             ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval,
                                                                     zero_mean = zero_mean,
                                                                     extrapolate_signal=extrapolate_signal,
@@ -11642,7 +11645,11 @@ class FIBSEM_dataset:
             ySNRAs.append(ImageA_ySNR)
             rSNRAs.append(ImageA_rSNR)
             if self.DetB != 'None':
-                frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval]
+                print('Analyzing the Detector B Image')
+                if zero_mean:
+                    frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval]
+                else:
+                    frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval] - self.Scaling[1,1]
                 ImageB_xSNR, ImageB_ySNR, ImageB_rSNR = Single_Image_SNR(frame_imgB_eval,
                                                                         zero_mean = zero_mean,
                                                                         extrapolate_signal=extrapolate_signal,
@@ -11715,8 +11722,8 @@ class FIBSEM_dataset:
 
                 frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval]
                 frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval]
-
                 frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction) + frame_imgB_eval * ImgB_fraction
+                print('Analyzing the Fused Image, Det B fraction = {:.4f}'.format(ImgB_fraction))
                 ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval,
                                                                         zero_mean = zero_mean,
                                                                         extrapolate_signal=extrapolate_signal,
