@@ -6792,6 +6792,8 @@ class FIBSEM_frame:
         kwargs:
         image_name : str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
+        zero_mean: boolean
+            if True (default), auto-correlation is zero-mean
         edge_fraction : float
             fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
         extrapolate_signal : boolean
@@ -6820,6 +6822,7 @@ class FIBSEM_frame:
         [1] J. T. L. Thong et al, Single-image signal-tonoise ratio estimation. Scanning, 328–336 (2001).
         '''
         image_name = kwargs.get("image_name", 'RawImageA')
+        zero_mean = kwargs.get('zero_mean', True)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         edge_fraction = kwargs.get("edge_fraction", 0.10)
         extrapolate_signal = kwargs.get('extrapolate_signal', True)
@@ -6830,6 +6833,7 @@ class FIBSEM_frame:
         dpi = kwargs.get("dpi", 300)
 
         SNR_kwargs = {'edge_fraction' : edge_fraction,
+                        'zero_mean' : zero_mean,
                         'extrapolate_signal' : extrapolate_signal,
                         'disp_res' : disp_res,
                         'save_res_png' : save_res_png,
@@ -11488,6 +11492,8 @@ class FIBSEM_dataset:
         frame_inds : list of int
             List oif frame indecis to use to display the evaluation box.
             Default are [nfrs//10, nfrs//2, nfrs//10*9]
+        zero_mean: boolean
+            if True (default), auto-correlation is zero-mean
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -11538,6 +11544,7 @@ class FIBSEM_dataset:
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         perform_transformation =  kwargs.get("perform_transformation", False) and hasattr(self, 'tr_matr_cum_residual')
         extrapolate_signal = kwargs.get('extrapolate_signal', True)
+        zero_mean = kwargs.get('zero_mean', True)
 
         fls = self.fls
         nfrs = len(fls)
@@ -11625,17 +11632,23 @@ class FIBSEM_dataset:
             frame_imgA_eval = frame_imgA_reg[yi_eval:ya_eval, xi_eval:xa_eval]
             SNR_png = os.path.splitext(os.path.split(fls[frame_ind])[1])[0] + '.png'
             SNR_png_fname = os.path.join(data_dir, SNR_png)
-            ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval, extrapolate_signal=extrapolate_signal, save_res_png=save_res_png,
-                                                                        res_fname = SNR_png_fname.replace('.png', '_ImgA_SNR.png'),
-                                                                        img_label='Image A, frame={:d}'.format(frame_ind))
+            ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval,
+                                                                    zero_mean = zero_mean,
+                                                                    extrapolate_signal=extrapolate_signal,
+                                                                    save_res_png=save_res_png,
+                                                                    res_fname = SNR_png_fname.replace('.png', '_ImgA_SNR.png'),
+                                                                    img_label='Image A, frame={:d}'.format(frame_ind))
             xSNRAs.append(ImageA_xSNR)
             ySNRAs.append(ImageA_ySNR)
             rSNRAs.append(ImageA_rSNR)
             if self.DetB != 'None':
                 frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval]
-                ImageB_xSNR, ImageB_ySNR, ImageB_rSNR = Single_Image_SNR(frame_imgB_eval, extrapolate_signal=extrapolate_signal, save_res_png=save_res_png,
-                                                                            res_fname = SNR_png_fname.replace('.png', '_ImgB_SNR.png'),
-                                                                            img_label='Image B, frame={:d}'.format(frame_ind))
+                ImageB_xSNR, ImageB_ySNR, ImageB_rSNR = Single_Image_SNR(frame_imgB_eval,
+                                                                        zero_mean = zero_mean,
+                                                                        extrapolate_signal=extrapolate_signal,
+                                                                        save_res_png=save_res_png,
+                                                                        res_fname = SNR_png_fname.replace('.png', '_ImgB_SNR.png'),
+                                                                        img_label='Image B, frame={:d}'.format(frame_ind))
                 xSNRBs.append(ImageB_xSNR)
                 ySNRBs.append(ImageB_ySNR)
                 rSNRBs.append(ImageB_rSNR)
@@ -11704,7 +11717,10 @@ class FIBSEM_dataset:
                 frame_imgB_eval = frame_imgB_reg[yi_eval:ya_eval, xi_eval:xa_eval]
 
                 frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction) + frame_imgB_eval * ImgB_fraction
-                ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval, extrapolate_signal=extrapolate_signal, save_res_png=save_res_png,
+                ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval,
+                                                                        zero_mean = zero_mean,
+                                                                        extrapolate_signal=extrapolate_signal,
+                                                                        save_res_png=save_res_png,
                                                                         res_fname = SNR_png_fname.replace('.png', '_ImgB_fr{:.3f}_SNR.png'.format(ImgB_fraction)),
                                                                         img_label='Fused, ImB_fr={:.4f}, frame={:d}'.format(ImgB_fraction, frame_ind))
                 xSNRFs.append(ImageF_xSNR)
