@@ -237,6 +237,69 @@ def get_min_max_thresholds(image, **kwargs):
             fig.savefig(save_filename, dpi=dpi)
     return np.array((data_min, data_max))
 
+def calculate_gradent_map(img, ** kwargs):
+    '''
+    Computes 2D Gradient of the image. ©G.Shtengel 10/2024 gleb.shtengel@gmail.com
+
+    Parameters:
+    img : 2d array
+
+    kwargs:
+    perform_smoothing : boolean
+        If True, the images is smoothed first before gradient application
+    kernel : 2D float array
+        a kernel to perfrom 2D smoothing convolution.
+    normalize : boolean
+        if True, the gradient is normalized by the image. Default is False.
+    disp_res : boolean
+        (default is False) - to plot/ display the results
+    thresholds_disp : list [thr_min_disp, thr_max_disp]
+            (default [1e-3, 1e-3]) CDF threshold for determining the min and max data values of abs_grad for display.
+    fontsize : int
+        Font Size for figure subtitles. Default is 10
+    
+    Returns
+    abs_grad : 2d array
+        absolute value of gradient
+    '''
+    perform_smoothing = kwargs.get('perform_smoothing', True)
+    st = 1.0/np.sqrt(2.0)
+    def_kernel = np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]).astype(float)
+    def_kernel = def_kernel/def_kernel.sum()
+    kernel = kwargs.get("kernel", def_kernel)
+    normalize = kwargs.get('normalize', False)
+    disp_res = kwargs.get("disp_res", True)
+    thr_min, thr_max  = kwargs.get("thresholds_disp", [1e-3, 1e-3])
+    fontsize = kwargs.get('fontsize', 10)
+
+    ysz, xsz = img.shape
+    xind, yind = np.meshgrid(np.arange(xsz), np.arange(ysz), sparse=False)
+
+    if perform_smoothing:
+        grad = np.gradient(convolve2d(img, kernel, mode='same'))
+    else:
+        grad = np.gradient(img)
+    grad_array = np.array(grad)
+    
+    if normalize:
+        abs_grad = np.sqrt(grad[0]*grad[0]+grad[1]*grad[1])/img
+    else:
+        abs_grad = np.sqrt(grad[0]*grad[0]+grad[1]*grad[1])
+        
+    if disp_res:
+        fx = 10.0
+        fy = fx * ysz / xsz *2.0
+        fig, axs = plt.subplots(2,1, figsize=(fx, fy))
+        axs[0].imshow(img, cmap='Greys')
+        axs[0].set_title('Image', fontsize = fontsize)
+        vmin, vmax = get_min_max_thresholds(abs_grad, thr_min=thr_min, thr_max=thr_max, disp_res=False)
+        axs[1].imshow(abs_grad, vmin=vmin, vmax=vmax)
+        axs[1].set_title('Gradient Map', fontsize = fontsize)
+        for ax in axs:
+            ax.axis(False)
+            ax.grid(True)
+    return abs_grad
+
 def argmax2d(X):
     return np.unravel_index(X.argmax(), X.shape)
 
