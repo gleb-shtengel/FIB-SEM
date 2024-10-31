@@ -627,8 +627,8 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     range_analysis = get_min_max_thresholds(img_smoothed_filtered, thr_min = thresholds_analysis[0], thr_max = thresholds_analysis[1], nbins = nbins_analysis, disp_res = False)
     
     if disp_res:
-        print('Length of original image is: ', np.product(img_smoothed.shape))
-        print('Length of filtered image is: ', np.product(img_smoothed_filtered.shape))
+        #print('Length of original image is: ', np.product(img_smoothed.shape))
+        #print('Length of filtered image is: ', np.product(img_smoothed_filtered.shape))
         print('')
         print('The EM data range for display:            {:.2f} to {:.2f}'.format(range_disp[0], range_disp[1]))
         #print('The EM data range0 for noise analysis:    {:.2f} to {:.2f}'.format(range_analysis0[0], range_analysis0[1]))
