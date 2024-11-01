@@ -647,7 +647,12 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     yx_ratio = img.shape[0]/img.shape[1]
     ysz = xsz/3.0*yx_ratio + 5.0
     xsz = xsz / max((xsz, ysz)) * 15.0
-    ysz = ysz / max((xsz, ysz)) * 15.0  
+    ysz = ysz / max((xsz, ysz)) * 15.0
+
+    Low_mask = img*0.0+255.0
+    High_mask = Low_mask.copy()
+    Low_mask[img_smoothed > range_analysis[0]] = np.nan
+    High_mask[img_smoothed < range_analysis[1]] = np.nan
 
     if disp_res:
         fs=11
@@ -663,13 +668,9 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         axs[1].imshow(img_smoothed, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs[1].axis(False)
         axs[1].set_title('Smoothed Image')
-        Low_mask = img*0.0+255.0
-        High_mask = Low_mask.copy()
-        Low_mask[img_smoothed > range_analysis[0]] = np.nan
-        axs[1].imshow(Low_mask, cmap="brg_r")
-        High_mask[img_smoothed < range_analysis[1]] = np.nan
-        axs[1].imshow(High_mask, cmap="gist_rainbow")
 
+        axs[1].imshow(Low_mask, cmap="brg_r")
+        axs[1].imshow(High_mask, cmap="gist_rainbow")
 
         axs[2].imshow(imdiff, cmap="Greys", vmin = range_imdiff[0], vmax = range_imdiff[1])
         axs[2].axis(False)
@@ -678,7 +679,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     if disp_res:
         hist, bins, patches = axs[4].hist(img_smoothed.ravel(), range=range_disp, bins = nbins_disp)
     else:
-        hist, bins = np.histogram(img_hist_filtered.ravel(), range=range_disp, bins = nbins_disp)
+        hist, bins = np.histogram(img_smoothed.ravel(), range=range_disp, bins = nbins_disp)
     bin_centers = np.array(bins[1:] - (bins[1]-bins[0])/2.0)
     hist_center_ind = np.argwhere((bin_centers>range_analysis[0]) & (bin_centers<range_analysis[1]))
     hist_smooth = savgol_filter(np.array(hist), (nbins_disp//10)*2+1, 7)
