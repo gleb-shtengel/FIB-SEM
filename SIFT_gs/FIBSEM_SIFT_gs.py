@@ -649,10 +649,12 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     xsz = xsz / max((xsz, ysz)) * 15.0
     ysz = ysz / max((xsz, ysz)) * 15.0
 
-    Low_mask = img*0.0+255.0
-    High_mask = Low_mask.copy()
-    Low_mask[img_smoothed > range_analysis[0]] = np.nan
-    High_mask[img_smoothed < range_analysis[1]] = np.nan
+    low_mask = img*0.0+255.0
+    high_mask = low_mask.copy()
+    filter_mask = low_mask.copy()
+    low_mask[img_smoothed > range_analysis[0]] = np.nan
+    high_mask[img_smoothed < range_analysis[1]] = np.nan
+    filter_mask[filter_array==True] = np.nan
 
     if disp_res:
         fs=11
@@ -669,12 +671,18 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         axs[1].axis(False)
         axs[1].set_title('Smoothed Image')
 
-        axs[1].imshow(Low_mask, cmap="brg_r")
-        axs[1].imshow(High_mask, cmap="gist_rainbow")
+        axs[1].imshow(low_mask, cmap="brg_r")
+        axs[1].imshow(high_mask, cmap="gist_rainbow")
 
         axs[2].imshow(imdiff, cmap="Greys", vmin = range_imdiff[0], vmax = range_imdiff[1])
         axs[2].axis(False)
-        axs[2].set_title('Image Difference', fontsize=fs+1)
+        
+        if np.product(imdiff_filtered.shape)<np.product(imdiff.shape):
+            axs[2].imshow(filter_mask, cmap="gist_rainbow")
+            axs[2].text(0.0, 1.01, 'Image Difference', transform=axs[2].transAxes, fontsize=fs+1)
+            axs[2].text(0.4, 1.01, 'Excluded pixels masked red', transform=axs[2].transAxes, color='red', fontsize=fs+1)
+        else:
+            axs[2].set_title('Image Difference', fontsize=fs+1)
 
     if disp_res:
         hist, bins, patches = axs[4].hist(img_smoothed.ravel(), range=range_disp, bins = nbins_disp)

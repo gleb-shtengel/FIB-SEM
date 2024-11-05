@@ -192,3 +192,4 @@ Notebooks/Register_FIB-SEM_stack_DASK_v4_megafragma_4MHz_J8.ipynb
 Notebooks/FIB-SEM_destreaking_and_smoothing_MRC_example.ipynb
 Notebooks/FIB-SEM_destreaking_examples.ipynb
 Notebooks/FIB-SEM_resolution_Tin_on_C_transitions_example_J1_2024_10_03.ipynb
+Notebooks/mrc_to_zarr_DASK.ipynb
