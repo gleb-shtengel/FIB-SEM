@@ -665,7 +665,10 @@ def Single_Image_Noise_Statistics(img, **kwargs):
 
         axs[0].imshow(img, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs[0].axis(False)
-        axs[0].set_title('Original Image: ' + image_name, color='r', fontsize=fs+1)
+        if len(image_name)>1:
+            axs[0].set_title('Original Image: ' + image_name, color='r', fontsize=fs+1)
+        else:
+            axs[0].set_title('Original Image' + image_name, color='r', fontsize=fs+1)
 
         axs[1].imshow(img_smoothed, cmap="Greys", vmin = range_disp[0], vmax = range_disp[1])
         axs[1].axis(False)
