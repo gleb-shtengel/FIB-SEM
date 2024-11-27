@@ -2212,9 +2212,9 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   EM cross-sections dimensions (um):', stack_size)
     cc_default = stack_size/2.0
     
-    center_coordinates = kwargs.get('center_coordinates', cc_default)   # in um
+    center_coordinates = np.array(kwargs.get('center_coordinates', cc_default))   # in um
     print('Center coordinates (um):', center_coordinates)
-    box_dimensions = kwargs.get('box_dimensions', stack_size)           # in um
+    box_dimensions = np.array(kwargs.get('box_dimensions', stack_size))           # in um
     xsection_offsets = np.array(kwargs.get('xsection_offsets', [0.0, 0.0, 0.0]))                    # in um
         
     save_PNG = kwargs.get('save_PNG', True)
