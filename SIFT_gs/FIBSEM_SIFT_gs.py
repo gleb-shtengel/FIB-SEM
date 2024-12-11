@@ -7217,43 +7217,43 @@ def evaluate_FIBSEM_frame(params):
     thr_min = kwargs.get("threshold_min", 1e-3)
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
-    try:
-        frame = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=calculate_scaled_images)
-        if frame.EightBit ==1:
-            dmin = np.uint8(0)
-            dmax =  np.uint8(255)
-        else:
-            dmin, dmax = frame.get_image_min_max(image_name = image_name, thr_min=thr_min, thr_max=thr_max, nbins=nbins)
-        if ftype == 0:
-            try:
-                WD = frame.WD
-                MillingYVoltage = frame.MillingYVoltage
-                ScanRate = frame.ScanRate
-                EHT = frame.EHT
-                SEMSpecimenI = -1.0* frame.SEMSpecimenI
-            except:
-                WD = 0
-                MillingYVoltage = 0
-                ScanRate = 0
-                EHT = 0
-                SEMSpecimenI = 0
-            try:
-                center_x = (frame.FirstPixelX + frame.XResolution/2.0)
-                center_y = (frame.FirstPixelY + frame.YResolution/2.0)
-            except:
-                center_x = 0
-                center_y = 0
-        else:
+
+    frame = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=calculate_scaled_images)
+    if frame.EightBit ==1:
+        dmin = np.uint8(0)
+        dmax =  np.uint8(255)
+    else:
+        dmin, dmax = frame.get_image_min_max(image_name = image_name, thr_min=thr_min, thr_max=thr_max, nbins=nbins)
+    if ftype == 0:
+        try:
+            WD = frame.WD
+        except:
             WD = 0
+        try:
+            MillingYVoltage = frame.MillingYVoltage
+        except:
             MillingYVoltage = 0
-            center_x = 0
-            center_y = 0
+        try:
+            ScanRate = frame.ScanRate
+        except:
             ScanRate = 0
+        try:
+            EHT = frame.EHT
+        except:
             EHT = 0
+        try:
+            SEMSpecimenI = -1.0* frame.SEMSpecimenI
+        except:
             SEMSpecimenI = 0
-    except:
-        dmin = 0
-        dmax = 0
+        try:
+            center_x = (frame.FirstPixelX + frame.XResolution/2.0)
+        except:
+            center_x = 0
+        try:
+            center_y = (frame.FirstPixelY + frame.YResolution/2.0)
+        except:
+            center_y = 0
+    else:
         WD = 0
         MillingYVoltage = 0
         center_x = 0
@@ -7261,6 +7261,7 @@ def evaluate_FIBSEM_frame(params):
         ScanRate = 0
         EHT = 0
         SEMSpecimenI = 0
+
     return dmin, dmax, WD, MillingYVoltage, center_x, center_y, ScanRate, EHT, SEMSpecimenI
 
 
