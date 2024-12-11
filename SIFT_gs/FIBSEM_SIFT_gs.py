@@ -4427,7 +4427,7 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
         sv_apert = min([fit_params[1], len(frames)//8*2+1])
         print('Using fit_params: ', 'SG', sv_apert, fit_params[2])
         sliding_min = savgol_filter(frame_min.astype(np.double), sv_apert, fit_params[2])
-        sliding_max = savgol_filter(frame_min.astype(np.double), sv_apert, fit_params[2])
+        sliding_max = savgol_filter(frame_max.astype(np.double), sv_apert, fit_params[2])
     else:
         print('Not smoothing the Min/Max data')
         sliding_min = frame_min.astype(np.double)
