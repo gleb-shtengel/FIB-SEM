@@ -28,6 +28,9 @@ from tqdm.notebook import tqdm
 import skimage
 print('skimage version: ', skimage.__version__)
 from skimage.measure import ransac
+print('Monkey-patching skimage.measure._dynamic_max_trials with _dynamic_max_trials_gs')
+skimage.measure._dynamic_max_trials = _dynamic_max_trials_gs
+
 from skimage.transform import ProjectiveTransform, AffineTransform, EuclideanTransform, warp
 try:
     import skimage.external.tifffile as tiff
@@ -89,6 +92,43 @@ try:
     from SIFT_gs.FIBSEM_resolution_gs import *
 except:
     raise RuntimeError("Unable to load FIBSEM_resolution_gs")
+
+
+################################################
+# for Monkey Patch
+################################################
+
+def _dynamic_max_trials_gs(n_inliers, n_samples, min_samples, probability):
+    """Determine number trials such that at least one outlier-free subset is
+    sampled for the given inlier/outlier ratio.
+    The temp fix was done.
+
+    Parameters
+    ----------
+    n_inliers : int
+        Number of inliers in the data.
+    n_samples : int
+        Total number of samples in the data.
+    min_samples : int
+        Minimum number of samples chosen randomly from original data.
+    probability : float
+        Probability (confidence) that one outlier-free sample is generated.
+
+    Returns
+    -------
+    trials : int
+        Number of trials.
+    """
+    #if probability == 0:
+    #    return 0
+    if probability == 1:     # this is a temp fix
+        return np.inf        # this is a temp fix
+    if n_inliers == 0:
+        return np.inf
+    inlier_ratio = n_inliers / n_samples
+    nom = max(_EPSILON, 1 - probability)
+    denom = max(_EPSILON, 1 - inlier_ratio ** min_samples)
+    return np.ceil(np.log(nom) / np.log(denom))
 
 
 ################################################
