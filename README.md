@@ -33,12 +33,15 @@ pip install scikit-image==0.19.2
 UPDATE2: I found a temporary fix. In the file:
 C:\Users\labadmin\anaconda3\Lib\site-packages\skimage\measure\fit.py
 replace the lines (in the definition of  _dynamic_max_trials_):
+```bash
 if probability == 0:
         return 0
+```
 with lines:
+```bash
 if probability == 1:
         return np.inf
-
+```
 
 This package uses OpenCV implementation of SIFT. SIFT is part of standard OpenCV releases for version 3.4.1 or earlier. If you have newer version of OpenCV-python installed, SIFT will most likely be not part of it (because of patent issues), and the Python command sift = cv2.xfeatures2d.SIFT_create() will generate error. In this case replace it with a version supporting SIFT using these commands (in anaconda command window):
 
