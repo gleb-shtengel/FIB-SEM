@@ -7550,52 +7550,65 @@ def evaluate_FIBSEM_frame(params):
     thr_min = kwargs.get("threshold_min", 1e-3)
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
-
-    frame = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=calculate_scaled_images)
-    if frame.EightBit ==1:
-        dmin = np.uint8(0)
-        dmax =  np.uint8(255)
-    else:
-        dmin, dmax = frame.get_image_min_max(image_name = image_name, thr_min=thr_min, thr_max=thr_max, nbins=nbins)
-    if ftype == 0:
-        try:
-            WD = frame.WD
-        except:
+    ex_err=None
+    try:
+        frame = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=calculate_scaled_images)
+        if frame.EightBit ==1:
+            dmin = np.uint8(0)
+            dmax =  np.uint8(255)
+        else:
+            dmin, dmax = frame.get_image_min_max(image_name = image_name, thr_min=thr_min, thr_max=thr_max, nbins=nbins)
+        if ftype == 0:
+            try:
+                WD = frame.WD
+            except:
+                WD = 0
+            try:
+                MillingYVoltage = frame.MillingYVoltage
+            except:
+                MillingYVoltage = 0
+            try:
+                ScanRate = frame.ScanRate
+            except:
+                ScanRate = 0
+            try:
+                EHT = frame.EHT
+            except:
+                EHT = 0
+            try:
+                SEMSpecimenI = -1.0* frame.SEMSpecimenI
+            except:
+                SEMSpecimenI = 0
+            try:
+                center_x = (frame.FirstPixelX + frame.XResolution/2.0)
+            except:
+                center_x = 0
+            try:
+                center_y = (frame.FirstPixelY + frame.YResolution/2.0)
+            except:
+                center_y = 0
+        else:
             WD = 0
-        try:
-            MillingYVoltage = frame.MillingYVoltage
-        except:
             MillingYVoltage = 0
-        try:
-            ScanRate = frame.ScanRate
-        except:
-            ScanRate = 0
-        try:
-            EHT = frame.EHT
-        except:
-            EHT = 0
-        try:
-            SEMSpecimenI = -1.0* frame.SEMSpecimenI
-        except:
-            SEMSpecimenI = 0
-        try:
-            center_x = (frame.FirstPixelX + frame.XResolution/2.0)
-        except:
             center_x = 0
-        try:
-            center_y = (frame.FirstPixelY + frame.YResolution/2.0)
-        except:
             center_y = 0
-    else:
-        WD = 0
-        MillingYVoltage = 0
-        center_x = 0
-        center_y = 0
-        ScanRate = 0
-        EHT = 0
-        SEMSpecimenI = 0
+            ScanRate = 0
+            EHT = 0
+            SEMSpecimenI = 0
+        except Exception as err:
+            dmin = 0
+            dmax = 0
+            WD = 0
+            MillingYVoltage = 0
+            center_x = 0
+            center_y = 0
+            ScanRate = 0
+            EHT = 0
+            SEMSpecimenI = 0
+            ex_error = err
 
-    return dmin, dmax, WD, MillingYVoltage, center_x, center_y, ScanRate, EHT, SEMSpecimenI
+
+    return dmin, dmax, WD, MillingYVoltage, center_x, center_y, ScanRate, EHT, SEMSpecimenI, ex_error
 
 
 def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
@@ -7709,18 +7722,23 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
 
     else:
         params_s2 = [[fl, kwargs] for fl in np.array(fls)[frame_inds]]
-
+        results_s2 = np.zeros((len(frame_inds), 9))
+        errors_s2 = []
         if use_DASK:
             if disp_res:
                 print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
             futures = DASK_client.map(evaluate_FIBSEM_frame, params_s2, retries = DASK_client_retries)
-            results_s2 = np.array(DASK_client.gather(futures))
+            results_temp = np.array(DASK_client.gather(futures))
+            for j, res_temp in enumerate(tqdm(results_temp, desc='Converting the Results', display = disp_res)):
+                results_s2[j, :] = res_temp[0:9]
+                errors_s2.append(res_temp[9])
         else:
             if disp_res:
                 print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
-            results_s2 = np.zeros((len(frame_inds), 9))
             for j, param_s2 in enumerate(tqdm(params_s2, desc='Evaluating FIB-SEM frames (data min/max, mill rate, FOV shifts): ', display = disp_res)):
-                results_s2[j, :] = evaluate_FIBSEM_frame(param_s2)
+                res_temp = evaluate_FIBSEM_frame(param_s2)
+                results_s2[j, :] = res_temp[0:9]
+                errors_s2.append(res_temp[9])
 
         data_minmax_glob = results_s2[:, 0:2]
         data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
@@ -7764,7 +7782,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     #xlsx_writer.save()
     xlsx_writer.close()
            
-    return [FIBSEM_Data_xlsx_path, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y, ScanRate, EHT, SEMSpecimenI]
+    return [FIBSEM_Data_xlsx_path, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y, ScanRate, EHT, SEMSpecimenI, errors_s2]
 
 
 # Routines to extract Key-Points and Descriptors
@@ -12495,7 +12513,7 @@ class FIBSEM_dataset:
 
         fls = np.array(self.fls)
         nfrs = len(fls)
-        default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
+        default_indecis = np.arange(nfrs)
         frame_inds = kwargs.get("frame_inds", default_indecis)
         if verbose:
             print('Will analyze frames with inds:', frame_inds)
