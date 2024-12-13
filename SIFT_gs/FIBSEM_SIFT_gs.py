@@ -7550,7 +7550,7 @@ def evaluate_FIBSEM_frame(params):
     thr_min = kwargs.get("threshold_min", 1e-3)
     thr_max = kwargs.get("threshold_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
-    ex_err=None
+    ex_error=None
     try:
         frame = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=calculate_scaled_images)
         if frame.EightBit ==1:
