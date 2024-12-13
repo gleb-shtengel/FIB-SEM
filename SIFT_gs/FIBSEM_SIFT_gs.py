@@ -7595,17 +7595,17 @@ def evaluate_FIBSEM_frame(params):
             ScanRate = 0
             EHT = 0
             SEMSpecimenI = 0
-        except Exception as err:
-            dmin = 0
-            dmax = 0
-            WD = 0
-            MillingYVoltage = 0
-            center_x = 0
-            center_y = 0
-            ScanRate = 0
-            EHT = 0
-            SEMSpecimenI = 0
-            ex_error = err
+    except Exception as err:
+        dmin = 0
+        dmax = 0
+        WD = 0
+        MillingYVoltage = 0
+        center_x = 0
+        center_y = 0
+        ScanRate = 0
+        EHT = 0
+        SEMSpecimenI = 0
+        ex_error = err
 
 
     return dmin, dmax, WD, MillingYVoltage, center_x, center_y, ScanRate, EHT, SEMSpecimenI, ex_error
