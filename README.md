@@ -19,29 +19,8 @@ The main features of this workflow:
 In order to run the Python Notebook code, first, install basic Anaconda:
 https://www.anaconda.com/products/individual
 
-I have recently (2024) come across a problem. RANSAC implementation in skimage.measure (from skimage.measure import ransac) started working less reliably, and frequently converges to incorrect solution with very small number of inliers.
-I have not yet found the exact source of this behavior.
-I have found that the problem did not exist with anaconda distribution up to 2022.10.
-So to be safe, download the 2022.10 distribution form here:
-https://repo.anaconda.com/archive/
-For example, Anaconda3-2022.10-Windows-x86_64.exe distribution.
-
-UPDATE1: I think the above problem is caused by a modification in function _dynamic_max_trials_ in scikit-image package (specifically, skimage.measure.fit.py) from version 0.19.2 to 0.20.00. So, alternatively, if you already have a later distribution installed, you can try to just downfrade scikit-image to 0.19.2:
-```bash
-pip install scikit-image==0.19.2
-```
-UPDATE2: I found a temporary fix. In the file:
-C:\Users\labadmin\anaconda3\Lib\site-packages\skimage\measure\fit.py
-replace the lines (in the definition of  _dynamic_max_trials_):
-```bash
-if probability == 0:
-        return 0
-```
-with lines:
-```bash
-if probability == 1:
-        return np.inf
-```
+I have recently (2024) come across a problem. RANSAC implementation in skimage.measure (from skimage.measure.ransac) started working unreliably and frequently converges to incorrect solution with very small number of inliers.
+I am not 100% sure on the exact source of this behavior. I think the problem is caused by a modification in function _dynamic_max_trials_ in scikit-image package (specifically, skimage.measure.fit.py) from version 0.19.2 to 0.20.00. So, for now I have created my own copies of the skimage.measure._dynamic_max_trials_ and skimage.measure.ransac
 
 This package uses OpenCV implementation of SIFT. SIFT is part of standard OpenCV releases for version 3.4.1 or earlier. If you have newer version of OpenCV-python installed, SIFT will most likely be not part of it (because of patent issues), and the Python command sift = cv2.xfeatures2d.SIFT_create() will generate error. In this case replace it with a version supporting SIFT using these commands (in anaconda command window):
 
@@ -64,14 +43,16 @@ pip install git+https://github.com/gleb-shtengel/FIB-SEM.git#egg=FIBSEM_gs
 ```
 
 You will also need to have these packages installed:
--   openpyxl
--	mrcfile
--	xlsxwriter
--	DASK
--	pickle
--	webbrowser
--	IPython
+-   mrcfile
+-   xlsxwriter
 -   npy2bdv (used to save the data into Big Data Viewer – compatible HDF5 format)
+
+Depending on your distribution, you may need to install these as well :
+-   openpyxl
+-   DASK
+-   pickle
+-   webbrowser
+-   IPython
 
 
 ## General Help Functions
