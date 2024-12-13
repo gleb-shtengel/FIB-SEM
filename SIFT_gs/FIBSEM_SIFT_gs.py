@@ -8313,7 +8313,10 @@ def build_filename(fname, **kwargs):
     fnm_reg = fnm_reg.replace('.mrc', '_drmax{:.1f}.mrc'.format(drmax))
   
     if preserve_scales:
-        fnm_reg = fnm_reg.replace('.mrc', '_const_scls_'+fit_params[0]+'.mrc')
+        try:
+            fnm_reg = fnm_reg.replace('.mrc', '_const_scls_'+fit_params[0]+'.mrc')
+        except:
+            pass
 
     if np.any(subtract_linear_fit):
         fnm_reg = fnm_reg.replace('.mrc', '_shift_subtr.mrc')
