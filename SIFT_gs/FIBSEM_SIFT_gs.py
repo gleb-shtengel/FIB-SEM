@@ -428,7 +428,233 @@ def ransac(
 #      Single Frame Image Processing Functions
 ################################################
 
+def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
+    '''
+    Estimates the noise-free value of auto-correlation function by extrapolation.  ©G.Shtengel 12/2024 gleb.shtengel@gmail.com
+    
+    Parameters
+    ---------
+    ind_acr : 1D - array
+        indices (coordinates in pixels)
+    mag_acr : 1D - array
+        values of Auto-Correlation function (suppozed to be zero-centered)
+
+    kwargs:
+    extrapolate_signal : str
+        extrapolate to find signal autocorrelationb to 0-point (without noise). 
+        Options are:
+                'nearest'  - nearest point (1 pixel away from center)
+                'linear'   - linear interpolation of 2-points next to center
+                'parabolic' - parabolic interpolation of 2 point left and 2 points right 
+        Default is 'nearest'.
+
+    Returns: mag_acr_peak, mag_NFacr, ind_acr, mag_acr
+    '''
+    extrapolate_signal = kwargs.get('extrapolate_signal', 'nearest')
+    edge_fraction = kwargs.get("edge_fraction", 0.10)
+    
+    sz = len(ind_acr)
+    
+    ind_acr_l = ind_acr[sz//2-2:sz//2]
+    ind_acr_c = ind_acr[sz//2]
+    ind_acr_r = ind_acr[sz//2+1 : sz//2+3]
+    mag_acr_left = mag_acr[(sz//2-2):(sz//2)]
+    mag_acr_right = mag_acr[(sz//2+1):(sz//2+3)]
+    
+    if extrapolate_signal == 'parabolic':
+        mag_NFacr_l = (4 * mag_acr_left[1] - mag_acr_left[0]) / 3.0
+        mag_NFacr_r = (4 * mag_acr_right[0] - mag_acr_right[1]) / 3.0
+    else:
+        if extrapolate_signal == 'linear':
+            mag_NFacr_l = 2 * mag_acr_left[1] - mag_acr_left[0]
+            mag_NFacr_r = 2 * mag_acr_right[0] - mag_acr_right[1]
+        else:
+            mag_NFacr_l = mag_acr_left[1]
+            mag_NFacr_r = mag_acr_right[0]
+        
+    mag_acr_peak = mag_acr[sz//2]
+    mag_NFacr = (mag_NFacr_l + mag_NFacr_r)/2.0
+        
+    ind_acr = ind_acr[sz//2-2:sz//2+3]
+    mag_acr = np.concatenate((mag_acr_left, np.array([mag_NFacr]), mag_acr_right))
+
+    if extrapolate_signal == 'parabolic':
+        coeff = np.polyfit(ind_acr, mag_acr, 2)
+        ind_acr = np.linspace(ind_acr[0], ind_acr[-1], 25)
+        mag_acr = np.polyval(coeff, ind_acr)
+
+    return mag_acr_peak, mag_NFacr, ind_acr, mag_acr
+
+
 def Single_Image_SNR(img, **kwargs):
+    '''
+    Estimates SNR based on a single image.
+    ©G.Shtengel 12/2024 gleb.shtengel@gmail.com
+    Calculates SNR of a single image based on auto-correlation analysis after [1].
+    
+    Parameters
+    ---------
+    img : 2D array
+     
+    kwargs:
+    edge_fraction : float
+        fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
+    extrapolate_signal : str
+        extrapolate to find signal autocorrelationb to 0-point (without noise). 
+        Options are:
+                'nearest'  - nearest point (1 pixel away from center)
+                'linear'   - linear interpolation of 2-points next to center
+                'parabolic' - parabolic interpolation of 2 point left and 2 points right 
+        Default is 'nearest'.
+    zero_mean: boolean
+        if True (default), auto-correlation is zero-mean
+    disp_res : boolean
+        display results (plots) (default is True)
+    save_res_png : boolean
+        save the analysis output into a PNG file (default is True)
+    res_fname : string
+        filename for the result image ('SNR_result.png')
+    img_label : string
+        optional image label
+    dpi : int
+        dots-per-inch resolution for the output image
+        
+    Returns:
+        xSNR, ySNR, rSNR : float, float, float
+            SNR determined using the method in [1] along X- and Y- directions.
+            If there is a direction with slow varying data - that direction provides more accurate SNR estimate
+            Y-streaks in typical FIB-SEM data provide slow varying Y-component because streaks
+            usually get increasingly worse with increasing Y. 
+            So for typical FIB-SEM data use ySNR
+    
+    [1] J. T. L. Thong et al, Single-image signal-to-noise ratio estimation. Scanning, 328–336 (2001).
+    '''
+    edge_fraction = kwargs.get("edge_fraction", 0.10)
+    extrapolate_signal = kwargs.get('extrapolate_signal', 'nearest')
+    zero_mean = kwargs.get('zero_mean', True)
+    disp_res = kwargs.get("disp_res", True)
+    nbins_disp = kwargs.get("nbins_disp", 256)
+    thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])
+    save_res_png = kwargs.get("save_res_png", True)
+    res_fname = kwargs.get("res_fname", 'SNR_results.png')
+    img_label = kwargs.get("img_label", 'Orig. Image')
+    dpi = kwargs.get("dpi", 300)
+    
+    #first make image size even
+    ysz, xsz = img.shape
+    img = np.float64(img[0:((ysz+1)//2*2-1), 0:((xsz+1)//2*2-1)])
+    ysz, xsz = img.shape
+
+    xy_ratio = xsz/ysz
+    if zero_mean:
+        data_FT = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img-img.mean())))
+    else:
+        data_FT = np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(img)))
+    data_FC = (np.multiply(data_FT,np.conj(data_FT)))/xsz/ysz
+    data_ACR = np.abs(np.fft.fftshift(np.fft.fftn(np.fft.ifftshift(data_FC))))
+    data_ACR_peak = data_ACR[ysz//2, xsz//2]
+    data_ACR_log = np.log(data_ACR)
+    data_ACR = data_ACR / data_ACR_peak
+    radial_ACR = radial_profile(data_ACR, [xsz//2, ysz//2])
+    r_ACR = np.concatenate((radial_ACR[::-1], radial_ACR[1:]))
+    
+    rsz = len(r_ACR)
+    rcr = np.linspace(-rsz//2+1, rsz//2, rsz)
+    xcr = np.linspace(-xsz//2+1, xsz//2, xsz)
+    ycr = np.linspace(-ysz//2+1, ysz//2, ysz)
+    
+    mag_acr_peak_x, mag_NFacr_x, ind_acr_x, mag_acr_x = find_autocorrelation_peak(xcr, data_ACR[ysz//2, :],
+                                                                    extrapolate_signal = extrapolate_signal)
+    mag_acr_peak_y, mag_NFacr_y, ind_acr_y, mag_acr_y = find_autocorrelation_peak(ycr, data_ACR[:, xsz//2],
+                                                                    extrapolate_signal = extrapolate_signal)
+    mag_acr_peak_r, mag_NFacr_r, ind_acr_r, mag_acr_r = find_autocorrelation_peak(rcr, r_ACR,
+                                                                    extrapolate_signal = extrapolate_signal)
+    
+    xedge = np.int32(xsz*edge_fraction)
+    yedge = np.int32(ysz*edge_fraction)
+    redge = np.int32(rsz*edge_fraction)
+    
+    if zero_mean:
+        mag_acr_mean_x = np.mean(data_ACR[ysz//2, 0:xedge])
+        mag_acr_mean_y = np.mean(data_ACR[0:yedge, xsz//2])
+        mag_acr_mean_r = np.mean(r_ACR[0:redge])
+    else:    
+        mag_acr_mean_x = 0.0
+        mag_acr_mean_y = 0.0
+        mag_acr_mean_r = 0.0
+    ind_mag_acr_mean_x = np.linspace(-xsz//2, (-xsz//2+xedge-1), xedge)
+    ind_mag_acr_mean_y = np.linspace(-ysz//2, (-ysz//2+yedge-1), yedge)
+    ind_mag_acr_mean_r = np.linspace(-rsz//2, (-rsz//2+redge-1), redge)
+    
+    xSNR = (mag_NFacr_x - mag_acr_mean_x)/(mag_acr_peak_x - mag_NFacr_x)
+    ySNR = (mag_NFacr_y - mag_acr_mean_y)/(mag_acr_peak_y - mag_NFacr_y)
+    rSNR = (mag_NFacr_r - mag_acr_mean_r)/(mag_acr_peak_r - mag_NFacr_r)
+    if disp_res:
+        fs=12
+        
+        if xy_ratio < 2.5:
+            fig, axs = plt.subplots(1,4, figsize = (20, 5))
+        else:
+            fig = plt.figure(figsize = (20, 5))
+            ax0 = fig.add_subplot(2, 2, 1)
+            ax1 = fig.add_subplot(2, 2, 3)
+            ax2 = fig.add_subplot(1, 4, 3)
+            ax3 = fig.add_subplot(1, 4, 4)
+            axs = [ax0, ax1, ax2, ax3]
+        fig.subplots_adjust(left=0.03, bottom=0.06, right=0.99, top=0.92, wspace=0.25, hspace=0.10)
+        
+        range_disp = get_min_max_thresholds(img, thr_min = thresholds_disp[0], thr_max = thresholds_disp[1], nbins = nbins_disp, disp_res=False)
+        axs[0].imshow(img, cmap='Greys', vmin=range_disp[0], vmax=range_disp[1])
+        axs[0].grid(True)
+        axs[0].set_title(img_label)
+        if save_res_png:
+            axs[0].text(0, 1.1 + (xy_ratio-1.0)/20.0, res_fname, transform=axs[0].transAxes)
+        axs[1].imshow(data_ACR_log, extent=[-xsz//2-1, xsz//2, -ysz//2-1, ysz//2])
+        axs[1].grid(True)
+        axs[1].set_title('Autocorrelation (log scale)')
+    
+        axs[2].plot(xcr, data_ACR[ysz//2, :], 'r', linewidth=0.5, label='X')
+        axs[2].plot(ycr, data_ACR[:, xsz//2], 'b', linewidth=0.5, label='Y')
+        axs[2].plot(rcr, r_ACR, 'g', linewidth=0.5, label='R')
+        axs[2].plot(ind_mag_acr_mean_x, ind_mag_acr_mean_x*0 + mag_acr_mean_x, 'r--', linewidth =2.0, label='<X>={:.5f}'.format(mag_acr_mean_x))
+        axs[2].plot(ind_mag_acr_mean_y, ind_mag_acr_mean_y*0 + mag_acr_mean_y, 'b--', linewidth =2.0, label='<Y>={:.5f}'.format(mag_acr_mean_y))
+        axs[2].plot(ind_mag_acr_mean_r, ind_mag_acr_mean_r*0 + mag_acr_mean_r, 'g--', linewidth =2.0, label='<R>={:.5f}'.format(mag_acr_mean_r))
+        axs[2].grid(True)
+        axs[2].legend()
+        axs[2].set_title('Normalized autocorr. cross-sections')
+        axs[3].plot(xcr, data_ACR[ysz//2, :], 'rx', label='X data')
+        axs[3].plot(ycr, data_ACR[:, xsz//2], 'bd', label='Y data')
+        axs[3].plot(rcr, r_ACR, 'g+', ms=10, label='R data')
+        axs[3].plot(xcr[xsz//2], data_ACR[ysz//2, xsz//2], 'md', label='Peak: {:.4f}, {:.4f}'.format(xcr[xsz//2], data_ACR[ysz//2, xsz//2]))
+        axs[3].plot(ind_acr_x, mag_acr_x, 'r', label='X extrap.: {:.4f}, {:.4f}'.format(ind_acr_x[len(ind_acr_x)//2], mag_acr_x[len(mag_acr_x)//2]))
+        axs[3].plot(ind_acr_y, mag_acr_y, 'b', label='Y extrap.: {:.4f}, {:.4f}'.format(ind_acr_y[len(ind_acr_y)//2], mag_acr_y[len(mag_acr_y)//2]))
+        axs[3].plot(ind_acr_r, mag_acr_r, 'g', label='R extrap.: {:.4f}, {:.4f}'.format(ind_acr_r[len(ind_acr_r)//2], mag_acr_r[len(mag_acr_r)//2]))
+        axs[3].text(0.03, 0.92, 'xSNR = {:.2f}'.format(xSNR), color='r', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.03, 0.86, 'ySNR = {:.2f}'.format(ySNR), color='b', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.03, 0.80, 'rSNR = {:.2f}'.format(rSNR), color='g', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].grid(True)
+        axs[3].legend()
+        axs[3].set_xlim(-5,5)
+        y_ar = np.concatenate((mag_acr_x, mag_acr_y, mag_acr_r, np.array((mag_acr_peak_x, mag_acr_peak_y, mag_acr_peak_r))))
+        yi = np.min(y_ar) - 0.5*(np.max(y_ar) - np.min(y_ar))
+        ya = np.max(y_ar) + 0.2*(np.max(y_ar) - np.min(y_ar))
+        axs[3].set_ylim((yi, ya))
+        axs[3].set_title('Normalized autocorr. cross-sections')
+
+        if save_res_png:
+            #print('X:   ACR peak = {:.4f}, Noise-Free ACR Peak = {:.4f}, Squared Mean = {:.4f}'.format(mag_acr_peak_x, mag_NFacr_x, mag_acr_mean_x ))
+            #print('xSNR = {:.2f}'.format(xSNR))
+            #print('Y:   ACR peak = {:.4f}, Noise-Free ACR Peak = {:.4f}, Squared Mean = {:.4f}'.format(y_acr, y_noise_free_acr, mag_acr_mean_y ))
+            #print('ySNR = {:.4f}'.format(ySNR))
+            #print('R:   ACR peak = {:.4f}, Noise-Free ACR Peak = {:.4f}, Squared Mean = {:.4f}'.format(r_acr, r_noise_free_acr, mag_acr_mean_r ))
+            #print('rSNR = {:.4f}'.format(rSNR))
+            fig.savefig(res_fname, dpi=dpi)
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saved the results into the file: ', res_fname)
+    
+    return xSNR, ySNR, rSNR
+
+
+def Single_Image_SNR_old(img, **kwargs):
     '''
     Estimates SNR based on a single image.
     ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
@@ -7140,8 +7366,13 @@ class FIBSEM_frame:
             if True (default), auto-correlation is zero-mean
         edge_fraction : float
             fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
-        extrapolate_signal : boolean
-            extrapolate to find signal autocorrelationb at 0-point (without noise). Default is True
+        extrapolate_signal : str
+            extrapolate to find signal autocorrelationb to 0-point (without noise). 
+            Options are:
+                    'nearest'  - nearest point (1 pixel away from center)
+                    'linear'   - linear interpolation of 2-points next to center
+                    'parabolic' - parabolic interpolation of 2 point left and 2 points right 
+            Default is 'parabolic'.
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
         disp_res : boolean
@@ -7169,7 +7400,7 @@ class FIBSEM_frame:
         zero_mean = kwargs.get('zero_mean', True)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         edge_fraction = kwargs.get("edge_fraction", 0.10)
-        extrapolate_signal = kwargs.get('extrapolate_signal', True)
+        extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
         disp_res = kwargs.get("disp_res", True)
         save_res_png = kwargs.get("save_res_png", True)
         default_res_name = os.path.splitext(self.fname)[0] + '_AutoCorr_Noise_Analysis_' + image_name + '.png'
@@ -11884,8 +12115,13 @@ class FIBSEM_dataset:
             If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed
         pad_edges : boolean
             If True, the data will be padded before transformation to avoid clipping.
-        extrapolate_signal : boolean
-            extrapolate to find signal autocorrelationb at 0-point (without noise). Default is True
+        extrapolate_signal : str
+            extrapolate to find signal autocorrelationb to 0-point (without noise). 
+            Options are:
+                    'nearest'  - nearest point (1 pixel away from center)
+                    'linear'   - linear interpolation of 2-points next to center
+                    'parabolic' - parabolic interpolation of 2 point left and 2 points right 
+            Default is 'parabolic'.
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         pad_edges : boolean
@@ -11909,7 +12145,7 @@ class FIBSEM_dataset:
         flipY = kwargs.get("flipY", False)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         perform_transformation =  kwargs.get("perform_transformation", False) and hasattr(self, 'tr_matr_cum_residual')
-        extrapolate_signal = kwargs.get('extrapolate_signal', True)
+        extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
         zero_mean = kwargs.get('zero_mean', True)
 
         fls = self.fls
@@ -12138,8 +12374,13 @@ class FIBSEM_dataset:
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-        extrapolate_signal : boolean
-            extrapolate to find signal autocorrelationb at 0-point (without noise). Default is True
+        extrapolate_signal : str
+            extrapolate to find signal autocorrelationb to 0-point (without noise). 
+            Options are:
+                    'nearest'  - nearest point (1 pixel away from center)
+                    'linear'   - linear interpolation of 2-points next to center
+                    'parabolic' - parabolic interpolation of 2 point left and 2 points right 
+            Default is 'parabolic'.
         ftype : int
             file type (0 - Shan Xu's .dat, 1 - tif)
         data_dir : str
@@ -12179,7 +12420,7 @@ class FIBSEM_dataset:
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         save_sample_frames_png = kwargs.get("save_sample_frames_png", False )
-        extrapolate_signal = kwargs.get('extrapolate_signal', True)
+        extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
 
         nbr = len(ImgB_fractions)
         kwargs_local ={'zbin_factor' : 1}
