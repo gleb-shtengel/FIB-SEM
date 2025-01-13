@@ -466,9 +466,9 @@ def levinson_durbin(s, nlags=10, isacov=False):
     sample autocovariance function is calculated with the default options
     (biased, no fft).
     """
-    s = array_like(s, "s")
-    nlags = int_like(nlags, "nlags")
-    isacov = bool_like(isacov, "isacov")
+    #s = array_like(s, "s")
+    #nlags = int_like(nlags, "nlags")
+    #isacov = bool_like(isacov, "isacov")
 
     order = nlags
 
