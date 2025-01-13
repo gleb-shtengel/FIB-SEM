@@ -424,6 +424,78 @@ def ransac(
     return model, best_inliers
 
 
+def levinson_durbin(s, nlags=10, isacov=False):
+    """
+    Levinson-Durbin recursion for autoregressive processes.
+    copied from:
+    https://www.statsmodels.org/stable/_modules/statsmodels/tsa/stattools.html#levinson_durbin
+
+    Parameters
+    ----------
+    s : array_like
+        If isacov is False, then this is the time series. If iasacov is true
+        then this is interpreted as autocovariance starting with lag 0.
+    nlags : int, optional
+        The largest lag to include in recursion or order of the autoregressive
+        process.
+    isacov : bool, optional
+        Flag indicating whether the first argument, s, contains the
+        autocovariances or the data series.
+
+    Returns
+    -------
+    sigma_v : float
+        The estimate of the error variance.
+    arcoefs : ndarray
+        The estimate of the autoregressive coefficients for a model including
+        nlags.
+    pacf : ndarray
+        The partial autocorrelation function.
+    sigma : ndarray
+        The entire sigma array from intermediate result, last value is sigma_v.
+    phi : ndarray
+        The entire phi array from intermediate result, last column contains
+        autoregressive coefficients for AR(nlags).
+
+    Notes
+    -----
+    This function returns currently all results, but maybe we drop sigma and
+    phi from the returns.
+
+    If this function is called with the time series (isacov=False), then the
+    sample autocovariance function is calculated with the default options
+    (biased, no fft).
+    """
+    s = array_like(s, "s")
+    nlags = int_like(nlags, "nlags")
+    isacov = bool_like(isacov, "isacov")
+
+    order = nlags
+
+    if isacov:
+        sxx_m = s
+    else:
+        sxx_m = acovf(s, fft=False)[: order + 1]  # not tested
+
+    phi = np.zeros((order + 1, order + 1), "d")
+    sig = np.zeros(order + 1)
+    # initial points for the recursion
+    phi[1, 1] = sxx_m[1] / sxx_m[0]
+    sig[1] = sxx_m[0] - phi[1, 1] * sxx_m[1]
+    for k in range(2, order + 1):
+        phi[k, k] = (
+            sxx_m[k] - np.dot(phi[1:k, k - 1], sxx_m[1:k][::-1])
+        ) / sig[k - 1]
+        for j in range(1, k):
+            phi[j, k] = phi[j, k - 1] - phi[k, k] * phi[k - j, k - 1]
+        sig[k] = sig[k - 1] * (1 - phi[k, k] ** 2)
+
+    sigma_v = sig[-1]
+    arcoefs = phi[1:, -1]
+    pacf_ = np.diag(phi).copy()
+    pacf_[0] = 1.0
+    return sigma_v, arcoefs, pacf_, sig, phi  # return everything
+
 ################################################
 #      Single Frame Image Processing Functions
 ################################################
@@ -443,17 +515,24 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
     extrapolate_signal : str
         extrapolate to find signal autocorrelationb to 0-point (without noise). 
         Options are:
-                'nearest'  - nearest point (1 pixel away from center)
-                'linear'   - linear interpolation of 2-points next to center
-                'parabolic' - parabolic interpolation of 2 point left and 2 points right 
-        Default is 'nearest'.
+            'nearest'  - nearest point (1 pixel away from center, same as NN in [1]).
+            'linear'   - linear interpolation of 2-points next to center (same as FO in [1]).
+            'parabolic' - parabolic interpolation of 2 point left and 2 points right (for 4-point interpolation this is the same as NN+FO in [1]).
+            'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
+        Default is 'parabolic'.
+    nlags : int
+        in case of 'LDR' (Levinson-Durbin recusrsion) nlags is the recursion order (a number of lags)
+
+
+    [1]. K. s. Sim, M. s. Lim, Z. x. Yeap, Performance of signal-to-noise ratio estimation for scanning electron microscope using autocorrelation Levinson–Durbin recursion model. J. Microsc. 263, 64–77 (2016).
 
     Returns: mag_acr_peak, mag_NFacr, ind_acr, mag_acr
     '''
-    extrapolate_signal = kwargs.get('extrapolate_signal', 'nearest')
+    extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
     edge_fraction = kwargs.get("edge_fraction", 0.10)
-    
+        
     sz = len(ind_acr)
+    nlags = kwargs.get("nlags", sz//2)
     
     ind_acr_l = ind_acr[sz//2-2:sz//2]
     ind_acr_c = ind_acr[sz//2]
@@ -461,20 +540,22 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
     mag_acr_left = mag_acr[(sz//2-2):(sz//2)]
     mag_acr_right = mag_acr[(sz//2+1):(sz//2+3)]
     
-    if extrapolate_signal == 'parabolic':
-        mag_NFacr_l = (4 * mag_acr_left[1] - mag_acr_left[0]) / 3.0
-        mag_NFacr_r = (4 * mag_acr_right[0] - mag_acr_right[1]) / 3.0
+    if extrapolate_signal == 'LDR':
+        sigma_v, ar_coefs, pacf, sigma , phi = levinson_durbin(mag_acr, nlags=nlags, isacov=True)
+        mag_NFacr = np.sum(ar_coefs[0:nl]*radial_ACR[0:nl])
     else:
-        if extrapolate_signal == 'linear':
+        if extrapolate_signal == 'parabolic':
+            mag_NFacr_l = (4 * mag_acr_left[1] - mag_acr_left[0]) / 3.0
+            mag_NFacr_r = (4 * mag_acr_right[0] - mag_acr_right[1]) / 3.0
+        elif extrapolate_signal == 'linear':
             mag_NFacr_l = 2 * mag_acr_left[1] - mag_acr_left[0]
             mag_NFacr_r = 2 * mag_acr_right[0] - mag_acr_right[1]
-        else:
+        elif:
             mag_NFacr_l = mag_acr_left[1]
             mag_NFacr_r = mag_acr_right[0]
-        
+        mag_NFacr = (mag_NFacr_l + mag_NFacr_r)/2.0
+
     mag_acr_peak = mag_acr[sz//2]
-    mag_NFacr = (mag_NFacr_l + mag_NFacr_r)/2.0
-        
     ind_acr = ind_acr[sz//2-2:sz//2+3]
     mag_acr = np.concatenate((mag_acr_left, np.array([mag_NFacr]), mag_acr_right))
 
@@ -579,7 +660,7 @@ def Single_Image_SNR(img, **kwargs):
         mag_acr_mean_y = np.mean(data_ACR[0:yedge, xsz//2])
         mag_acr_mean_r = np.mean(r_ACR[0:redge])
     else:    
-        mag_acr_mean_x = 0.0
+        mag_acr_mean_x = 0.0I
         mag_acr_mean_y = 0.0
         mag_acr_mean_r = 0.0
     ind_mag_acr_mean_x = np.linspace(-xsz//2, (-xsz//2+xedge-1), xedge)
