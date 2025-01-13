@@ -626,7 +626,7 @@ def Single_Image_SNR(img, **kwargs):
     res_fname = kwargs.get("res_fname", 'SNR_results.png')
     img_label = kwargs.get("img_label", 'Orig. Image')
     dpi = kwargs.get("dpi", 300)
-    verbose = kwargs.get("verbose", True)
+    verbose = kwargs.get("verbose", False)
     
     #first make image size even
     ysz, xsz = img.shape
