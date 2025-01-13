@@ -550,7 +550,7 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
         elif extrapolate_signal == 'linear':
             mag_NFacr_l = 2 * mag_acr_left[1] - mag_acr_left[0]
             mag_NFacr_r = 2 * mag_acr_right[0] - mag_acr_right[1]
-        elif:
+        else:
             mag_NFacr_l = mag_acr_left[1]
             mag_NFacr_r = mag_acr_right[0]
         mag_NFacr = (mag_NFacr_l + mag_NFacr_r)/2.0
