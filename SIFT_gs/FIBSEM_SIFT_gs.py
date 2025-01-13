@@ -626,6 +626,7 @@ def Single_Image_SNR(img, **kwargs):
     res_fname = kwargs.get("res_fname", 'SNR_results.png')
     img_label = kwargs.get("img_label", 'Orig. Image')
     dpi = kwargs.get("dpi", 300)
+    verbose = kwargs.get("verbose", True)
     
     #first make image size even
     ysz, xsz = img.shape
@@ -720,9 +721,10 @@ def Single_Image_SNR(img, **kwargs):
         axs[3].plot(ind_acr_x, mag_acr_x, 'r', label='X extrap.: {:.4f}, {:.4f}'.format(ind_acr_x[len(ind_acr_x)//2], mag_acr_x[len(mag_acr_x)//2]))
         axs[3].plot(ind_acr_y, mag_acr_y, 'b', label='Y extrap.: {:.4f}, {:.4f}'.format(ind_acr_y[len(ind_acr_y)//2], mag_acr_y[len(mag_acr_y)//2]))
         axs[3].plot(ind_acr_r, mag_acr_r, 'g', label='R extrap.: {:.4f}, {:.4f}'.format(ind_acr_r[len(ind_acr_r)//2], mag_acr_r[len(mag_acr_r)//2]))
-        axs[3].text(0.03, 0.92, 'xSNR = {:.2f}'.format(xSNR), color='r', transform=axs[3].transAxes, fontsize=fs)
-        axs[3].text(0.03, 0.86, 'ySNR = {:.2f}'.format(ySNR), color='b', transform=axs[3].transAxes, fontsize=fs)
-        axs[3].text(0.03, 0.80, 'rSNR = {:.2f}'.format(rSNR), color='g', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.03, 0.96, 'Noise-free peak extr.: '+extrapolate_signal, transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.03, 0.90, 'xSNR = {:.2f}'.format(xSNR), color='r', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.03, 0.84, 'ySNR = {:.2f}'.format(ySNR), color='b', transform=axs[3].transAxes, fontsize=fs)
+        axs[3].text(0.03, 0.78, 'rSNR = {:.2f}'.format(rSNR), color='g', transform=axs[3].transAxes, fontsize=fs)
         axs[3].grid(True)
         axs[3].legend()
         axs[3].set_xlim(-5,5)
