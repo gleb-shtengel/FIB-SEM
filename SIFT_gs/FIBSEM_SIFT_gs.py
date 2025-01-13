@@ -532,7 +532,7 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
     edge_fraction = kwargs.get("edge_fraction", 0.10)
         
     sz = len(ind_acr)
-    nlags = kwargs.get("nlags", sz//2)
+    nlags = kwargs.get("nlags", sz//4)
     
     ind_acr_l = ind_acr[sz//2-2:sz//2]
     ind_acr_c = ind_acr[sz//2]
@@ -541,8 +541,9 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
     mag_acr_right = mag_acr[(sz//2+1):(sz//2+3)]
     
     if extrapolate_signal == 'LDR':
-        sigma_v, ar_coefs, pacf, sigma , phi = levinson_durbin(mag_acr, nlags=nlags, isacov=True)
+        sigma_v, ar_coefs, pacf, sigma , phi = levinson_durbin(mag_acr[sz//2:], nlags=nlags, isacov=True)
         mag_NFacr = np.sum(ar_coefs[0:nl]*radial_ACR[0:nl])
+        print(mag_acr[sz//2:sz//2+5], mag_NFacr)
     else:
         if extrapolate_signal == 'parabolic':
             mag_NFacr_l = (4 * mag_acr_left[1] - mag_acr_left[0]) / 3.0
@@ -602,6 +603,8 @@ def Single_Image_SNR(img, **kwargs):
         optional image label
     dpi : int
         dots-per-inch resolution for the output image
+    verbose : boolean
+        display intermediate results
         
     Returns:
         xSNR, ySNR, rSNR : float, float, float
@@ -647,6 +650,9 @@ def Single_Image_SNR(img, **kwargs):
     rcr = np.linspace(-rsz//2+1, rsz//2, rsz)
     xcr = np.linspace(-xsz//2+1, xsz//2, xsz)
     ycr = np.linspace(-ysz//2+1, ysz//2, ysz)
+
+    if verbose:
+        print('Extracting Noise-Free Autocorrelation value using ', extrapolate_signal)
     
     mag_acr_peak_x, mag_NFacr_x, ind_acr_x, mag_acr_x = find_autocorrelation_peak(xcr, data_ACR[ysz//2, :],
                                                                     extrapolate_signal = extrapolate_signal)
