@@ -586,7 +586,10 @@ def Single_Image_SNR(img, **kwargs):
                 'nearest'  - nearest point (1 pixel away from center)
                 'linear'   - linear interpolation of 2-points next to center
                 'parabolic' - parabolic interpolation of 2 point left and 2 points right 
-        Default is 'nearest'.
+        'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
+        Default is 'parabolic'.
+    nlags : int
+        in case of 'LDR' (Levinson-Durbin recusrsion) nlags is the recursion order (a number of lags)
     zero_mean: boolean
         if True (default), auto-correlation is zero-mean
     disp_res : boolean
@@ -611,7 +614,7 @@ def Single_Image_SNR(img, **kwargs):
     [1] J. T. L. Thong et al, Single-image signal-to-noise ratio estimation. Scanning, 328–336 (2001).
     '''
     edge_fraction = kwargs.get("edge_fraction", 0.10)
-    extrapolate_signal = kwargs.get('extrapolate_signal', 'nearest')
+    extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
     zero_mean = kwargs.get('zero_mean', True)
     disp_res = kwargs.get("disp_res", True)
     nbins_disp = kwargs.get("nbins_disp", 256)
@@ -625,6 +628,7 @@ def Single_Image_SNR(img, **kwargs):
     ysz, xsz = img.shape
     img = np.float64(img[0:((ysz+1)//2*2-1), 0:((xsz+1)//2*2-1)])
     ysz, xsz = img.shape
+    nlags = kwargs.get("nlags", np.min((ysz, xsz))//4)
 
     xy_ratio = xsz/ysz
     if zero_mean:
@@ -660,7 +664,7 @@ def Single_Image_SNR(img, **kwargs):
         mag_acr_mean_y = np.mean(data_ACR[0:yedge, xsz//2])
         mag_acr_mean_r = np.mean(r_ACR[0:redge])
     else:    
-        mag_acr_mean_x = 0.0I
+        mag_acr_mean_x = 0.0
         mag_acr_mean_y = 0.0
         mag_acr_mean_r = 0.0
     ind_mag_acr_mean_x = np.linspace(-xsz//2, (-xsz//2+xedge-1), xedge)
