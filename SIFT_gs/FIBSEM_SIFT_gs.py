@@ -537,7 +537,7 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
     '''
     extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
     edge_fraction = kwargs.get("edge_fraction", 0.10)
-    aperture = kwargs.get("aperture", 10)
+    aperture = kwargs.get("aperture", 6)
     sz = len(ind_acr)
     nlags = kwargs.get("nlags", sz//4)
     
@@ -554,7 +554,7 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
     elif extrapolate_signal == 'gaussian':
         di = aperture//2
         ACR_nozero = np.concatenate((mag_acr[sz//2-di : sz//2], mag_acr[sz//2+1 : sz//2+di+1]))
-        lags_nozero = np.concatenate((ind_acr[sz//2-di : sz//2], mag_acr[sz//2+1 : sz//2+di+1]))
+        lags_nozero = np.concatenate((ind_acr[sz//2-di : sz//2], ind_acr[sz//2+1 : sz//2+di+1]))
         amp_guess = np.max(ACR_nozero)-np.min(ACR_nozero)
         center_guess = np.mean(lags_nozero)
         sigma_guess = find_FWHM(lags_nozero, ACR_nozero)[0] / 2.4
@@ -642,7 +642,7 @@ def Single_Image_SNR(img, **kwargs):
     '''
     edge_fraction = kwargs.get("edge_fraction", 0.10)
     extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
-    aperture = kwargs.get("aperture", 10)
+    aperture = kwargs.get("aperture", 6)
     zero_mean = kwargs.get('zero_mean', True)
     disp_res = kwargs.get("disp_res", True)
     nbins_disp = kwargs.get("nbins_disp", 256)
