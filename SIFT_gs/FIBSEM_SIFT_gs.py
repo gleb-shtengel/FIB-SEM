@@ -40,6 +40,7 @@ from scipy.signal import savgol_filter
 from scipy import ndimage
 from scipy.signal import convolve2d
 from scipy.ndimage import gaussian_filter
+from scipy.optimize import curve_fit
 
 from sklearn import __version__ as sklearn_version
 print('sklearn version: ', sklearn_version)
@@ -496,6 +497,9 @@ def levinson_durbin(s, nlags=10, isacov=False):
     pacf_[0] = 1.0
     return sigma_v, arcoefs, pacf_, sig, phi  # return everything
 
+def gauss_with_offset(x, a, x0, b, sigma):
+    return (a*np.exp(-(x-x0)**2/(2*sigma**2)) + b)
+
 ################################################
 #      Single Frame Image Processing Functions
 ################################################
@@ -518,10 +522,13 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
             'nearest'  - nearest point (1 pixel away from center, same as NN in [1]).
             'linear'   - linear interpolation of 2-points next to center (same as FO in [1]).
             'parabolic' - parabolic interpolation of 2 point left and 2 points right (for 4-point interpolation this is the same as NN+FO in [1]).
+            'gaussian'  - gaussian interpolation with number of points = aperture
             'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
         Default is 'parabolic'.
     nlags : int
         in case of 'LDR' (Levinson-Durbin recusrsion) nlags is the recursion order (a number of lags)
+    aperture : int
+        total number of points for gaussian interpolation
 
 
     [1]. K. s. Sim, M. s. Lim, Z. x. Yeap, Performance of signal-to-noise ratio estimation for scanning electron microscope using autocorrelation Levinson–Durbin recursion model. J. Microsc. 263, 64–77 (2016).
@@ -530,9 +537,10 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
     '''
     extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
     edge_fraction = kwargs.get("edge_fraction", 0.10)
+    aperture = kwargs.get("aperture", 10)
+    nlags = kwargs.get("nlags", sz//4)
         
     sz = len(ind_acr)
-    nlags = kwargs.get("nlags", sz//4)
     
     ind_acr_l = ind_acr[sz//2-2:sz//2]
     ind_acr_c = ind_acr[sz//2]
@@ -544,6 +552,15 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
         half_ACR = mag_acr[sz//2:]
         sigma_v, ar_coefs, pacf, sigma , phi = levinson_durbin(half_ACR, nlags=nlags, isacov=True)
         mag_NFacr = np.sum(ar_coefs[0:nlags]*half_ACR[0:nlags])
+    elif extrapolate_signal == 'gaussian':
+        di = aperture//2
+        ACR_nozero = np.concatenate((mag_acr[sz//2-di : sz//2], mag_acr[sz//2 : sz//2+di+1]))
+        lags_nozero = np.concatenate((ind_acr[sz//2-di : sz//2], mag_acr[sz//2 : sz//2+di+1]))
+        mean = 0
+        sigma = 10.0
+        offs = 0.9
+        popt, pcov = curve_fit(gauss_with_offset, lags_nozero, ACR_nozero, p0=[1, mean, offset, sigma])
+        mag_NFacr = popt[0]+popt[2]
     else:
         if extrapolate_signal == 'parabolic':
             mag_NFacr_l = (4 * mag_acr_left[1] - mag_acr_left[0]) / 3.0
@@ -562,8 +579,12 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
 
     if extrapolate_signal == 'parabolic':
         coeff = np.polyfit(ind_acr, mag_acr, 2)
-        ind_acr = np.linspace(ind_acr[0], ind_acr[-1], 25)
+        ind_acr = np.linspace(ind_acr[0], ind_acr[-1], 50)
         mag_acr = np.polyval(coeff, ind_acr)
+
+    if extrapolate_signal == 'gaussian':
+        ind_acr = np.linspace(ind_acr[0], ind_acr[-1], 50)
+        mag_acr = gauss_with_offset(ind_acr,*popt)
 
     return mag_acr_peak, mag_NFacr, ind_acr, mag_acr
 
