@@ -538,9 +538,8 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
     extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
     edge_fraction = kwargs.get("edge_fraction", 0.10)
     aperture = kwargs.get("aperture", 10)
-    nlags = kwargs.get("nlags", sz//4)
-        
     sz = len(ind_acr)
+    nlags = kwargs.get("nlags", sz//4)
     
     ind_acr_l = ind_acr[sz//2-2:sz//2]
     ind_acr_c = ind_acr[sz//2]
@@ -605,13 +604,16 @@ def Single_Image_SNR(img, **kwargs):
     extrapolate_signal : str
         extrapolate to find signal autocorrelationb to 0-point (without noise). 
         Options are:
-                'nearest'  - nearest point (1 pixel away from center)
-                'linear'   - linear interpolation of 2-points next to center
-                'parabolic' - parabolic interpolation of 2 point left and 2 points right 
-        'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
-        Default is 'parabolic'.
+            'nearest'  - nearest point (1 pixel away from center)
+            'linear'   - linear interpolation of 2-points next to center
+            'parabolic' - parabolic interpolation of 2 point left and 2 points right 
+            'gaussian'  - gaussian interpolation with number of points = aperture
+            'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
+            Default is 'parabolic'.
     nlags : int
         in case of 'LDR' (Levinson-Durbin recusrsion) nlags is the recursion order (a number of lags)
+    aperture : int
+        total number of points for gaussian interpolation
     zero_mean: boolean
         if True (default), auto-correlation is zero-mean
     disp_res : boolean
@@ -639,6 +641,7 @@ def Single_Image_SNR(img, **kwargs):
     '''
     edge_fraction = kwargs.get("edge_fraction", 0.10)
     extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
+    aperture = kwargs.get("aperture", 10)
     zero_mean = kwargs.get('zero_mean', True)
     disp_res = kwargs.get("disp_res", True)
     nbins_disp = kwargs.get("nbins_disp", 256)
@@ -677,11 +680,17 @@ def Single_Image_SNR(img, **kwargs):
         print('Extracting Noise-Free Autocorrelation value using ', extrapolate_signal)
     
     mag_acr_peak_x, mag_NFacr_x, ind_acr_x, mag_acr_x = find_autocorrelation_peak(xcr, data_ACR[ysz//2, :],
-                                                                    extrapolate_signal = extrapolate_signal)
+                                                                    extrapolate_signal = extrapolate_signal,
+                                                                    aperture = aperture,
+                                                                    nlags = nlags)
     mag_acr_peak_y, mag_NFacr_y, ind_acr_y, mag_acr_y = find_autocorrelation_peak(ycr, data_ACR[:, xsz//2],
-                                                                    extrapolate_signal = extrapolate_signal)
+                                                                    extrapolate_signal = extrapolate_signal,
+                                                                    aperture = aperture,
+                                                                    nlags = nlags)
     mag_acr_peak_r, mag_NFacr_r, ind_acr_r, mag_acr_r = find_autocorrelation_peak(rcr, r_ACR,
-                                                                    extrapolate_signal = extrapolate_signal)
+                                                                    extrapolate_signal = extrapolate_signal,
+                                                                    aperture = aperture,
+                                                                    nlags = nlags)
     
     xedge = np.int32(xsz*edge_fraction)
     yedge = np.int32(ysz*edge_fraction)
