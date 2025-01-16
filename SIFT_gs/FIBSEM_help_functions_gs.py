@@ -378,15 +378,13 @@ def find_BW(fr, FSC, **kwargs):
     return BW, fr_fit, FSC_fit, fitOK
 
 
-def find_histogram_FWHM(cnts, bins, **kwargs):
+def find_FWHM(x, y, **kwargs):
     '''
-    find FWHM of the histogram. g.Shtengel 09.2024
+    find FWHM of the histogram. G.Shtengel 09.2024
     
     Parameters:
-    cnts : array or list
-        histogram counts
-    bins : array or list
-        histogram bins
+    x : array or list of x values
+    y : array or list of y values
         
     kwargs:
     start : string
@@ -405,27 +403,27 @@ def find_histogram_FWHM(cnts, bins, **kwargs):
     max_aver_aperture = kwargs.get('max_aver_aperture', 5)
     verbose = kwargs.get('verbose', False)
     
-    mx_ind = np.argmax(np.array(cnts))
+    mx_ind = np.argmax(np.array(y))
     ii = np.max((mx_ind-max_aver_aperture//2, 0))
-    ia = np.min((ii+max_aver_aperture, len(cnts)))
+    ia = np.min((ii+max_aver_aperture, len(y)))
     ii = ia-max_aver_aperture
-    mx = np.mean(cnts[ii:ia])
-    cnts_mod = cnts - mx/2.0
-    db = bins[1]-bins[0]
+    mx = np.mean(y[ii:ia])
+    y_mod = y - mx/2.0
+    dx = x[1]-x[0]
     
     if estimation == 'count':
-        FWHM = np.sum(i > 0.0 for i in cnts_mod) * db
-        indi = np.argmax(cnts_mod > 0.0) + 1
-        inda = len(cnts) - np.argmax(np.flip(cnts_mod) > 0.0)
+        FWHM = np.sum(i > 0.0 for i in y_mod) * dx
+        indi = np.argmax(y_mod > 0.0) + 1
+        inda = len(y) - np.argmax(np.flip(y_mod) > 0.0)
     else:
         if start == 'edges':
-            indi = np.argmax(cnts_mod > 0.0) + 1
-            inda = len(cnts) - np.argmax(np.flip(cnts_mod) > 0.0) 
+            indi = np.argmax(y_mod > 0.0) + 1
+            inda = len(y) - np.argmax(np.flip(y_mod) > 0.0) 
         else:
-            ln1 = len(cnts_mod[0:mx_ind])
-            indi = ln1 - np.argmax(np.flip(cnts_mod[0:mx_ind]) < 0.0) +1
-            inda = ln1 + np.argmax(cnts_mod[mx_ind:] < 0.0)
-        FWHM = (inda-indi) * db
+            ln1 = len(y_mod[0:mx_ind])
+            indi = ln1 - np.argmax(np.flip(y_mod[0:mx_ind]) < 0.0) +1
+            inda = ln1 + np.argmax(y_mod[mx_ind:] < 0.0)
+        FWHM = (inda-indi) * dx
     if verbose:
         print('FWHM, ' + estimation + ', ' + start+ ' = {:.2f}'.format(FWHM))
 
