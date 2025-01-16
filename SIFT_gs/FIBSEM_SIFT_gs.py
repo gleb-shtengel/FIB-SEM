@@ -544,7 +544,6 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
         half_ACR = mag_acr[sz//2:]
         sigma_v, ar_coefs, pacf, sigma , phi = levinson_durbin(half_ACR, nlags=nlags, isacov=True)
         mag_NFacr = np.sum(ar_coefs[0:nlags]*half_ACR[0:nlags])
-        print(half_ACR[0:6], mag_NFacr)
     else:
         if extrapolate_signal == 'parabolic':
             mag_NFacr_l = (4 * mag_acr_left[1] - mag_acr_left[0]) / 3.0
