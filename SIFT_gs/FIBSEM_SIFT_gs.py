@@ -1449,10 +1449,14 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     PSNR_header = (I_peak-DarkCount)/np.sqrt(Var_peak)
     DSNR = (range_analysis[1]-range_analysis[0])/np.sqrt(Var_peak)
     
-    img_smoothed_resc = (img_smoothed - I0)/popt[0]
-    SNR0 = np.mean(img_smoothed_resc*img_smoothed_resc)/np.mean(img_smoothed_resc)    
-    img_smoothed_resc1 = (img_smoothed - DarkCount)/Slope_header
-    SNR1 = np.mean(img_smoothed_resc1*img_smoothed_resc1)/np.mean(img_smoothed_resc1)
+    img_smoothed_filtered_resc = (img_smoothed_filtered - I0)/popt[0]
+    imdiff_filtered_resc = imdiff_filtered / popt[0]
+    #SNR0 = np.mean(img_smoothed_filtered_resc*img_smoothed_filtered_resc)/np.mean(img_smoothed_filtered_resc)
+    SNR0 = np.mean(img_smoothed_filtered_resc*img_smoothed_filtered_resc)/np.var(imdiff_filtered_resc)
+    img_smoothed_filtered_resc1 = (img_smoothed_filtered - DarkCount)/Slope_header
+    imdiff_filtered_resc1 = imdiff_filtered / Slope_header
+    #SNR1 = np.mean(img_smoothed_filtered_resc1*img_smoothed_filtered_resc1)/np.mean(img_smoothed_filtered_resc1)
+    SNR1 = np.mean(img_smoothed_filtered_resc1*img_smoothed_filtered_resc1)/np.var(imdiff_filtered_resc1)
     
     if disp_res:
         print('')
