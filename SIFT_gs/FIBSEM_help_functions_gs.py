@@ -380,7 +380,7 @@ def find_BW(fr, FSC, **kwargs):
 
 def find_FWHM(x, y, **kwargs):
     '''
-    find FWHM of the histogram. G.Shtengel 09.2024
+    find FWHM of the signal. G.Shtengel 09.2024
     
     Parameters:
     x : array or list of x values

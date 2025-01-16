@@ -557,7 +557,7 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
         lags_nozero = np.concatenate((ind_acr[sz//2-di : sz//2], mag_acr[sz//2 : sz//2+di+1]))
         amp_guess = np.max(ACR_nozero)-np.min(ACR_nozero)
         center_guess = np.mean(lags_nozero)
-        sigma_guess = find_FWHM(lags_nozero, ACR_nozero) / 2.4
+        sigma_guess = find_FWHM(lags_nozero, ACR_nozero)[0] / 2.4
         offset_guess = 2.0 * np.min(ACR_nozero) - np.max(ACR_nozero)
         popt, pcov = curve_fit(gauss_with_offset, lags_nozero, ACR_nozero, p0=[amp_guess, center_guess, offset_guess, sigma_guess])
         mag_NFacr = popt[0]+popt[2]
