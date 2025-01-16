@@ -1080,7 +1080,7 @@ def analyze_edge_transitions_image(image, **kwargs):
     for center, center_grad in zip(tqdm(centers, desc='analyzing transitions', display=verbose), center_grads):
         res = estimate_edge_transition(image, center, center_grad,
                                   **kwargs_loc)
-        results.append(res)
+        results.append(res[0:2])
     if verbose:
         print('Analyzed transtions: ', len(results))
     results = np.array(results)
