@@ -555,10 +555,11 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
         di = aperture//2
         ACR_nozero = np.concatenate((mag_acr[sz//2-di : sz//2], mag_acr[sz//2 : sz//2+di+1]))
         lags_nozero = np.concatenate((ind_acr[sz//2-di : sz//2], mag_acr[sz//2 : sz//2+di+1]))
+        amp = np.max(ACR_nozero)-np.min(ACR_nozero)
         mean = 0
         sigma = 10.0
-        offs = 0.9
-        popt, pcov = curve_fit(gauss_with_offset, lags_nozero, ACR_nozero, p0=[1, mean, offset, sigma])
+        offset = 2.0 * np.min(ACR_nozero) - np.max(ACR_nozero)
+        popt, pcov = curve_fit(gauss_with_offset, lags_nozero, ACR_nozero, p0=[amp, mean, offset, sigma])
         mag_NFacr = popt[0]+popt[2]
     else:
         if extrapolate_signal == 'parabolic':
