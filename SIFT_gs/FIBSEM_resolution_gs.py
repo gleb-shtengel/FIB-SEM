@@ -912,7 +912,7 @@ def analyze_edge_transitions_image(image, **kwargs):
         minimum threshold value (from image_subset CDF min) that cross-section profile must reach
         in order for this profile to be considered for transition evaluation. Defaults is 0.2 of image_subset CDF level
     thr_max_criterion  :  float
-        maximum threshold value (from image_subset CDF min) that cross-section profile must reach
+        maximum threshold value (from image_subset CDF max) that cross-section profile must reach
         in order for this profile to be considered for transition evaluation. Defaults is 0.2 of image_subset CDF level
     grad_thr : float
         threshold for selecting the transition points if Gradient Edge Detector is used.
@@ -1071,7 +1071,7 @@ def analyze_edge_transitions_image(image, **kwargs):
                   'subset_size' : subset_size,
                   'section_length' : section_length,
                   'thr_min_criterion' : thr_min_criterion,
-                  'thr_max_criterion' : thr_min_criterion,
+                  'thr_max_criterion' : thr_max_criterion,
                   'min_max_aperture' : min_max_aperture,
                   'transition_low_limit' : transition_low_limit,
                   'transition_high_limit' : transition_high_limit,
