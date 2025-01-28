@@ -9,6 +9,7 @@ import glob
 import re
 import gc
 from copy import deepcopy
+import cv2
 
 import psutil
 import inspect
@@ -9408,8 +9409,25 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
 
         if perform_transformation:
             if perform_deformation:
+                df = convert_tr_matr_into_deformation_field(tr_matrix, frame_img.shape).astype(np.float32)
+                '''
+                int_order:   #  The order of interpolation. The order has to be in the range 0-5:
+                             #    - 0: Nearest-neighbor
+                             #    - 1: Bi-linear (default)
+                             #    - 2: Bi-quadratic
+                             #    - 3: Bi-cubic
+                             #    - 4: Bi-quartic
+                             #    - 5: Bi-quintic
+                '''
+                if int_order == 0:
+                    interpolation = cv2.INTER_NEAREST
+                if int_order == 1:
+                    interpolation = cv2.INTER_LINEAR
+                if int_order == 3:
+                    interpolation = cv2.INTER_CUBIC
+
                 if deformation_type == 'prior_1DY':
-                    pass
+                    df[:, :, 0] = df[:, :, 0] + np.repeat(deformation_fields[:, np.newaxis], frame_img.shape[1], 1)
                 if deformation_type == 'prior_1DX':
                     pass
                 if deformation_type == 'prior_2D':
@@ -9420,8 +9438,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
                     pass
                 if deformation_type == 'post_2D':
                     pass
-                transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
-                frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
+                frame_img_reg = cv2.remap(frame_img, df[:, :, 0],df[:, :, 1], interpolation=interpolation, borderValue=fill_value )
             else:
                 transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
                 frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
