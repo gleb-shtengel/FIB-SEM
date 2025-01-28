@@ -9878,12 +9878,19 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         if perform_transformation:
             if perform_deformation:
                 if deformation_type == 'prior_1DY':
+                    pass
                 if deformation_type == 'prior_1DX':
+                    pass
                 if deformation_type == 'prior_2D':
+                    pass
                 if deformation_type == 'post_1DY':
+                    pass
                 if deformation_type == 'post_1DX':
+                    pass
                 if deformation_type == 'post_2D':
-
+                    pass
+                transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
+                frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
             else:
                 transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
                 frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
