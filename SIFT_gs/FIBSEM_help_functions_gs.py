@@ -394,18 +394,25 @@ def convert_tr_matr_into_deformation_field(transformation_matrix, image_shape, *
 
     kwargs
     ---------
+    index_map : str
+        'abs' (default) - absolute indices of the pixels.
+        'diff' - displacements
     '''
-
+    index_map = kwargs.get('index_map', 'abs')
     # create grid points
     image_height, image_width = image_shape
     grid_x, grid_y = np.meshgrid(np.arange(image_width), np.arange(image_height))
-    grid_points = np.stack([grid_x.flatten(), grid_y.flatten()])
+    grid_points = np.stack([grid_x.flatten(), grid_y.flatten()]).T
 
     # Apply transformation to each point
-    transformed_points = np.dot(transformation_matrix[:2, :2], grid_points) + transformation_matrix[:2, 2]
+    #transformed_points = np.dot(transformation_matrix[:2, :2], grid_points) + transformation_matrix[:2, 2]
+    transformed_points = grid_points @ transformation_matrix[0:2, 0:2].T + transformation_matrix[0:2, 2]
 
     # Calculate displacement vectors
-    displacement_vectors = transformed_points - grid_points
+    if index_map == 'abs':
+        displacement_vectors = transformed_points
+    else:
+        displacement_vectors = transformed_points - grid_points
 
     # Reshape into deformation field
     deformation_field = displacement_vectors.reshape((image_height, image_width, 2))
