@@ -1338,6 +1338,8 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     low_mask[img_smoothed > range_analysis[0]] = np.nan
     high_mask[img_smoothed < range_analysis[1]] = np.nan
     filter_mask[filter_array==True] = np.nan
+    
+    filter_nonzero = np.product(imdiff_filtered.shape)<np.product(imdiff.shape)
 
     if disp_res:
         fs=11
@@ -1363,7 +1365,7 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         axs[2].imshow(imdiff, cmap="Greys", vmin = range_imdiff[0], vmax = range_imdiff[1])
         axs[2].axis(False)
         
-        if np.product(imdiff_filtered.shape)<np.product(imdiff.shape):
+        if filter_nonzero:
             axs[2].imshow(filter_mask, cmap="gist_rainbow")
             axs[2].text(0.0, 1.01, 'Image Difference', transform=axs[2].transAxes, fontsize=fs+1)
             axs[2].text(0.4, 1.01, 'Excluded pixels masked red', transform=axs[2].transAxes, color='red', fontsize=fs+1)
@@ -1371,9 +1373,9 @@ def Single_Image_Noise_Statistics(img, **kwargs):
             axs[2].set_title('Image Difference', fontsize=fs+1)
 
     if disp_res:
-        hist, bins, patches = axs[4].hist(img_smoothed.ravel(), range=range_disp, bins = nbins_disp)
+        hist, bins, patches = axs[4].hist(img_smoothed_filtered.ravel(), range=range_disp, bins = nbins_disp)
     else:
-        hist, bins = np.histogram(img_smoothed.ravel(), range=range_disp, bins = nbins_disp)
+        hist, bins = np.histogram(img_smoothed_filtered.ravel(), range=range_disp, bins = nbins_disp)
     bin_centers = np.array(bins[1:] - (bins[1]-bins[0])/2.0)
     hist_center_ind = np.argwhere((bin_centers>range_analysis[0]) & (bin_centers<range_analysis[1]))
     hist_smooth = savgol_filter(np.array(hist), (nbins_disp//10)*2+1, 7)
@@ -1385,7 +1387,10 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         axs[4].plot(bin_centers[hist_center_ind], hist_smooth[hist_center_ind], color='grey', linestyle='dashed', linewidth=2)
         axs[4].plot(I_peak, C_peak, 'rd', label = Ipeak_lbl)
         axs[4].legend(loc='upper left', fontsize=fs+1)
-        axs[4].set_title('Histogram of the Smoothed Image', fontsize=fs+1)
+        if filter_nonzero:
+            axs[4].set_title('Histogram of the Filtered Smoothed Image', fontsize=fs+1)
+        else:
+            axs[4].set_title('Histogram of the Smoothed Image', fontsize=fs+1)
         axs[4].grid(True)
         axs[4].set_xlabel('Image Intensity', fontsize=fs+1)
         for patch in np.array(patches)[bin_centers<range_analysis[0]]:
@@ -1406,12 +1411,15 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         axs[4].text(0.69, 0.820, txt3, transform=axs[4].transAxes, backgroundcolor='white', fontsize=fs-2)
     
     if disp_res:
-        hist, bins, patches = axs[5].hist(imdiff.ravel(), bins = nbins_disp)
+        hist, bins, patches = axs[5].hist(imdiff_filtered.ravel(), bins = nbins_disp)
         axs[5].grid(True)
-        axs[5].set_title('Histogram of the Difference Map', fontsize=fs+1)
+        if filter_nonzero:
+            axs[5].set_title('Histogram of the Filtered Difference Map', fontsize=fs+1)
+        else:
+            axs[5].set_title('Histogram of the Difference Map', fontsize=fs+1)
         axs[5].set_xlabel('Image Difference', fontsize=fs+1) 
     else:
-        hist, bins = np.histogram(imdiff.ravel(), bins = nbins_disp)
+        hist, bins = np.histogram(imdiff_filtered.ravel(), bins = nbins_disp)
         
     try:
         popt = np.polyfit(mean_vals, var_vals, 1)
@@ -9524,7 +9532,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         axx.set_title('data range: {:.1f} ÷ {:.1f}'.format(dmin, dmax), fontsize=fsz)
         ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64)
         error_FWHMy, indyi, indya, mxy, mxy_ind = find_FWHM(ybins, ycounts[:-1], verbose=False, estimation=estimation, start=start, max_aver_aperture=5)
-        dby = (ybins[1]-ybins[0])/2.0
+        dby = (ybins[1]-ybins[0
+            ])/2.0
         #axy.plot([ybins[indyi] + dby, ybins[indya] + dby], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
         axy.plot([ybins[indyi], ybins[indya]], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
         axy.plot([ybins[mxy_ind] + dby], [mxy], 'rd')
@@ -9671,7 +9680,10 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
     perform_transformation  : boolean
         perform transformation
     tr_matrices : list of 2D (or 3d array)
-        Transformation matrix for every frame in frame_inds.
+        Transformation matrix for every frame in frame_inds. Each transformation matrix is in a form:
+            [[Sxx Sxy Tx]
+            [Syx  Syy Ty]
+            [0    0   1]]
     shift_matrix : 2d array
         shift matrix
     inv_shift_matrix : 2d array
@@ -9753,21 +9765,26 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
 
     Parameters
     chunk_of_frame_parametrs : list of following parameters
-        [save_filename, frame_filenames, tr_matrices, image_scale, image_offset, tr_args]
+        [save_filename, frame_filenames, tr_matrices, deformation_fields, image_scales, image_offsets, tr_args]
     
     save_filename : path
         Filename for saving the transformed frame
     frame_filenames : list of strings
         Filenames (Full paths) of FIB-SEM frame files for every frame in frame_inds
-    tr_matrices : list of 2D (or 3d array)
-        Transformation matrix for every frame in frame_inds.
+    tr_matrices : list of 2D (or 3D array)
+        Transformation matrix for every frame in frame_inds. Each transformation matrix is in a form:
+            [[Sxx Sxy Tx]
+            [Syx  Syy Ty]
+            [0    0   1]]
+    deformation_fields : list of 1D or 2D arrays (or 2D or 3D array)
+        Deformation Field for every frame in frame_inds
     image_scales : list (array) of floats
         image multipliers for image rescaling: I = (I-image_offset)*image_scale + image_offset
     image_offsets : list (array) of floats
         image offsets for image rescaling: I = (I-image_offset)*image_scale + image_offset
 
     tr_args : list of lowwowing parameters:
-        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp, fill_value]
+        tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, perform_deformation, deformation_type, ftype, dtp, fill_value]
     
     ImgB_fraction : float
         Fractional weight of Image B for fused images, default is 0
@@ -9799,6 +9816,16 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         shift matrix
     inv_shift_matrix : 2d array
         inverse shift matrix.
+    perform_deformation : boolean
+        If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
+    deformation_type : str
+        Options are:
+            'post_1DY' - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'post_1DX' - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'post_2D' - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+            'prior_2D' - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
     ftype : int
         File Type. 0 for Shan's .dat files, 1 for tif files
     dtp : data type
@@ -9806,8 +9833,10 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
 
     Returns
     '''
-    save_filename, frame_filenames, tr_matrices, image_scales, image_offsets, tr_args = chunk_of_frame_parametrs
-    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp, fill_value = tr_args
+    #save_filename, frame_filenames, tr_matrices, image_scales, image_offsets, tr_args = chunk_of_frame_parametrs
+    save_filename, frame_filenames, tr_matrices, deformation_fields, image_scales, image_offsets, tr_args = chunk_of_frame_parametrs
+    #ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp, fill_value = tr_args
+    ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, perform_deformation, deformation_type, ftype, dtp, fill_value = tr_args
     num_frames = len(frame_filenames)
     transformed_img = np.zeros((ysz, xsz), dtype=float)
     
@@ -9834,6 +9863,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
             else:
                 image = frame.RawImageA.astype(float) * (1.0 - ImgB_fraction) + frame.RawImageB.astype(float) * ImgB_fraction
         image = (image - image_offset) * image_scale + image_offset
+
         if invert_data:
             frame_img[yi:ya, xi:xa] = np.negative(image)
             '''
@@ -9846,8 +9876,17 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
             frame_img[yi:ya, xi:xa]  = image
 
         if perform_transformation:
-            transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
-            frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
+            if perform_deformation:
+                if deformation_type == 'prior_1DY':
+                if deformation_type == 'prior_1DX':
+                if deformation_type == 'prior_2D':
+                if deformation_type == 'post_1DY':
+                if deformation_type == 'post_1DX':
+                if deformation_type == 'post_2D':
+
+            else:
+                transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
+                frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)
         else:
             frame_img_reg = frame_img.copy()
 
@@ -10056,6 +10095,17 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
         image offsets for image rescaling: I = (I-image_offset)*image_scale + image_offset
     invert_data : boolean
         If True - the data is inverted.
+    perform_deformation : boolean
+        If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
+    deformation_type : str
+        Options are:
+            'post_1DY' - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'post_1DX' - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'post_2D' - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+            'prior_2D' - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
+    deformation_fields : float array
     dtp  : dtype
         Python data type for saving. Deafult is int16, the other option currently is uint8.
     fill_value : float
@@ -10094,14 +10144,16 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     image_scales = kwargs.get("image_scales", np.full(len(fls), 1.0))
     image_offsets = kwargs.get("image_offsets", np.zeros(len(fls)))
     invert_data =  kwargs.get("invert_data", False)
+    perform_deformation = kwargs.get("perform_deformation", False)
+    deformation_type = kwargs.get("deformation_type", 'post_1DY')
     dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
     disp_res = kwargs.get("disp_res", False)
     nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
     end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
     st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)             # starting frame for each z-bin
     nfrs_zbinned = len(st_frames)                                            # number of frames after z-ninning
-
     frames_new = np.arange(nfrs_zbinned-1)
+    deformation_fields = kwargs.get('deformation_fields', np.array(nfrs, test_frame.YResolution))
     
     if pad_edges and perform_transformation:
         shape = [YResolution, XResolution]
@@ -10142,12 +10194,13 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     chunk_of_frame_parametrs_dataset.append([save_filename, process_frames, np.array(tr_matr_cum_residual)[process_frames], tr_args])
     
     '''
-    tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, ftype, dtp, fill_value]
+    tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, perform_deformation, deformation_type, ftype, dtp, fill_value]
     chunk_of_frame_parametrs_dataset = []
     for j, st_frame in enumerate(tqdm(st_frames, desc='Setting up parameter sets', display=False)):
-        save_filename = os.path.join(os.path.split(fls[st_frame])[0],'Registered_Frame_{:d}.tif'.format(j))
+        #save_filename = os.path.join(os.path.split(fls[st_frame])[0],'Registered_Frame_{:d}.tif'.format(j))
+        save_filename = os.path.splitext(fls[st_frame])[0]+'_transformed.tif'
         process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
-        chunk_of_frame_parametrs_dataset.append([save_filename, np.array(fls)[process_frames], np.array(tr_matr_cum_residual)[process_frames], np.array(image_scales)[process_frames], np.array(image_offsets)[process_frames], tr_args])
+        chunk_of_frame_parametrs_dataset.append([save_filename, np.array(fls)[process_frames], np.array(tr_matr_cum_residual)[process_frames], np.array(deformation_fields)[process_frames], np.array(image_scales)[process_frames], np.array(image_offsets)[process_frames], tr_args])
 
     if use_DASK:
         if disp_res:

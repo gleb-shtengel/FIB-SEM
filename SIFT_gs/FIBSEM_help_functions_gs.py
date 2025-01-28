@@ -18,6 +18,9 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from IPython.core.pylabtools import figsize, getfigs
 
+from astropy.convolution import Gaussian1DKernel
+from astropy.convolution import convolve as astro_convolve
+
 import psutil
 import inspect
 
@@ -299,6 +302,116 @@ def calculate_gradent_map(img, ** kwargs):
             ax.axis(False)
             ax.grid(True)
     return abs_grad
+
+
+def determine_residual_deformation_field (src_pts, dst_pts, transformation_matrix, image_shape, **kwargs):
+    '''
+    Calculates residual deformation field from given source points (moving), destination points (fixed), and transformation matrix (affine)
+
+    Parameters
+    ----------
+    src_pts : list of 2D arrays
+        x, y coordinates of source (moving) points
+    dst_pts : list of 2D arrays
+        x, y coordinates of destination (fixed) points
+    transformation_matrix : 2D array
+        Transformation matrix in a form:
+            [[Sxx Sxy Tx]
+            [Syx  Syy Ty]
+            [0    0   1]]
+    image_shape : list of two ints
+        shape of the image (height, width)
+
+    deformation_type : str
+        Options are:
+            '1DY' - Default. Deformation is performed using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            '1DX' - Deformation is performed using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            '2D' - Deformation is performed using 2D deformation field.
+    sigma : list of 1 or two floats.
+        Gaussian width of smoothing (units of pixels). Default is 50.
+    
+    Returns : deformation_field
+    '''
+    
+    deformation_type = kwargs.get('deformation_type', '1DY')
+    sigma = kwargs.get('sigma', [50.0, 50.0])
+    image_height, image_width = image_shape
+    
+    x, y = dst_pts.T  # these are x and y coordinates of the landmarks
+    src_pts_transformed = src_pts @ transformation_matrix[0:2, 0:2].T + transformation_matrix[0:2, 2]
+    # determin residual errors (shifts)
+    xshifts, yshifts = (dst_pts - src_pts_transformed).T
+
+    if deformation_type == '2D':
+        # placeholder for now
+        deformation_field = np.zeros((image_height, image_width), dtype=float)
+    elif deformation_type == '1DX':
+        try:
+            sigma = sigma[0]
+        except:
+            pass
+        x_profile = np.zeros(image_width, dtype=float)
+        cnts = np.zeros(image_width, dtype=int)
+        xints = y.astype(int)
+        for xint, yshift in zip(xints, yshifts):
+            x_profile[xint] = y_profile[xint] + yshift
+            cnts[xint] = cnts[xint] + 1
+        x_profile = x_profile/cnts
+        x_profile_smoothed = astro_convolve(x_profile, Gaussian1DKernel(stddev=sigma))
+        #deformation_field = np.repeat(x_profile_smoothed[:, np.newaxis], image_height, 1).T
+        deformation_field = x_profile_smoothed
+    else:
+        try:
+            sigma = sigma[0]
+        except:
+            pass
+        y_profile = np.zeros(image_height, dtype=float)
+        cnts = np.zeros(image_height, dtype=int)
+        yints = y.astype(int)
+        for yint, xshift in zip(yints, xshifts):
+            y_profile[yint] = y_profile[yint] + xshift
+            cnts[yint] = cnts[yint] + 1
+        y_profile = y_profile/cnts
+        y_profile_smoothed = astro_convolve(y_profile, Gaussian1DKernel(stddev=sigma))
+        #deformation_field = np.repeat(y_profile_smoothed[:, np.newaxis], image_width, 1)
+        deformation_field = y_profile_smoothed
+    return deformation_field
+
+
+def convert_tr_matr_into_deformation_field(transformation_matrix, image_shape, **kwargs):
+    '''
+    Converts transformation_matrix into deformation field on a grid determined by the shape (height, width) parameter.
+
+    Parameters
+    ----------
+    transformation_matrix : 2D array
+        Transformation matrix in a form:
+            [[Sxx Sxy Tx]
+            [Syx  Syy Ty]
+            [0    0   1]]
+    image_shape : list of two ints
+        shape of the image (height, width)
+
+    kwargs
+    ---------
+    '''
+
+    # create grid points
+    image_height, image_width = image_shape
+    grid_x, grid_y = np.meshgrid(np.arange(image_width), np.arange(image_height))
+    grid_points = np.stack([grid_x.flatten(), grid_y.flatten()])
+
+    # Apply transformation to each point
+    transformed_points = np.dot(transformation_matrix[:2, :2], grid_points) + transformation_matrix[:2, 2]
+
+    # Calculate displacement vectors
+    displacement_vectors = transformed_points - grid_points
+
+    # Reshape into deformation field
+    deformation_field = displacement_vectors.reshape((image_height, image_width, 2))
+
+    return deformation_field
+
 
 def argmax2d(X):
     return np.unravel_index(X.argmax(), X.shape)
