@@ -8483,7 +8483,7 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     verbose = kwargs.get('verbose', False)
-    nfrs = len(fnm_matches)
+    nfrs = len(fnms_matches)
 
     if deformation_type == 'post_1DY':  # in case of transformation WITH scale perservation
         deformation_fields = np.zeros(nfrs, image_shape[0])
