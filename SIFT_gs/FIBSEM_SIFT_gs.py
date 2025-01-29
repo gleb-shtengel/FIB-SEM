@@ -11253,7 +11253,7 @@ class FIBSEM_dataset:
 
 
     def calculate_residual_deformation_fields(self, **kwargs):
-    '''
+        '''
         Calculates residual deformation fields for transformation IN ADDITION to that determied by transformation_matrix. ©G.Shtengel 01/2025 gleb.shtengel@gmail.com
 
         kwargs:
