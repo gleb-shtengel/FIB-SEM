@@ -8448,24 +8448,64 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
     return tr_matr_cum, transf_matrix_xlsx_file
 
 
-def determine_pad_offsets_old(shape, tr_matr):
-    ysz, xsz = shape
-    xmins = np.zeros(len(tr_matr))
-    xmaxs = xmins.copy()
-    ymins = xmins.copy()
-    ymaxs = xmins.copy()
-    corners = np.array([[0,0], [0, ysz], [xsz, 0], [xsz, ysz]])
-    for j, trm in enumerate(tqdm(tr_matr, desc = 'Determining the pad offsets')):
-        a = (trm[0:2, 0:2] @ corners.T).T + trm[0:2, 2]
-        xmins[j] = np.min(a[:, 0])
-        xmaxs[j] = np.max(a[:, 0])
-        ymins[j] = np.min(a[:, 1])
-        ymaxs[j] = np.max(a[:, 1])
-        xmin = np.min((np.min(xmins), 0.0))
-        xmax = np.max(xmaxs)-xsz
-        ymin = np.min((np.min(ymins), 0.0))
-        ymax = np.max(ymaxs)-ysz
-    return xmin, xmax, ymin, ymax
+def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms_matches, **kwargs):
+    '''
+    Calculates residual deformation fields for transformation IN ADDITION to that determied by transformation_matrix. ©G.Shtengel 01/2025 gleb.shtengel@gmail.com
+
+    Parameters
+    ----------
+    tr_matr_cum : transformation matrix
+    image_shape : target image shape
+    fnms_matches : files with point matches
+
+    kwargs:
+    ----------
+    deformation_type : str
+        Options are:
+            'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+            'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
+    deformation_sigma :  list of 1 or two floats.
+        Gaussian width of smoothing (units of pixels). Default is 50.
+    data_dir : str
+        data directory (path)
+    fnm_reg : str
+        filename for the final registed dataset
+    verbose : boolean
+
+    Returns deformation_fields, deformation_fields_bin_file
+    '''
+    deformation_type = kwargs.get("deformation_type", 'post_1DY')
+    deformation_sigma = kwargs.get('deformation_sigma', 50)
+    data_dir = kwargs.get("data_dir", '')
+    fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
+    verbose = kwargs.get('verbose', False)
+    nfrs = len(fnm_matches)
+
+    if deformation_type == 'post_1DY':  # in case of transformation WITH scale perservation
+        deformation_fields = np.zeros(nfrs, image_shape[0])
+        if verbose:
+            print('Calculating the residual deformation fields for post_1DY deformation')
+        for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Calculating the residual deformation fields for post_1DY deformation')):
+            try:
+                src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
+                deformation_fields[j] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j], image_shape, deformation_type = '1DY', sigma=deformation_sigma)
+            except:
+                pass
+        deformation_fields = np.cumsum(deformation_fields, axis = 0)  
+
+    # save the data
+    default_bin_file = os.path.join(data_dir, fnm_reg.replace('.mrc', '_deformation_fields.bin'))
+    transf_matrix_bin_file = kwargs.get("dump_filename", default_bin_file)
+
+    DumpObject = [kwargs, image_shape, deformation_fields]
+    with open(transf_matrix_bin_file,"wb") as f:
+        pickle.dump(DumpObject, f)
+    
+    return deformation_fields, deformation_fields_bin_file
 
 
 def determine_pad_offsets(shape, tr_matr):
@@ -9352,12 +9392,12 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
     deformation_type : str
         Options are:
-            'post_1DY' - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'post_1DY'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
             'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
-            'post_1DX' - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
             'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
-            'post_2D' - Deformation is performed AFTER the matrix transformation using 2D deformation field.
-            'prior_2D' - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
+            'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+            'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
     ftype : int
         File Type. 0 for Shan's .dat files, 1 for tif files
     dtp : data type
@@ -9409,7 +9449,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
 
         if perform_transformation:
             if perform_deformation:
-                df = convert_tr_matr_into_deformation_field(tr_matrix, frame_img.shape).astype(np.float32)
+                df = convert_tr_matr_into_deformation_field(shift_matrix @ (tr_matrix @ inv_shift_matrix), frame_img.shape).astype(np.float32)
                 '''
                 int_order:   #  The order of interpolation. The order has to be in the range 0-5:
                              #    - 0: Nearest-neighbor
@@ -9427,7 +9467,9 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
                     interpolation = cv2.INTER_CUBIC
 
                 if deformation_type == 'prior_1DY':
-                    df[:, :, 0] = df[:, :, 0] + np.repeat(deformation_fields[:, np.newaxis], frame_img.shape[1], 1)
+                    orig_shape = frame.RawImageA.shape
+                    additional_deformation = np.repeat(deformation_fields[:, np.newaxis], orig_shape[1], 1)
+                    df[:, :, 0] = df[:, :, 0] + np.pad(additional_deformation, pad_width=((yi, (ysz-orig_shape[0]-yi)), (xi, (xsz-orig_shape[1]-xi))), mode='edge')
                 if deformation_type == 'prior_1DX':
                     pass
                 if deformation_type == 'prior_2D':
@@ -9654,12 +9696,12 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
         If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
     deformation_type : str
         Options are:
-            'post_1DY' - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
             'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
-            'post_1DX' - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
             'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
-            'post_2D' - Deformation is performed AFTER the matrix transformation using 2D deformation field.
-            'prior_2D' - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
+            'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+            'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
     deformation_fields : float array
     dtp  : dtype
         Python data type for saving. Deafult is int16, the other option currently is uint8.
@@ -9708,7 +9750,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)             # starting frame for each z-bin
     nfrs_zbinned = len(st_frames)                                            # number of frames after z-ninning
     frames_new = np.arange(nfrs_zbinned-1)
-    deformation_fields = kwargs.get('deformation_fields', np.array(nfrs, test_frame.YResolution))
+    deformation_fields = kwargs.get('deformation_fields', np.zeros(nfrs, test_frame.YResolution, dtype=float))
     
     if pad_edges and perform_transformation:
         shape = [YResolution, XResolution]
@@ -10210,6 +10252,18 @@ class FIBSEM_dataset:
         This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
     pad_edges : boolean
         If True, the data will be padded before transformation to avoid clipping.
+    perform_deformation : boolean
+        If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
+    deformation_type : str
+        Options are:
+            'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+            'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+            'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+            'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
+    deformation_sigma :  list of 1 or two floats.
+        Gaussian width of smoothing (units of pixels). Default is 50.
     ImgB_fraction : float
             fractional ratio of Image B to be used for constructing the fuksed image:
             ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
@@ -10236,6 +10290,9 @@ class FIBSEM_dataset:
 
     process_transformation_matrix(**kwargs):
         Calculate cumulative transformation matrix
+
+    calculate_residual_deformation_fields(**kwargs):
+        Calculates residual deformation fields for transformation IN ADDITION to that determied by transformation_matrix (above)
 
     save_parameters(**kwargs):
         Save transformation attributes and parameters (including transformation matrices)
@@ -11179,6 +11236,59 @@ class FIBSEM_dataset:
                                              **TM_kwargs)
         return self.tr_matr_cum_residual, self.transf_matrix_xlsx_file
 
+
+    def calculate_residual_deformation_fields(self, **kwargs):
+    '''
+        Calculates residual deformation fields for transformation IN ADDITION to that determied by transformation_matrix. ©G.Shtengel 01/2025 gleb.shtengel@gmail.com
+
+        kwargs:
+        ----------
+        tr_matr_cum_residual : transformation matrix
+        image_shape : target image shape
+        fnms_matches : files with point matches
+        deformation_type : str
+            Options are:
+                'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+                'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+                'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+                'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+                'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+                'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
+        deformation_sigma :  list of 1 or two floats.
+            Gaussian width of smoothing (units of pixels). Default is 50.
+        data_dir : str
+            data directory (path)
+        fnm_reg : str
+            filename for the final registed dataset
+        verbose : boolean
+
+        Returns deformation_fields, deformation_fields_bin_file
+        '''
+        tr_matr_cum_residual = kwargs.get("tr_matr_cum_residual", self.tr_matr_cum_residual)
+        if len(self.tr_matr_cum_residual) == 0:
+            print('No data on individual key-point matches, peform key-point search / matching first')
+        else:
+            image_shape = kwargs.get('image_shape', [self.YResolution, self.XResolution])
+            fnms_matches = kwargs.get('fnms_matches', self.fnms_matches)
+            deformation_type = kwargs.get("deformation_type", self.deformation_type)
+            deformation_sigma = kwargs.get('deformation_sigma', self.deformation_sigma)
+            data_dir = kwargs.get("data_dir", self.data_dir)
+            fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
+            verbose = kwargs.get('verbose', False)
+
+            if verbose:
+                print('Transformation Matrix Data is present, will perform post-processing')
+            DF_kwargs = {'fnm_reg' : fnm_reg,
+                        'data_dir' : data_dir,
+                        'deformation_type' : deformation_type,
+                        'deformation_sigma' : deformation_sigma,
+                        'verbose' : verbose}
+
+            self.deformation_fields, self.deformation_fields_bin_file = calculate_residual_deformation_fields_dataset(tr_matr_cum_residual, image_shape, fnms_matches, **DF_kwargs)
+        
+        return self.deformation_fields, self.deformation_fields_bin_file
+
+
     def save_parameters(self, **kwargs):
         '''
         Save transformation attributes and parameters (including transformation matrices).
@@ -11384,6 +11494,17 @@ class FIBSEM_dataset:
             If True, the frame will be padded to account for frame position and/or size changes.
         invert_data : boolean
             If True - the data is inverted.
+        perform_deformation : boolean
+            If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
+        deformation_type : str
+            Options are:
+                'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+                'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+                'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+                'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+                'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+                'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
+        deformation_fields : float array
         flatten_image : bolean
             perform image flattening
         image_correction_file : str
@@ -11504,6 +11625,18 @@ class FIBSEM_dataset:
         image_scales = kwargs.get("image_scales", np.full(len(self.fls), 1.0))
         image_offsets = kwargs.get("image_offsets", np.zeros(len(self.fls)))
         perform_transformation =  kwargs.get("perform_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
+        if hasattr(self, 'perform_deformation')
+            perform_deformation = kwargs.get("perform_deformation", self.perform_deformation)
+        else:
+            perform_deformation = kwargs.get("perform_deformation", False)
+        if hasattr(self, 'deformation_type')
+            deformation_type = kwargs.get("deformation_type", self.deformation_type)
+        else:
+            deformation_type = kwargs.get("deformation_type", 'post_1DY')
+        if hasattr(self, 'deformation_fields')
+            deformation_fields = kwargs.get("deformation_fields", self.deformation_fields)
+        else:
+            deformation_fields = kwargs.get("deformation_fields", np.zeros(nfrs, test_frame.YResolution, dtype=float))
         if hasattr(self, 'pad_edges'):
             pad_edges = kwargs.get("pad_edges", self.pad_edges)
         else:
@@ -11545,6 +11678,9 @@ class FIBSEM_dataset:
                         'image_scales' : image_scales,
                         'image_offsets' : image_offsets,
                         'perform_transformation' : perform_transformation,
+                        'perform_deformation' : perform_deformation,
+                        'deformation_type' : deformation_type,
+                        'deformation_fields' : deformation_fields,
                         'invert_data' : invert_data,
                         'evaluation_box' : evaluation_box,
                         'sliding_evaluation_box' : sliding_evaluation_box,
