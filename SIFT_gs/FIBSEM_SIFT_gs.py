@@ -10429,6 +10429,18 @@ class FIBSEM_dataset:
             This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
         pad_edges : boolean
             If True, the data will be padded before transformation to avoid clipping.
+        perform_deformation : boolean
+            If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
+        deformation_type : str
+            Options are:
+                'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+                'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
+                'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+                'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
+                'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
+                'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
+        deformation_sigma :  list of 1 or two floats.
+            Gaussian width of smoothing (units of pixels). Default is 50.
         disp_res : boolean
             If False, the intermediate printouts will be suppressed
         """
@@ -10508,6 +10520,9 @@ class FIBSEM_dataset:
         self.FOVtrend_x = np.zeros(len(fls))
         self.FOVtrend_y = np.zeros(len(fls))
         self.pad_edges =  kwargs.get("pad_edges", True)
+        self.perform_deformation = kwargs.get("perform_deformation", False)
+        self.deformation_type = kwargs.get("deformation_type", 'post_1DY')
+        self.deformation_sigma = kwargs.get('deformation_sigma', 50)
         build_fnm_reg, build_dtp = build_filename(fls[0], **kwargs)
         self.fnm_reg = kwargs.get("fnm_reg", build_fnm_reg)
         self.dtp = kwargs.get("dtp", build_dtp)
