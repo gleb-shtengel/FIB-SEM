@@ -11640,15 +11640,15 @@ class FIBSEM_dataset:
         image_scales = kwargs.get("image_scales", np.full(len(self.fls), 1.0))
         image_offsets = kwargs.get("image_offsets", np.zeros(len(self.fls)))
         perform_transformation =  kwargs.get("perform_transformation", True)  and hasattr(self, 'tr_matr_cum_residual')
-        if hasattr(self, 'perform_deformation')
+        if hasattr(self, 'perform_deformation'):
             perform_deformation = kwargs.get("perform_deformation", self.perform_deformation)
         else:
             perform_deformation = kwargs.get("perform_deformation", False)
-        if hasattr(self, 'deformation_type')
+        if hasattr(self, 'deformation_type'):
             deformation_type = kwargs.get("deformation_type", self.deformation_type)
         else:
             deformation_type = kwargs.get("deformation_type", 'post_1DY')
-        if hasattr(self, 'deformation_fields')
+        if hasattr(self, 'deformation_fields'):
             deformation_fields = kwargs.get("deformation_fields", self.deformation_fields)
         else:
             deformation_fields = kwargs.get("deformation_fields", np.zeros(nfrs, test_frame.YResolution, dtype=float))
