@@ -8486,9 +8486,11 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
     nfrs = len(fnms_matches)
 
     if deformation_type == 'post_1DY':  # in case of transformation WITH scale perservation
-        deformation_fields = np.zeros(nfrs, image_shape[0])
         if verbose:
             print('Calculating the residual deformation fields for post_1DY deformation')
+            print('The shape of the output array will be: ', nfrs, image_shape[0])
+        deformation_fields = np.zeros((nfrs, image_shape[0]), dtype=float)
+
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Calculating the residual deformation fields for post_1DY deformation')):
             try:
                 src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
@@ -9750,7 +9752,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     st_frames = np.arange(frame_inds[0], end_frame, zbin_factor)             # starting frame for each z-bin
     nfrs_zbinned = len(st_frames)                                            # number of frames after z-ninning
     frames_new = np.arange(nfrs_zbinned-1)
-    deformation_fields = kwargs.get('deformation_fields', np.zeros(nfrs, test_frame.YResolution, dtype=float))
+    deformation_fields = kwargs.get('deformation_fields', np.zeros((nfrs, test_frame.YResolution), dtype=float))
     
     if pad_edges and perform_transformation:
         shape = [YResolution, XResolution]
