@@ -8516,124 +8516,6 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
     return deformation_fields, deformation_fields_bin_file
 
 
-def determine_pad_offsets(shape, tr_matr):
-    ysz, xsz = shape
-    corners = np.array([[0.0, 0.0, 1.0], [0.0, ysz, 1.0], [xsz, 0.0, 1.0], [xsz, ysz, 1.0]])
-    a = np.array(tr_matr)[:, 0:2, :] @ corners.T
-    #a = np.linalg.inv(np.array(tr_matr))[:, 0:2, :] @ corners.T
-    xc = a[:, 0, :].ravel()
-    yc = a[:, 1, :].ravel()
-    xmin = np.round(np.min((np.min(xc), 0.0))).astype(int)
-    xmax = np.round(np.max(xc)-xsz).astype(int)
-    ymin = np.round(np.min((np.min(yc), 0.0))).astype(int)
-    ymax = np.round(np.max(yc)-ysz).astype(int)
-    #print(xmin, xmax, ymin, ymax)
-    #xi = int(-1 * xmin)
-    #yi = int(-1 * ymin)
-    xi = int(np.max((xmax, 0)))
-    yi = int(np.max((ymax, 0)))
-    padx = np.max((int(xmax - xmin), xi))
-    pady = np.max((int(ymax - ymin), yi))
-    #return xmin, xmax, ymin, ymax
-    #print(xi, yi, padx, pady)
-    return xi, yi, padx, pady
-
-
-def set_eval_bounds(shape, evaluation_box, **kwargs):
-    '''
-    Set up evaluation bounds.
-
-    Parameters:
-    shape : list of 2 ints
-        [Ysize, Xsize] frame size in pixels
-    evaluation_box : list of 4 int
-        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
-        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-
-
-    kwargs:
-    perform_transformation : boolean
-        If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
-    pad_edges : boolean
-        If True, the frame will be padded to account for frame position and/or size changes.
-    tr_matr : list of transformation matrices
-    sliding_evaluation_box : boolean
-        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
-    start_evaluation_box : list of 4 int
-        see above
-    stop_evaluation_box : list of 4 int
-        see above
-    frame_inds : int array
-        array of frame indices
-
-    Returnes:
-    evaluation_bounds : int array of 4 elements
-        evaluation_bounds = (xi_evals, xa_evals, yi_evals, ya_evals)
-
-    '''
-    ny, nx = shape
-
-    pad_edges = kwargs.get('pad_edges', False)
-    perform_transformation = kwargs.get('perform_transformation', False)
-    tr_matr = np.array(kwargs.get('tr_matr', []))
-    ntr = len(tr_matr)
-    if ntr>0:
-        frame_inds = np.array(kwargs.get("frame_inds", np.arange(ntr)))
-        nz = len(frame_inds)
-    else:
-        frame_inds = np.array([])
-        nz = 0
-    #print('will use frame_inds: ', frame_inds)
-    sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
-    start_evaluation_box = kwargs.get("start_evaluation_box", False)
-    stop_evaluation_box = kwargs.get("stop_evaluation_box", False)
-    
-    if sliding_evaluation_box:
-        dx_eval = stop_evaluation_box[2]-start_evaluation_box[2]
-        dy_eval = stop_evaluation_box[0]-start_evaluation_box[0]
-        top_left_corners = np.vstack((np.array([start_evaluation_box[2] + dx_eval*frame_inds//(ntr-1)]),
-                                      np.array([start_evaluation_box[0] + dy_eval*frame_inds//(ntr-1)]))).T
-    else:
-        top_left_corners = np.array([[evaluation_box[2],evaluation_box[0]]]*nz)
-    
-    if pad_edges and perform_transformation and nz>0:
-        xi, yi, padx, pady = determine_pad_offsets([ny, nx], tr_matr)
-
-        shift_matrix = np.array([[1.0, 0.0, xi],
-                         [0.0, 1.0, yi],
-                         [0.0, 0.0, 1.0]])
-        inv_shift_matrix = np.linalg.inv(shift_matrix)
-        top_left_corners_ext = np.vstack(((top_left_corners+ np.array((xi, yi))).T, np.ones(nz)))
-        #arr1 = (shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
-        arr1 = np.linalg.inv(shift_matrix @ (tr_matr @ inv_shift_matrix))[frame_inds, 0:2, :]
-        arr2 = top_left_corners_ext.T
-        eval_starts = np.round(np.einsum('ijk,ik->ij',arr1, arr2))
-    else:
-        padx = 0
-        pady = 0
-        eval_starts = top_left_corners
-
-    if sliding_evaluation_box:
-        xa_evals = np.clip(eval_starts[:, 0] + start_evaluation_box[3], 0, (nx+padx))
-        ya_evals = np.clip(eval_starts[:, 1] + start_evaluation_box[1], 0, (ny+pady))
-        xi_evals = xa_evals - start_evaluation_box[3]
-        yi_evals = ya_evals - start_evaluation_box[1]
-    else:
-        sv_apert = np.min(((nz//8)*2+1, 2001))
-        if sv_apert <2:
-            # no smoothing if the set is too short
-            xa_evals = np.clip(eval_starts[:, 0] + evaluation_box[3], 0, (nx+padx))
-            ya_evals = np.clip(eval_starts[:, 1] + evaluation_box[1], 0, (ny+pady))
-        else:
-            filter_order = np.min([5, sv_apert-1])
-            xa_evals = savgol_filter(np.clip(eval_starts[:, 0] + evaluation_box[3], 0, (nx+padx)), sv_apert, filter_order)
-            ya_evals = savgol_filter(np.clip(eval_starts[:, 1] + evaluation_box[1], 0, (ny+pady)), sv_apert, filter_order)
-        xi_evals = xa_evals - evaluation_box[3]
-        yi_evals = ya_evals - evaluation_box[1]
-
-    return np.array(np.vstack((xi_evals, xa_evals, yi_evals, ya_evals))).T.astype(int)
-
-
 def SIFT_find_keypoints_dataset(fr, **kwargs):
     '''
     Evaluate SIFT key point discovery for a test frame (fr). ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
@@ -9410,6 +9292,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
         File Type. 0 for Shan's .dat files, 1 for tif files
     dtp : data type
         Python data type for saving. Deafult is int16, the other option currently is uint8.
+    verbose : boolean 
 
     Returns
     '''
@@ -9419,6 +9302,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, perform_deformation, deformation_type, ftype, dtp, fill_value = tr_args
     num_frames = len(frame_filenames)
     transformed_img = np.zeros((ysz, xsz), dtype=float)
+    verbose = True
     
     for frame_filename, tr_matrix, image_scale, image_offset in zip(frame_filenames, tr_matrices, image_scales, image_offsets):
         #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
@@ -9475,15 +9359,21 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
                     interpolation = cv2.INTER_CUBIC
 
                 if deformation_type == 'prior_1DY':
-                    orig_shape = frame.RawImageA.shape
-                    additional_deformation = np.repeat(deformation_fields[:, np.newaxis], orig_shape[1], 1)
-                    df[:, :, 0] = df[:, :, 0] + np.pad(additional_deformation, pad_width=((yi, (ysz-orig_shape[0]-yi)), (xi, (xsz-orig_shape[1]-xi))), mode='edge')
+                    pass
                 if deformation_type == 'prior_1DX':
                     pass
                 if deformation_type == 'prior_2D':
                     pass
                 if deformation_type == 'post_1DY':
-                    pass
+                    if verbose:
+                        print('Performing Transformation using CV2.remap with additional post_1DY deformation fields')
+                    orig_shape = frame.RawImageA.shape
+                    additional_deformation = np.repeat(deformation_fields[:, np.newaxis], orig_shape[1], 1)
+                    xi_loc, yi_loc, padx_loc, pady_loc  = determine_pad_offsets(orig_shape, tr_matrix)
+                    if verbose:
+                        print('Global: xi={:d}, yi={:d}. Local xi_loc={:d}, yi_loc={:d}'.format(xi, yi, xi_loc, yi_loc))
+                    additional_deformation_padded = np.pad(additional_deformation, pad_width=((yi_loc, (ysz-orig_shape[0]-yi_loc)), (xi_loc, (xsz-orig_shape[1]-xi_loc))), mode='edge')
+                    df[:, :, 0] = df[:, :, 0] + additional_deformation_padded
                 if deformation_type == 'post_1DX':
                     pass
                 if deformation_type == 'post_2D':
