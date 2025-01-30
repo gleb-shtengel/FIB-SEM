@@ -8489,12 +8489,12 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
         if verbose:
             print('Calculating the residual deformation fields for post_1DY deformation')
             print('The shape of the output array will be: ', nfrs, image_shape[0])
-        deformation_fields = np.zeros((nfrs, image_shape[0]), dtype=float)
+        deformation_fields = np.zeros((nfrs+1, image_shape[0]), dtype=float)
 
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Calculating the residual deformation fields for post_1DY deformation')):
             try:
                 src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
-                deformation_fields[j] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j], image_shape, deformation_type = '1DY', sigma=deformation_sigma)
+                deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j+1], image_shape, deformation_type = '1DY', sigma=deformation_sigma)
             except:
                 pass
         deformation_fields = np.cumsum(deformation_fields, axis = 0)  
@@ -11653,7 +11653,7 @@ class FIBSEM_dataset:
         if hasattr(self, 'deformation_fields'):
             deformation_fields = kwargs.get("deformation_fields", self.deformation_fields)
         else:
-            deformation_fields = kwargs.get("deformation_fields", np.zeros(nfrs, test_frame.YResolution, dtype=float))
+            deformation_fields = kwargs.get("deformation_fields", np.zeros((nfrs, test_frame.YResolution), dtype=float))
         if hasattr(self, 'pad_edges'):
             pad_edges = kwargs.get("pad_edges", self.pad_edges)
         else:
