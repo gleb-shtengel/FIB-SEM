@@ -346,24 +346,30 @@ def convert_tr_matr_into_deformation_field(transformation_matrix, image_shape, *
     return deformation_field
 
 
-def determine_residual_deformation_field (src_pts, dst_pts, transformation_matrix, image_shape, **kwargs):
+def determine_residual_deformation_field (src_pts, dst_pts, transformation_matrix_src, transformation_matrix_dst, image_shape, **kwargs):
     '''
-    Calculates residual deformation field from given source points (moving), destination points (fixed), and transformation matrix (affile)
+    Calculates residual deformation field from given source points, destination points, and transformation matrices for both
 
     Parameters
     ----------
     src_pts : list of 2D arrays
-        x, y coordinates of source (moving) points
+        x, y coordinates of source points
     dst_pts : list of 2D arrays
-        x, y coordinates of destination (fixed) points
-    transformation_matrix : 2D array
-        Transformation matrix in a form:
+        x, y coordinates of destination points
+    transformation_matrix_src : 2D array
+        Transformation matrix for src points in a form:
             [[Sxx Sxy Tx]
             [Syx  Syy Ty]
             [0    0   1]]
+    transformation_matrix_dst : 2D array
+        Transformation matrix for dst points in a form:
+            [[Sxx Sxy Tx]
+            [Syx  Syy Ty]
+            [0    0   1]]
+        If dst points are fixed (not moving), use np.eye(3,3) instead
+    
     image_shape : list of two ints
         shape of the image (height, width)
-
     deformation_type : str
         Options are:
             '1DY' - Default. Deformation is performed using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
@@ -384,10 +390,11 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
     # Create a regular grid
     grid_x, grid_y = np.meshgrid(np.linspace(0, image_width), np.linspace(0, image_height))
 
-    src_pts_transformed = src_pts @ transformation_matrix[0:2, 0:2].T + transformation_matrix[0:2, 2]
-    xshifts, yshifts = (dst_pts - src_pts_transformed).T
-    #yshifts = (dst_pts - src_pts_transformed)[:,1]
-    x, y = dst_pts.T
+    src_pts_transformed = src_pts @ transformation_matrix_src[0:2, 0:2].T + transformation_matrix_src[0:2, 2]
+    dst_pts_transformed = dst_pts @ transformation_matrix_dst[0:2, 0:2].T + transformation_matrix_dst[0:2, 2]
+    xshifts, yshifts = (dst_pts_transformed - src_pts_transformed).T
+    #yshifts = (dst_pts_transformed - src_pts_transformed)[:,1]
+    x, y = dst_pts_transformed.T
     if verbose:
         print('determine_residual_deformation_field : will calculate residual deformation field in format: ', deformation_type, ',  df_sigma(s)=', deformation_sigma)
 
