@@ -4773,21 +4773,14 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     
     if disp_res:
         print('Loading Intermediate Data')
+
     int_results = pd.read_excel(transf_matrix_xlsx_file, sheet_name='Intermediate Results')
     s00_cum_orig = int_results['s00_cum_orig']
     s11_cum_orig = int_results['s11_cum_orig']
-    s00_fit = int_results['s00_fit']
-    s11_fit = int_results['s11_fit']
     s01_cum_orig = int_results['s01_cum_orig']
     s10_cum_orig = int_results['s10_cum_orig']
-    s01_fit = int_results['s01_fit']
-    s10_fit = int_results['s10_fit']
     Xshift_cum_orig = int_results['Xshift_cum_orig']
     Yshift_cum_orig = int_results['Yshift_cum_orig']
-    Xshift_cum = int_results['Xshift_cum']
-    Yshift_cum = int_results['Yshift_cum']
-    Xfit = int_results['Xfit']
-    Yfit = int_results['Yfit']
     
     if disp_res:
         print('Loading Statistics')
@@ -4866,8 +4859,13 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     axs5[2, 0].plot(s00_cum_orig, 'r', linewidth = lwl, linestyle='dotted', label = 'Sxx cum.')
     axs5[2, 0].plot(s11_cum_orig, 'b', linewidth = lwl, linestyle='dotted', label = 'Syy cum.')
     if preserve_scales:
-        axs5[2, 0].plot(s00_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxx cum. - '+fm_string+' fit')
-        axs5[2, 0].plot(s11_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syy cum. - '+fm_string+' fit')
+        try:
+            s00_fit = int_results['s00_fit']
+            s11_fit = int_results['s11_fit']
+            axs5[2, 0].plot(s00_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxx cum. - '+fm_string+' fit')
+            axs5[2, 0].plot(s11_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syy cum. - '+fm_string+' fit')
+        except:
+            pass
     axs5[2, 0].set_title('Cumulative Scale', fontsize = fs)
     yi10,ya10 = axs5[1, 0].get_ylim()
     dy0 = (ya10-yi10)/2.0
@@ -4889,8 +4887,13 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     axs5[2, 1].plot(s01_cum_orig, 'r', linewidth = lwl, linestyle='dotted', label = 'Sxy cum.')
     axs5[2, 1].plot(s10_cum_orig, 'b', linewidth = lwl, linestyle='dotted', label = 'Syx cum.')
     if preserve_scales:
-        axs5[2, 1].plot(s01_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxy cum. - '+fm_string+' fit')
-        axs5[2, 1].plot(s10_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syx cum. - '+fm_string+' fit')
+        try:
+            s01_fit = int_results['s01_fit']
+            s10_fit = int_results['s10_fit']
+            axs5[2, 1].plot(s01_fit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Sxy cum. - '+fm_string+' fit')
+            axs5[2, 1].plot(s10_fit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Syx cum. - '+fm_string+' fit')
+        except:
+            pass
     axs5[2, 1].set_title('Cumulative Shear', fontsize = fs)
     yi11,ya11 = axs5[1, 1].get_ylim()
     dy1 = (ya11-yi11)/2.0
@@ -4906,21 +4909,43 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
         axs5[3, 1].set_ylim((yi31-dy1, ya31+dy1))
     
     # plot shifts
+    try:
+        Xshift_cum = int_results['Xshift_cum']
+    except:
+        pass
+    try:
+        Yshift_cum = int_results['Yshift_cum']
+    except:
+        pass
     axs5[1, 2].plot(transformation_matrix[:, 0, 2], 'r', linewidth = lwl, label = 'Tx fr.-to-fr.')
     axs5[1, 2].plot(transformation_matrix[:, 1, 2], 'b', linewidth = lwl, label = 'Ty fr.-to-fr.')
     axs5[1, 2].set_title('Frame-to-Frame Shift', fontsize = fs)
     if preserve_scales:
         axs5[2, 2].plot(Xshift_cum_orig, 'r', linewidth = lwl, label = 'Tx cum. - orig.')
         axs5[2, 2].plot(Yshift_cum_orig, 'b', linewidth = lwl, label = 'Ty cum. - orig.')
-        axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum. - pres. scales')
-        axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum. - pres. scales')
+        try:
+            axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum. - pres. scales')
+            axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum. - pres. scales')
+        except:
+            pass
     else:
-        axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum.')
-        axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum.')
+        try:
+            axs5[2, 2].plot(Xshift_cum, 'r', linewidth = lwl, linestyle='dotted', label = 'Tx cum.')
+            axs5[2, 2].plot(Yshift_cum, 'b', linewidth = lwl, linestyle='dotted', label = 'Ty cum.')
+        except:
+            pass
     if subtract_linear_fit[0]:
-        axs5[2, 2].plot(Xfit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Tx cum. - lin. fit')
+        try:
+            Xfit = int_results['Xfit']
+            axs5[2, 2].plot(Xfit, 'orange', linewidth = lwf, linestyle='dashed', label = 'Tx cum. - lin. fit')
+        except:
+            pass
     if subtract_linear_fit[1]:
-        axs5[2, 2].plot(Yfit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Ty cum. - lin. fit')
+        try:
+            Yfit = int_results['Yfit']
+            axs5[2, 2].plot(Yfit, 'cyan', linewidth = lwf, linestyle='dashed', label = 'Ty cum. - lin. fit')
+        except:
+            pass
     axs5[2, 2].set_title('Cumulative Shift', fontsize = fs)
     axs5[3, 2].plot(tr_matr_cum[:, 0, 2], 'r', linewidth = lwl, label = 'Tx cum. - residual')
     axs5[3, 2].plot(tr_matr_cum[:, 1, 2], 'b', linewidth = lwl, label = 'Ty cum. - residual')
@@ -8343,12 +8368,17 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
     s11_cum_orig = tr_matr_cum[:, 1, 1].astype(np.double)
     Xshift_cum_orig = tr_matr_cum[:, 0, 2].astype(np.double)
     Yshift_cum_orig = tr_matr_cum[:, 1, 2].astype(np.double)
-
+    columns_shifts=['s00_cum_orig', 's11_cum_orig', 's01_cum_orig', 's10_cum_orig', 'Xshift_cum_orig', 'Yshift_cum_orig']
+    shifts_dt = pd.DataFrame(np.vstack((s00_cum_orig, s11_cum_orig, s01_cum_orig, s10_cum_orig, Xshift_cum_orig, Yshift_cum_orig)).T, columns = columns_shifts, index = None)
+        
     if preserve_scales:  # in case of transformation WITH scale perservation
         if verbose:
             print('Recalculating the transformation matrix for preserved scales')
         tr_matr_cum, s_fits = find_fit(tr_matr_cum, fit_params=fit_params, verbose=verbose)
         s00_fit, s01_fit, s10_fit, s11_fit = s_fits
+        columns_shifts_add=['s00_fit', 's11_fit', 's01_fit', 's10_fit']
+        shifts_dt_add = pd.DataFrame(np.vstack((s00_fit, s11_fit, s01_fit, s10_fit)).T, columns = columns_shifts_add, index = None)
+        shifts_dt = pd.concat([shifts_dt, shifts_dt_add], axis=1)
         txs = np.zeros(len(tr_matr_cum), dtype=float)
         tys = np.zeros(len(tr_matr_cum), dtype=float)
         
@@ -8387,6 +8417,9 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
         Xfit = np.polyval(pX, fr)
         Xshift_residual = Xshift_cum - Xfit
         #Xshift_residual0 = -np.polyval(pX, 0.0)
+        columns_shifts_add=['Xshift_cum', 'Xfit']
+        shifts_dt_add = pd.DataFrame(np.vstack((Xshift_cum, Xfit)).T, columns = columns_shifts_add, index = None)
+        shifts_dt = pd.concat([shifts_dt, shifts_dt_add], axis=1)
     else:
         Xshift_residual = Xshift_cum.copy()
         Xfit = np.zeros(len(Xshift_cum))
@@ -8400,6 +8433,9 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
         Yfit = np.polyval(pY, fr)
         Yshift_residual = Yshift_cum - Yfit
         #Yshift_residual0 = -np.polyval(pY, 0.0)
+        columns_shifts_add=['Yshift_cum', 'Yfit']
+        shifts_dt_add = pd.DataFrame(np.vstack((Yshift_cum, Yfit)).T, columns = columns_shifts_add, index = None)
+        shifts_dt = pd.concat([shifts_dt, shifts_dt_add], axis=1)
     else:
         Yshift_residual = Yshift_cum.copy()
         Yfit = np.zeros(len(Yshift_cum))
@@ -8424,8 +8460,6 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
     tr_mx_cum_dt = pd.DataFrame(tr_matr_cum.reshape((len(tr_matr_cum), 9)), columns = columns, index = None)
     tr_mx_cum_dt.to_excel(xlsx_writer, index=None, sheet_name='Cum. Transformation Matrix')
 
-    columns_shifts=['s00_cum_orig', 's00_fit', 's11_cum_orig', 's11_fit', 's01_cum_orig', 's01_fit', 's10_cum_orig', 's10_fit', 'Xshift_cum_orig', 'Yshift_cum_orig', 'Xshift_cum', 'Yshift_cum', 'Xfit', 'Yfit']
-    shifts_dt = pd.DataFrame(np.vstack((s00_cum_orig, s00_fit, s11_cum_orig, s11_fit, s01_cum_orig, s01_fit, s10_cum_orig, s10_fit, Xshift_cum_orig, Yshift_cum_orig, Xshift_cum, Yshift_cum, Xfit, Yfit)).T, columns = columns_shifts, index = None)
     shifts_dt.to_excel(xlsx_writer, index=None, sheet_name='Intermediate Results')
     
     columns_reg_stat = ['Npts', 'Mean Abs Error', 'Xerror_FWHM', 'Yerror_FWHM']
@@ -9305,7 +9339,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, perform_deformation, deformation_type, ftype, dtp, fill_value = tr_args
     num_frames = len(frame_filenames)
     transformed_img = np.zeros((ysz, xsz), dtype=float)
-    verbose = True
+    verbose = False
     
     for frame_filename, tr_matrix, deformation_field, image_scale, image_offset in zip(frame_filenames, tr_matrices, deformation_fields, image_scales, image_offsets):
         #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
@@ -9344,6 +9378,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
 
         if perform_transformation:
             if perform_deformation:
+                #df = convert_tr_matr_into_deformation_field(tr_matrix, image.shape).astype(np.float32)
                 df = convert_tr_matr_into_deformation_field(shift_matrix @ (tr_matrix @ inv_shift_matrix), frame_img.shape).astype(np.float32)
                 '''
                 int_order:   #  The order of interpolation. The order has to be in the range 0-5:
