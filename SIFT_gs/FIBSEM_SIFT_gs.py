@@ -8472,13 +8472,14 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
     #xlsx_writer.save()
     xlsx_writer.close()
 
+    '''
     DumpObject = [kwargs, npts, error_abs_mean,
               transformation_matrix, s00_cum_orig, s11_cum_orig, s00_fit, s11_fit,
               tr_matr_cum, s01_cum_orig, s10_cum_orig, s01_fit, s10_fit,
               Xshift_cum_orig, Yshift_cum_orig, Xshift_cum, Yshift_cum, Yshift_cum, Xfit, Yfit]
     with open(transf_matrix_bin_file,"wb") as f:
         pickle.dump(DumpObject, f)
-    
+    '''
     return tr_matr_cum, transf_matrix_xlsx_file
 
 
