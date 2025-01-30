@@ -9304,7 +9304,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     transformed_img = np.zeros((ysz, xsz), dtype=float)
     verbose = True
     
-    for frame_filename, tr_matrix, image_scale, image_offset in zip(frame_filenames, tr_matrices, image_scales, image_offsets):
+    for frame_filename, tr_matrix, deformation_field, image_scale, image_offset in zip(frame_filenames, tr_matrices, deformation_fields, image_scales, image_offsets):
         #frame_img = np.zeros((ysz, xsz), dtype=float) + fill_value
         frame_img = np.full((ysz, xsz), fill_value, dtype=float)
         frame = FIBSEM_frame(frame_filename, ftype=ftype, calculate_scaled_images=False)
@@ -9368,7 +9368,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
                     if verbose:
                         print('Performing Transformation using CV2.remap with additional post_1DY deformation fields')
                     orig_shape = frame.RawImageA.shape
-                    additional_deformation = np.repeat(deformation_fields[:, np.newaxis], orig_shape[1], 1)
+                    additional_deformation = np.repeat(deformation_field[:, np.newaxis], orig_shape[1], 1)
                     xi_loc, yi_loc, padx_loc, pady_loc  = determine_pad_offsets(orig_shape, tr_matrix[np.newaxis, :, :])
                     if verbose:
                         print('Global: xi={:d}, yi={:d}. Local xi_loc={:d}, yi_loc={:d}'.format(xi, yi, xi_loc, yi_loc))
