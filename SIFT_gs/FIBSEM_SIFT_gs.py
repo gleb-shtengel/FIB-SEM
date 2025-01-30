@@ -8497,8 +8497,11 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
 
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Calculating the residual deformation fields for post_1DY deformation')):
             try:
+                print('calculate_residual_deformation_fields_dataset: Step: ', j)
+                print(fnm_matches)
+                print(tr_matr_cum[j])
                 src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
-                deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j+1], image_shape, deformation_type = '1DY', sigma=deformation_sigma, verbose=verbose)
+                deformation_fields[j] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j], image_shape, deformation_type = '1DY', deformation_sigma=deformation_sigma, verbose=verbose)
             except:
                 pass
         deformation_fields = np.cumsum(deformation_fields, axis = 0)  
