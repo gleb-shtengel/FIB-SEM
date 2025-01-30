@@ -11549,7 +11549,7 @@ class FIBSEM_dataset:
         if hasattr(self, 'deformation_fields'):
             deformation_fields = kwargs.get("deformation_fields", self.deformation_fields)
         else:
-            deformation_fields = kwargs.get("deformation_fields", np.zeros((len(frame_inds), test_frame.YResolution), dtype=float))
+            deformation_fields = kwargs.get("deformation_fields", np.zeros((len(self.fls), self.YResolution), dtype=float))
         if hasattr(self, 'pad_edges'):
             pad_edges = kwargs.get("pad_edges", self.pad_edges)
         else:
