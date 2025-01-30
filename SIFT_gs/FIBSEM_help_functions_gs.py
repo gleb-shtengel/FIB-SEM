@@ -371,12 +371,14 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
             '2D' - Deformation is performed using 2D deformation field.
     sigma : list of 1 or two floats.
         Gaussian width of smoothing (units of pixels). Default is 50.
+    verbose : boolean
     
     Returns : deformation_field
     '''
     
     deformation_type = kwargs.get('deformation_type', '1DY')
     sigma = kwargs.get('sigma', [50.0, 50.0])
+    verbose = kwargs.get('verbose', False)
     
     image_height, image_width = image_shape
     # Create a regular grid
@@ -386,6 +388,8 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
     xshifts, yshifts = (dst_pts - src_pts_transformed).T
     #yshifts = (dst_pts - src_pts_transformed)[:,1]
     x, y = dst_pts.T
+    if verbose:
+        print('determine_residual_deformation_field : will calculate residual deformation field in format: ', deformation_type )
 
     if deformation_type == '2D':
         # placeholder for now
@@ -420,6 +424,9 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
         y_profile_smoothed = astro_convolve(y_profile, Gaussian1DKernel(stddev=sigma))
         #deformation_field = np.repeat(y_profile_smoothed[:, np.newaxis], image_width, 1)
         deformation_field = y_profile_smoothed
+    if verbose:
+        print('determine_residual_deformation_field : Output  deformation_field shape: ', deformation_field.shape)
+        print('determine_residual_deformation_field : finished calculation. Average residual deformation = {:.2f} pixels'.format(np.mean(deformation_field)))
     return deformation_field
 
 def argmax2d(X):

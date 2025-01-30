@@ -8485,6 +8485,10 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
     verbose = kwargs.get('verbose', False)
     nfrs = len(fnms_matches)
 
+    if verbose:
+        print('calculate_residual_deformation_fields_dataset: will calulate residual deformation fields in format: ', deformation_type)
+        print('calculate_residual_deformation_fields_dataset: deformation_sigma=', deformation_sigma)
+
     if deformation_type == 'post_1DY':  # in case of transformation WITH scale perservation
         if verbose:
             print('Calculating the residual deformation fields for post_1DY deformation')
@@ -8494,11 +8498,13 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Calculating the residual deformation fields for post_1DY deformation')):
             try:
                 src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
-                deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j+1], image_shape, deformation_type = '1DY', sigma=deformation_sigma)
+                deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j+1], image_shape, deformation_type = '1DY', sigma=deformation_sigma, verbose=verbose)
             except:
                 pass
         deformation_fields = np.cumsum(deformation_fields, axis = 0)  
-
+    if verbose:
+        print('calculate_residual_deformation_fields_dataset: output deformation_fields shape', deformation_fields.shape)
+        print('calculate_residual_deformation_fields_dataset: average output deformation_field ', np.mean(deformation_fields))
     # save the data
     default_bin_file = os.path.join(data_dir, fnm_reg.replace('.mrc', '_deformation_fields.bin'))
     deformation_fields_bin_file = kwargs.get("dump_filename", default_bin_file)
