@@ -366,7 +366,7 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
             [[Sxx Sxy Tx]
             [Syx  Syy Ty]
             [0    0   1]]
-        If dst points are fixed (not moving), use np.eye(3,3) instead
+        If dst points are fixed (not moving), use np.eye(3,3) instead.
     
     image_shape : list of two ints
         shape of the image (height, width)
