@@ -9369,7 +9369,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
                         print('Performing Transformation using CV2.remap with additional post_1DY deformation fields')
                     orig_shape = frame.RawImageA.shape
                     additional_deformation = np.repeat(deformation_fields[:, np.newaxis], orig_shape[1], 1)
-                    xi_loc, yi_loc, padx_loc, pady_loc  = determine_pad_offsets(orig_shape, tr_matrix)
+                    xi_loc, yi_loc, padx_loc, pady_loc  = determine_pad_offsets(orig_shape, tr_matrix[np.newaxis, :, :])
                     if verbose:
                         print('Global: xi={:d}, yi={:d}. Local xi_loc={:d}, yi_loc={:d}'.format(xi, yi, xi_loc, yi_loc))
                     additional_deformation_padded = np.pad(additional_deformation, pad_width=((yi_loc, (ysz-orig_shape[0]-yi_loc)), (xi_loc, (xsz-orig_shape[1]-xi_loc))), mode='edge')
