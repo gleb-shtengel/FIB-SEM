@@ -8501,10 +8501,10 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
 
     # save the data
     default_bin_file = os.path.join(data_dir, fnm_reg.replace('.mrc', '_deformation_fields.bin'))
-    transf_matrix_bin_file = kwargs.get("dump_filename", default_bin_file)
+    deformation_fields_bin_file = kwargs.get("dump_filename", default_bin_file)
 
     DumpObject = [kwargs, image_shape, deformation_fields]
-    with open(transf_matrix_bin_file,"wb") as f:
+    with open(deformation_fields_bin_file,"wb") as f:
         pickle.dump(DumpObject, f)
     
     return deformation_fields, deformation_fields_bin_file
