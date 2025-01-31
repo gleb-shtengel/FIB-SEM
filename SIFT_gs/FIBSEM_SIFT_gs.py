@@ -8505,6 +8505,8 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
             'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
     deformation_sigma :  list of 1 or two floats.
         Gaussian width of smoothing (units of pixels). Default is 50.
+    zero_mean : boolean
+        If True (Default), mean value of the deformation field is subtracted for each frame
     data_dir : str
         data directory (path)
     fnm_reg : str
@@ -8515,6 +8517,7 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
     '''
     deformation_type = kwargs.get("deformation_type", 'post_1DY')
     deformation_sigma = kwargs.get('deformation_sigma', 50)
+    zero_mean = kwargs.get('zero_mean', True)
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
     verbose = kwargs.get('verbose', False)
@@ -8522,7 +8525,8 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
 
     if verbose:
         print('calculate_residual_deformation_fields_dataset: will calulate residual deformation fields in format: ', deformation_type)
-        print('calculate_residual_deformation_fields_dataset: deformation_sigma=', deformation_sigma)
+        print('calculate_residual_deformation_fields_dataset: deformation_sigma = ', deformation_sigma)
+        print('calculate_residual_deformation_fields_dataset: zero_mean = ', zero_mean)
 
     if deformation_type == 'post_1DY':  # in case of transformation WITH scale perservation
         if verbose:
@@ -8537,11 +8541,16 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
         deformation_fields = np.zeros((nfrs+1, image_shape[0]), dtype=float)
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Calculating the residual deformation fields for post_1DY deformation')):
             try:
-                print('calculate_residual_deformation_fields_dataset: Step: ', j)
-                print(fnm_matches)
-                print(tr_matr_cum[j])
+                if verbose:
+                    print('calculate_residual_deformation_fields_dataset: Step: ', j)
+                    print(fnm_matches)
+                    print(tr_matr_cum[j])
                 src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
-                deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j], tr_matr_cum[j+1], image_shape, deformation_type = '1DY', deformation_sigma=deformation_sigma, verbose=verbose)
+                deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j+1], tr_matr_cum[j], image_shape,
+                                                                                deformation_type = '1DY',
+                                                                                deformation_sigma = deformation_sigma,
+                                                                                zero_mean=zero_mean,
+                                                                                verbose=verbose)
             except:
                 pass
         deformation_fields = np.cumsum(deformation_fields, axis = 0)  
@@ -9412,7 +9421,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
                     if verbose:
                         print('Performing Transformation using CV2.remap with additional post_1DY deformation fields')
                     orig_shape = frame.RawImageA.shape
-                    additional_deformation = np.repeat(deformation_field[:, np.newaxis], orig_shape[1], 1)
+                    additional_deformation = np.repeat(deformation_field[:, np.newaxis], orig_shape[1], 1).astype(np.float32)
                     xi_loc, yi_loc, padx_loc, pady_loc  = determine_pad_offsets(orig_shape, tr_matrix[np.newaxis, :, :])
                     if verbose:
                         print('Global: xi={:d}, yi={:d}. Local xi_loc={:d}, yi_loc={:d}'.format(xi, yi, xi_loc, yi_loc))
@@ -11213,6 +11222,8 @@ class FIBSEM_dataset:
                 'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
         deformation_sigma :  list of 1 or two floats.
             Gaussian width of smoothing (units of pixels). Default is 50.
+        zero_mean : boolean
+            If True (Default), mean value of the deformation field is subtracted for each frame
         data_dir : str
             data directory (path)
         fnm_reg : str
@@ -11229,6 +11240,7 @@ class FIBSEM_dataset:
             fnms_matches = kwargs.get('fnms_matches', self.fnms_matches)
             deformation_type = kwargs.get("deformation_type", self.deformation_type)
             deformation_sigma = kwargs.get('deformation_sigma', self.deformation_sigma)
+            zero_mean = kwargs.get('zero_mean', True)
             data_dir = kwargs.get("data_dir", self.data_dir)
             fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
             verbose = kwargs.get('verbose', False)
@@ -11239,6 +11251,7 @@ class FIBSEM_dataset:
                         'data_dir' : data_dir,
                         'deformation_type' : deformation_type,
                         'deformation_sigma' : deformation_sigma,
+                        'zero_mean' : zero_mean,
                         'verbose' : verbose}
 
             self.deformation_fields, self.deformation_fields_bin_file = calculate_residual_deformation_fields_dataset(tr_matr_cum_residual, image_shape, fnms_matches, **DF_kwargs)

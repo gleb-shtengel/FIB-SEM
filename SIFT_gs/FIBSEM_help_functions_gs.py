@@ -366,7 +366,7 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
             [[Sxx Sxy Tx]
             [Syx  Syy Ty]
             [0    0   1]]
-        If dst points are fixed (not moving), use np.eye(3,3) instead.
+        If dst points are fixed (not moving), use np.eye(3,3) instead
     
     image_shape : list of two ints
         shape of the image (height, width)
@@ -377,6 +377,8 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
             '2D' - Deformation is performed using 2D deformation field.
     deformation_sigma : list of 1 or two floats.
         Gaussian width of smoothing (units of pixels). Default is 50.
+    zero_mean : boolean
+        If True (Default), mean value is subtracted at the end.
     verbose : boolean
     
     Returns : deformation_field
@@ -385,6 +387,7 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
     deformation_type = kwargs.get('deformation_type', '1DY')
     deformation_sigma = kwargs.get('deformation_sigma', [50.0, 50.0])
     verbose = kwargs.get('verbose', False)
+    zero_mean = kwargs.get('zero_mean', True)
     
     image_height, image_width = image_shape
     # Create a regular grid
@@ -434,6 +437,10 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
     if verbose:
         print('determine_residual_deformation_field : Output  deformation_field shape: ', deformation_field.shape)
         print('determine_residual_deformation_field : finished calculation. Average residual deformation = {:.2f} pixels'.format(np.mean(deformation_field)))
+    if zero_mean:
+        if verbose:
+            print('Zero_mean = ', zero_mean, ' the mean value will be subtracted')
+        deformation_field = deformation_field - np.mean(deformation_field)
     return deformation_field
 
 def argmax2d(X):
@@ -1496,3 +1503,99 @@ def profile(func, *args, **kwargs):
         return wrapper
     elif inspect.ismethod(func):
         return wrapper(*args,**kwargs)
+
+
+def check_registration(imh0, img1):
+    '''
+    Debugging tool. Perform SIFT registration check on two images. Will perform SIFT, and then report Residual Errors and plot residual error histograms
+    '''
+    
+    SIFT_nfeatures = 0
+    SIFT_nOctaveLayers = 3
+    SIFT_contrastThreshold = 0.04
+    SIFT_edgeThreshold = 10
+    SIFT_sigma = 1.6
+
+    d0, d1 = get_min_max_thresholds(img0, disp_res=False)
+    img0b = np.clip(255*(img0-d0)/(d1-d0), 0, 255).astype(np.uint8)
+    img1b = np.clip(255*(img1-d0)/(d1-d0), 0, 255).astype(np.uint8)
+
+    print('Extracting KeyPoints (SIFT) on the first image')
+    sift1 = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
+    kp1, des1 = sift1.detectAndCompute(img0b[100:-100, 100:-100], None)
+    print('Extracting KeyPoints (SIFT) on the second image')
+    sift2 = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
+    kp2, des2 = sift2.detectAndCompute(img1b[100:-100, 100:-100], None)
+
+    print('Finding Matches')
+    FLANN_INDEX_KDTREE = 1
+    index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
+    search_params = dict(checks = 50)
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+    matches = flann.knnMatch(des1, des2, k=2)
+
+    # Lowe's Ratio test
+    good = []
+    for m, n in matches:
+        if m.distance < Lowe_Ratio_Threshold * n.distance:
+            good.append(m)
+
+    src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1, 2)
+    dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1, 2)
+
+    print('Finding Transformation Matrix')
+    min_samples = np.int32(len(src_pts)*RANSAC_initial_fraction)
+    model, inliers = ransac((src_pts, dst_pts),
+        TransformType, min_samples = min_samples,
+        residual_threshold = drmax, max_trials = max_iter)
+    n_inliers = np.sum(inliers)
+    inlier_keypoints_left = [cv2.KeyPoint(point[0], point[1], 1) for point in src_pts[inliers]]
+    inlier_keypoints_right = [cv2.KeyPoint(point[0], point[1], 1) for point in dst_pts[inliers]]
+    placeholder_matches = [cv2.DMatch(idx, idx, 1) for idx in range(n_inliers)]
+    src_pts_ransac = np.float32([ inlier_keypoints_left[m.queryIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
+    dst_pts_ransac = np.float32([ inlier_keypoints_right[m.trainIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
+    #non_nan_inds = ~np.isnan(src_pts_ransac) * ~np.isnan(dst_pts_ransac)
+    #src_pts_ransac = src_pts_ransac[non_nan_inds]
+    #dst_pts_ransac = dst_pts_ransac[non_nan_inds]
+    kpts = [src_pts_ransac, dst_pts_ransac]
+    # find shift parameters
+    transform_matrix = model.params
+
+    print('Transform_Matrix:')
+    print(transform_matrix)
+
+    iteration = len(src_pts)- len(src_pts_ransac)
+    reg_errors, xshifts, yshifts = estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)
+    error_abs_mean = np.mean(np.abs(reg_errors))
+
+    fig, axs = plt.subplots(1, 2, figsize=(10, 5))
+    axx = axs[0]
+    axx.set_xlabel('SIFT: X Error (pixels)')
+    axy = axs[1]
+    axy.set_xlabel('SIFT: Y Error (pixels)')
+    fsz = 12
+
+    xcounts, xbins, xhist_patches = axx.hist(xshifts, bins=64)
+    error_FWHMx, indxi, indxa, mxx, mxx_ind = find_FWHM(xbins, xcounts[:-1], verbose=False, max_aver_aperture=5)
+    dbx = (xbins[1]-xbins[0])/2.0
+    #axx.plot([xbins[indxi]+dbx, xbins[indxa]+dbx], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
+    axx.plot([xbins[indxi], xbins[indxa]], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
+    axx.plot([xbins[mxx_ind]+dbx], [mxx], 'rd')
+    axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
+    axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
+    axx.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMx), transform=axx.transAxes, fontsize=fsz)
+    ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64)
+    error_FWHMy, indyi, indya, mxy, mxy_ind = find_FWHM(ybins, ycounts[:-1], verbose=False, max_aver_aperture=5)
+    dby = (ybins[1]-ybins[0
+        ])/2.0
+    #axy.plot([ybins[indyi] + dby, ybins[indya] + dby], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
+    axy.plot([ybins[indyi], ybins[indya]], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
+    axy.plot([ybins[mxy_ind] + dby], [mxy], 'rd')
+    axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
+    axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
+    axy.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMy), transform=axy.transAxes, fontsize=fsz)
+
+    for ax in axs:
+        ax.grid(True)
+    
+    return error_FWHMx, error_FWHMy
