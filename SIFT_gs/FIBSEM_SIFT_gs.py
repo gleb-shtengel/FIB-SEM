@@ -8041,7 +8041,7 @@ def determine_transformations_files(params_dsf):
         fnm_matches = ''
 
     if use_existing_restults_fnm_matches and os.path.exists(fnm_matches):
-        src_pts, dst_pts, int_results = pickle.load(open(fnm_matches, 'rb'))
+        (src_pts, dst_pts), int_results = pickle.load(open(fnm_matches, 'rb'))
         transform_matrix, error_abs_mean, iteration, error_FWHMx, error_FWHMy = int_results
     else:
         if TransformType == RegularizedAffineTransform:
@@ -8319,8 +8319,7 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
         failed_to_open_matches = 0
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Recalculating the shifts for preserved scales: ')):
             try:
-                kptsd, int_results = pickle.load(open(fnm_matches, 'rb'))
-                src_pts, dst_pts = kptsd
+                (src_pts, dst_pts), int_results = pickle.load(open(fnm_matches, 'rb'))
 
                 txs[j+1] = np.mean(tr_matr_cum[j, 0, 0] * dst_pts[:, 0] + tr_matr_cum[j, 0, 1] * dst_pts[:, 1]
                                    - tr_matr_cum[j+1, 0, 0] * src_pts[:, 0] - tr_matr_cum[j+1, 0, 1] * src_pts[:, 1])
