@@ -8222,7 +8222,7 @@ def determine_transformations_files(params_dsf):
                 error_FWHMy = np.nan
         if save_matches:
             int_results = [transform_matrix, error_abs_mean, iteration, error_FWHMx, error_FWHMy]
-            pickle.dump(kpts, int_results, open(fnm_matches, 'wb'))
+            pickle.dump([kpts, int_results], open(fnm_matches, 'wb'))
 
     return transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
 
@@ -8403,7 +8403,8 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
         failed_to_open_matches = 0
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Recalculating the shifts for preserved scales: ')):
             try:
-                src_pts, dst_pts, int_results = pickle.load(open(fnm_matches, 'rb'))
+                kptsd, int_results = pickle.load(open(fnm_matches, 'rb'))
+                src_pts, dst_pts = kptsd
 
                 txs[j+1] = np.mean(tr_matr_cum[j, 0, 0] * dst_pts[:, 0] + tr_matr_cum[j, 0, 1] * dst_pts[:, 1]
                                    - tr_matr_cum[j+1, 0, 0] * src_pts[:, 0] - tr_matr_cum[j+1, 0, 1] * src_pts[:, 1])
