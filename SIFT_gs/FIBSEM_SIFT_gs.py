@@ -11504,6 +11504,8 @@ class FIBSEM_dataset:
             Python data type for saving. Deafult is int16, the other option currently is np.uint8.
         fill_value : float
             Fill value for padding. Default is zero.
+        remove_intermediate_frames : boolean
+            If True (Default), intermediate frames (TIFF files) will be removed
         disp_res : bolean
             If True (default), intermediate messages and results will be displayed.
         
@@ -11622,6 +11624,7 @@ class FIBSEM_dataset:
         disp_res  = kwargs.get("disp_res", True )
         dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is np.uint8.
         fill_value = kwargs.get('fill_value', 0.0) + offset
+        remove_intermediate_frames = kwargs.get('remove_intermediate_frames', True)
         
         save_kwargs = {'fnm_types' : fnm_types,
                         'fnm_reg' : fnm_reg,
@@ -11736,12 +11739,13 @@ class FIBSEM_dataset:
             if disp_res:
                 print('Registered data set is NOT saved into a file')
 
-        # Remove Intermediate Registered Frame Files
-        for registered_filename in tqdm(registered_filenames, desc='Removing Intermediate Registered Frame Files: ', display = disp_res):
-            try:
-                os.remove(registered_filename)
-            except:
-                pass
+        if remove_intermediate_frames:
+            # Remove Intermediate Registered Frame Files
+            for registered_filename in tqdm(registered_filenames, desc='Removing Intermediate Registered Frame Files: ', display = disp_res):
+                try:
+                    os.remove(registered_filename)
+                except:
+                    pass
 
         return reg_summary, reg_summary_xlsx
 
