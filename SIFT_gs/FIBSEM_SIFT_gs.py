@@ -8066,6 +8066,8 @@ def determine_transformations_files(params_dsf):
     fnm_1 - keypoints for the first image (source)
     fnm_2 - keypoints for the first image (destination)
     and kwargs must include:
+    use_existing_restults_fnm_matches : boolean
+        Deafult is False. If True and this had already been performed, use existing results.
     TransformType - transformation type to be used (ShiftTransform, XScaleShiftTransform, ScaleShiftTransform, AffineTransform, RegularizedAffineTransform)
     BF_Matcher -  if True - use BF matcher, otherwise use FLANN matcher for keypoint matching
     solver - a string indicating which solver to use:
@@ -8086,6 +8088,7 @@ def determine_transformations_files(params_dsf):
     '''
     fnm_1, fnm_2, kwargs = params_dsf
 
+    use_existing_restults_fnm_matches = kwargs.get('use_existing_restults_fnm_matches', False)
     ftype = kwargs.get("ftype", 0)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
     l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
@@ -8109,103 +8112,111 @@ def determine_transformations_files(params_dsf):
     start = kwargs.get('start', 'edges')
     estimation = kwargs.get('estimation', 'interval')
 
-    if TransformType == RegularizedAffineTransform:
-        def estimate(self, src, dst):
-            self.params = determine_regularized_affine_transform(src, dst, l2_matrix, targ_vector)
-        RegularizedAffineTransform.estimate = estimate
-
-    kpp1s, des1 = pickle.load(open(fnm_1, 'rb'))
-    kpp2s, des2 = pickle.load(open(fnm_2, 'rb'))
-    
-    kp1 = [list_to_kp(kpp1) for kpp1 in kpp1s]     # this converts a list of lists to a list of keypoint objects to be used by a matcher later
-    kp2 = [list_to_kp(kpp2) for kpp2 in kpp2s]     # same for the second frame
-    
-    # establish matches
-    if BFMatcher:    # if BFMatcher==True - use BF (Brute Force) matcher
-        # This procedure uses BF (Brute-Force) Matcher.
-        # BF matcher takes the descriptor of one feature in the first image and matches it with all other features
-        # in second image using some distance calculation. The closest match in teh second image is returned.
-        # For BF matcher, first we have to create the cv.DescriptorMatcher object with BFMatcher as type.
-        # It takes two optional params:
-        #
-        # First parameter one is NormType. It specifies the distance measurement to be used. By default, it is L2.
-        # It is good for SIFT, SURF, etc. (L1 is also there).
-        # For binary string-based descriptors like ORB, BRIEF, BRISK, etc., Hamming should be used,
-        # which uses Hamming distance as measurement. If ORB is using WTA_K of 3 or 4, Hamming2 should be used.
-        #
-        # Second parameter is boolean variable, CrossCheck which is false by default.
-        # If it is true, Matcher returns only those matches with value (i,j)
-        # such that i-th descriptor in set A has j-th descriptor in set B as the best match and vice-versa.
-        # That is, the two features in both sets should match each other.
-        # It provides consistant result, and is a good alternative to ratio test proposed by D.Lowe in SIFT paper.
-        # http://amroamroamro.github.io/mexopencv/opencv_contrib/SURF_descriptor.html
-        bf = cv2.BFMatcher()
-        matches = bf.knnMatch(des1,des2,k=2)
-    else:            # otherwise - use FLANN matcher
-        # This procedure uses FLANN (Fast Library for Approximate Nearest Neighbors) Matcher (FlannBasedMatcher):
-        # https://docs.opencv.org/3.4/d5/d6f/tutorial_feature_flann_matcher.html
-        #
-        # FLANN contains a collection of algorithms optimized for fast nearest neighbor search in large datasets
-        # and for high dimensional features. It works faster than BFMatcher for large datasets.
-        # For FlannBasedMatcher, it accepts two sets of options which specifies the algorithm to be used, its related parameters etc.
-        # First one is Index. For various algorithms, the information to be passed is explained in FLANN docs.
-        # http://amroamroamro.github.io/mexopencv/opencv_contrib/SURF_descriptor.html
-        FLANN_INDEX_KDTREE = 1
-        index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
-        search_params = dict(checks = 50)
-        flann = cv2.FlannBasedMatcher(index_params, search_params)
-        matches = flann.knnMatch(des1, des2, k=2)
-    
-    # Lowe's Ratio test
-    good = []
-    for m, n in matches:
-        if m.distance < Lowe_Ratio_Threshold * n.distance:
-            good.append(m)
-
-    src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1, 2)
-    dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1, 2)
-    
-    if solver == 'LinReg':
-        # Determine the transformation matrix via iterative liear regression
-        transform_matrix, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = determine_transformation_matrix(src_pts, dst_pts, **kwargs)
-        n_kpts = len(kpts[0])
-    else:  # the other option is solver = 'RANSAC'
-        try:
-            min_samples = np.int32(len(src_pts)*RANSAC_initial_fraction)
-            model, inliers = ransac((src_pts, dst_pts),
-                TransformType, min_samples = min_samples,
-                residual_threshold = drmax, max_trials = max_iter)
-            n_inliers = np.sum(inliers)
-            inlier_keypoints_left = [cv2.KeyPoint(point[0], point[1], 1) for point in src_pts[inliers]]
-            inlier_keypoints_right = [cv2.KeyPoint(point[0], point[1], 1) for point in dst_pts[inliers]]
-            placeholder_matches = [cv2.DMatch(idx, idx, 1) for idx in range(n_inliers)]
-            src_pts_ransac = np.float32([ inlier_keypoints_left[m.queryIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
-            dst_pts_ransac = np.float32([ inlier_keypoints_right[m.trainIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
-            #non_nan_inds = ~np.isnan(src_pts_ransac) * ~np.isnan(dst_pts_ransac)
-            #src_pts_ransac = src_pts_ransac[non_nan_inds]
-            #dst_pts_ransac = dst_pts_ransac[non_nan_inds]
-            kpts = [src_pts_ransac, dst_pts_ransac]
-            # find shift parameters
-            transform_matrix = model.params
-            iteration = len(src_pts)- len(src_pts_ransac)
-            reg_errors, xshifts, yshifts = estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)
-            error_abs_mean = np.mean(np.abs(reg_errors))
-            xcounts, xbins = np.histogram(xshifts, bins=64)
-            error_FWHMx, indxi, indxa, mxx, mxx_ind = find_FWHM(xbins, xcounts[:-1], verbose=False, estimation=estimation, start=start)
-            ycounts, ybins = np.histogram(yshifts, bins=64)
-            error_FWHMy, indyi, indya, mxy, mxy_ind = find_FWHM(ybins, ycounts[:-1], verbose=False, estimation=estimation, start=start)
-        except:
-            transform_matrix = np.eye(3)
-            kpts = [[], []]
-            error_abs_mean = np.nan
-            iteration = 0
-            error_FWHMx = np.nan
-            error_FWHMy = np.nan
     if save_matches:
         fnm_matches = fnm_2.replace('_kpdes.bin', '_matches.bin')
-        pickle.dump(kpts, open(fnm_matches, 'wb'))
     else:
         fnm_matches = ''
+
+    if use_existing_restults_fnm_matches and os.path.exists(fnm_matches):
+        src_pts, dst_pts, int_results = pickle.load(open(fnm_matches, 'rb'))
+        transform_matrix, error_abs_mean, iteration, error_FWHMx, error_FWHMy = int_results
+    else:
+        if TransformType == RegularizedAffineTransform:
+            def estimate(self, src, dst):
+                self.params = determine_regularized_affine_transform(src, dst, l2_matrix, targ_vector)
+            RegularizedAffineTransform.estimate = estimate
+
+        kpp1s, des1 = pickle.load(open(fnm_1, 'rb'))
+        kpp2s, des2 = pickle.load(open(fnm_2, 'rb'))
+        
+        kp1 = [list_to_kp(kpp1) for kpp1 in kpp1s]     # this converts a list of lists to a list of keypoint objects to be used by a matcher later
+        kp2 = [list_to_kp(kpp2) for kpp2 in kpp2s]     # same for the second frame
+        
+        # establish matches
+        if BFMatcher:    # if BFMatcher==True - use BF (Brute Force) matcher
+            # This procedure uses BF (Brute-Force) Matcher.
+            # BF matcher takes the descriptor of one feature in the first image and matches it with all other features
+            # in second image using some distance calculation. The closest match in teh second image is returned.
+            # For BF matcher, first we have to create the cv.DescriptorMatcher object with BFMatcher as type.
+            # It takes two optional params:
+            #
+            # First parameter one is NormType. It specifies the distance measurement to be used. By default, it is L2.
+            # It is good for SIFT, SURF, etc. (L1 is also there).
+            # For binary string-based descriptors like ORB, BRIEF, BRISK, etc., Hamming should be used,
+            # which uses Hamming distance as measurement. If ORB is using WTA_K of 3 or 4, Hamming2 should be used.
+            #
+            # Second parameter is boolean variable, CrossCheck which is false by default.
+            # If it is true, Matcher returns only those matches with value (i,j)
+            # such that i-th descriptor in set A has j-th descriptor in set B as the best match and vice-versa.
+            # That is, the two features in both sets should match each other.
+            # It provides consistant result, and is a good alternative to ratio test proposed by D.Lowe in SIFT paper.
+            # http://amroamroamro.github.io/mexopencv/opencv_contrib/SURF_descriptor.html
+            bf = cv2.BFMatcher()
+            matches = bf.knnMatch(des1,des2,k=2)
+        else:            # otherwise - use FLANN matcher
+            # This procedure uses FLANN (Fast Library for Approximate Nearest Neighbors) Matcher (FlannBasedMatcher):
+            # https://docs.opencv.org/3.4/d5/d6f/tutorial_feature_flann_matcher.html
+            #
+            # FLANN contains a collection of algorithms optimized for fast nearest neighbor search in large datasets
+            # and for high dimensional features. It works faster than BFMatcher for large datasets.
+            # For FlannBasedMatcher, it accepts two sets of options which specifies the algorithm to be used, its related parameters etc.
+            # First one is Index. For various algorithms, the information to be passed is explained in FLANN docs.
+            # http://amroamroamro.github.io/mexopencv/opencv_contrib/SURF_descriptor.html
+            FLANN_INDEX_KDTREE = 1
+            index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
+            search_params = dict(checks = 50)
+            flann = cv2.FlannBasedMatcher(index_params, search_params)
+            matches = flann.knnMatch(des1, des2, k=2)
+        
+        # Lowe's Ratio test
+        good = []
+        for m, n in matches:
+            if m.distance < Lowe_Ratio_Threshold * n.distance:
+                good.append(m)
+
+        src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1, 2)
+        dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1, 2)
+        
+        if solver == 'LinReg':
+            # Determine the transformation matrix via iterative liear regression
+            transform_matrix, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = determine_transformation_matrix(src_pts, dst_pts, **kwargs)
+            n_kpts = len(kpts[0])
+        else:  # the other option is solver = 'RANSAC'
+            try:
+                min_samples = np.int32(len(src_pts)*RANSAC_initial_fraction)
+                model, inliers = ransac((src_pts, dst_pts),
+                    TransformType, min_samples = min_samples,
+                    residual_threshold = drmax, max_trials = max_iter)
+                n_inliers = np.sum(inliers)
+                inlier_keypoints_left = [cv2.KeyPoint(point[0], point[1], 1) for point in src_pts[inliers]]
+                inlier_keypoints_right = [cv2.KeyPoint(point[0], point[1], 1) for point in dst_pts[inliers]]
+                placeholder_matches = [cv2.DMatch(idx, idx, 1) for idx in range(n_inliers)]
+                src_pts_ransac = np.float32([ inlier_keypoints_left[m.queryIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
+                dst_pts_ransac = np.float32([ inlier_keypoints_right[m.trainIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
+                #non_nan_inds = ~np.isnan(src_pts_ransac) * ~np.isnan(dst_pts_ransac)
+                #src_pts_ransac = src_pts_ransac[non_nan_inds]
+                #dst_pts_ransac = dst_pts_ransac[non_nan_inds]
+                kpts = [src_pts_ransac, dst_pts_ransac]
+                # find shift parameters
+                transform_matrix = model.params
+                iteration = len(src_pts)- len(src_pts_ransac)
+                reg_errors, xshifts, yshifts = estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)
+                error_abs_mean = np.mean(np.abs(reg_errors))
+                xcounts, xbins = np.histogram(xshifts, bins=64)
+                error_FWHMx, indxi, indxa, mxx, mxx_ind = find_FWHM(xbins, xcounts[:-1], verbose=False, estimation=estimation, start=start)
+                ycounts, ybins = np.histogram(yshifts, bins=64)
+                error_FWHMy, indyi, indya, mxy, mxy_ind = find_FWHM(ybins, ycounts[:-1], verbose=False, estimation=estimation, start=start)
+            except:
+                transform_matrix = np.eye(3)
+                kpts = [[], []]
+                error_abs_mean = np.nan
+                iteration = 0
+                error_FWHMx = np.nan
+                error_FWHMy = np.nan
+        if save_matches:
+            int_results = [transform_matrix, error_abs_mean, iteration, error_FWHMx, error_FWHMy]
+            pickle.dump(kpts, int_results, open(fnm_matches, 'wb'))
+
     return transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
 
 
@@ -8385,7 +8396,7 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
         failed_to_open_matches = 0
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Recalculating the shifts for preserved scales: ')):
             try:
-                src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
+                src_pts, dst_pts, int_results = pickle.load(open(fnm_matches, 'rb'))
 
                 txs[j+1] = np.mean(tr_matr_cum[j, 0, 0] * dst_pts[:, 0] + tr_matr_cum[j, 0, 1] * dst_pts[:, 1]
                                    - tr_matr_cum[j+1, 0, 0] * src_pts[:, 0] - tr_matr_cum[j+1, 0, 1] * src_pts[:, 1])
@@ -8817,6 +8828,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
     memory_profiling : boolean
         If True will perfrom memory profiling. Default is False
+    use_existing_restults_fnm_matches : boolean
+        Deafult is False. If True and this had already been performed, use existing results
     Returns:
     dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
     '''
@@ -8862,6 +8875,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     SIFT_sigma = kwargs.get('SIFT_sigma', 0.0)
     start = kwargs.get('start', 'edges')
     estimation = kwargs.get('estimation', 'interval')
+    use_existing_restults_fnm_matches = kwargs.get('use_existing_restults_fnm_matches', False)
 
     if memory_profiling:
         elapsed_time = elapsed_since(start_time)
@@ -10999,7 +11013,8 @@ class FIBSEM_dataset:
             'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
         estimation : string
             'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
- 
+        use_existing_restults_fnm_matches : boolean
+            Deafult is False. If True and this had already been performed, use existing results
     
         Returns:
         results_s4 : array of lists containing the results:
@@ -11038,6 +11053,7 @@ class FIBSEM_dataset:
             save_res_png  = kwargs.get("save_res_png", self.save_res_png )
             start = kwargs.get('start', 'edges')
             estimation = kwargs.get('estimation', 'interval')
+            use_existing_restults_fnm_matches = kwargs.get('use_existing_restults_fnm_matches', False)
             dt_kwargs = {'ftype' : ftype,
                             'TransformType' : TransformType,
                             'l2_matrix' : l2_matrix,
@@ -11051,7 +11067,8 @@ class FIBSEM_dataset:
                             #'kp_max_num' : kp_max_num,
                             'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold,
                             'start' : start,
-                            'estimation' : estimation}
+                            'estimation' : estimation,
+                            'use_existing_restults_fnm_matches' : use_existing_restults_fnm_matches}
 
             params_s4 = []
             for j, fnm in enumerate(self.fnms[:-1]):
