@@ -8041,7 +8041,7 @@ def determine_transformations_files(params_dsf):
         fnm_matches = ''
 
     if use_existing_restults_fnm_matches and os.path.exists(fnm_matches):
-        (src_pts, dst_pts), int_results = pickle.load(open(fnm_matches, 'rb'))
+        kpts, int_results = pickle.load(open(fnm_matches, 'rb'))
         transform_matrix, error_abs_mean, iteration, error_FWHMx, error_FWHMy = int_results
     else:
         if TransformType == RegularizedAffineTransform:
