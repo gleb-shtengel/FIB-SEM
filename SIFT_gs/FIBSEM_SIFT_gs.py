@@ -55,17 +55,24 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 
-import dask
-import dask.array as da
-from dask.distributed import Client, progress, get_task_stream
-from dask.diagnostics import ProgressBar
-from dask.distributed import as_completed
+try:
+    import dask
+    import dask.array as da
+    from dask.distributed import Client, progress, get_task_stream
+    from dask.diagnostics import ProgressBar
+    from dask.distributed import as_completed
+except:
+    pass
 
 import cv2
 print('Open CV version: ', cv2. __version__)
 import mrcfile
 import h5py
-import npy2bdv
+try:
+    import npy2bdv
+except:
+    pass
+
 import pickle
 import webbrowser
 from IPython.display import IFrame

@@ -44,15 +44,9 @@ from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import make_pipeline
 
-import dask
-import dask.array as da
-from dask.distributed import Client, progress, get_task_stream
-from dask.diagnostics import ProgressBar
-
 import cv2
 import mrcfile
 import h5py
-import npy2bdv
 import pickle
 import webbrowser
 from IPython.display import IFrame
