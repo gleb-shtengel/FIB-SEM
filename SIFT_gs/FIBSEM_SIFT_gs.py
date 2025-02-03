@@ -7772,6 +7772,8 @@ def extract_keypoints_descr_files(params):
         SIFT_sigma : double
             SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
             If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
+        use_existing_restults_kpdes : boolean
+            Deafult is False. If True and this had already been performed, use existing results.
 
     Returns:
         fnm : str
@@ -7785,137 +7787,51 @@ def extract_keypoints_descr_files(params):
     nbins = kwargs.get("nbins", 256)
     #kp_max_num = kwargs.get("kp_max_num", 10000)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
-
-    SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
-    SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", 3)
-    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
-    SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
-    SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
-
-    #sift = cv2.xfeatures2d.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
-    sift = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
-    img, d1, d2 = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=False).RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = dmin, data_max = dmax, nbins=256)
-    # extract keypoints and descriptors for both images
-
-    xi_eval = evaluation_box[2]
-    if evaluation_box[3] > 0:
-        xa_eval = xi_eval + evaluation_box[3]
-    else:
-        xa_eval = -1
-    yi_eval = evaluation_box[0]
-    if evaluation_box[1] > 0:
-        ya_eval = yi_eval + evaluation_box[1]
-    else:
-        ya_eval = -1
-
-    kps, dess = sift.detectAndCompute(img[yi_eval:ya_eval, xi_eval:xa_eval], None)
-    #if kp_max_num != -1 and (len(kps) > kp_max_num):
-    #    kp_ind = np.argsort([-kp.response for kp in kps])[0:kp_max_num]
-    #    kps = np.array(kps)[kp_ind]
-    #    dess = np.array(dess)[kp_ind]
-    if xi_eval >0 or yi_eval>0:   # add shifts to ke-pint coordinates to convert them to full image coordinated
-        for kp in kps:
-            kp.pt = kp.pt + np.array((xi_eval, yi_eval))
-    #key_points = [KeyPoint(kp) for kp in kps]
-    if verbose:
-        print('File: ', fl, ', extracted {:d} keypoints'.format(len(kps)))
-    key_points = [kp_to_list(kp) for kp in kps]
-    kpd = [key_points, dess]
+    use_existing_restults_kpdes = kwargs.get('use_existing_restults_kpdes', False)
     fnm = os.path.splitext(fl)[0] + '_kpdes.bin'
-    pickle.dump(kpd, open(fnm, 'wb')) # converts array to binary and writes to output
-    #pickle.dump(dess, open(fnm, 'wb')) # converts array to binary and writes to output
+
+    if use_existing_restults_kpdes and os.path.exists(fnm):
+        pass
+    else:
+        SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
+        SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", 3)
+        SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
+        SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
+        SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
+
+        #sift = cv2.xfeatures2d.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
+        sift = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
+        img, d1, d2 = FIBSEM_frame(fl, ftype=ftype, calculate_scaled_images=False).RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = dmin, data_max = dmax, nbins=256)
+        # extract keypoints and descriptors for both images
+
+        xi_eval = evaluation_box[2]
+        if evaluation_box[3] > 0:
+            xa_eval = xi_eval + evaluation_box[3]
+        else:
+            xa_eval = -1
+        yi_eval = evaluation_box[0]
+        if evaluation_box[1] > 0:
+            ya_eval = yi_eval + evaluation_box[1]
+        else:
+            ya_eval = -1
+
+        kps, dess = sift.detectAndCompute(img[yi_eval:ya_eval, xi_eval:xa_eval], None)
+        #if kp_max_num != -1 and (len(kps) > kp_max_num):
+        #    kp_ind = np.argsort([-kp.response for kp in kps])[0:kp_max_num]
+        #    kps = np.array(kps)[kp_ind]
+        #    dess = np.array(dess)[kp_ind]
+        if xi_eval >0 or yi_eval>0:   # add shifts to ke-pint coordinates to convert them to full image coordinated
+            for kp in kps:
+                kp.pt = kp.pt + np.array((xi_eval, yi_eval))
+        #key_points = [KeyPoint(kp) for kp in kps]
+        if verbose:
+            print('File: ', fl, ', extracted {:d} keypoints'.format(len(kps)))
+        key_points = [kp_to_list(kp) for kp in kps]
+        kpd = [key_points, dess]
+        
+        pickle.dump(kpd, open(fnm, 'wb')) # converts array to binary and writes to output
+        #pickle.dump(dess, open(fnm, 'wb')) # converts array to binary and writes to output
     return fnm
-
-def extract_keypoints_dataset(fls, data_minmax, DASK_client, **kwargs):
-    '''
-    Extracts Key-Points and Descriptors for SIFT procedure for all images (files) in the dataset.
-    ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
-    
-    Parameters:
-    -----------
-    params = fl, data_minmax, kwargs
-
-    fls : str array
-        array of image filenames (full paths)
-    data_minmax : list of 5 parameters
-        minmax_xlsx : str
-            path to Excel file with Min/Max data
-        data_min_glob : float   
-            min data value for I8 conversion (open CV SIFT requires I8)
-        data_min_sliding : float array
-            min data values (one per file) for I8 conversion
-        data_max_sliding : float array
-            max data values (one per file) for I8 conversion
-        data_minmax_glob : 2D float array
-            min and max data values without sliding averaging
-    DASK_client : DASK client object
-        DASK client (needs to be initialized and running by this time)
-
-    kwargs:
-    sliding_minmax : boolean
-        if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
-        if False - same data_min_glob and data_max_glob will be used for all files
-    use_DASK : boolean
-        use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-    DASK_client_retries : int (default to 3)
-        Number of allowed automatic retries if a task fails
-    ftype : int
-        file type (0 - Shan Xu's .dat, 1 - tif)
-    thr_min : float
-        CDF threshold for determining the minimum data value
-    thr_max : float
-        CDF threshold for determining the maximum data value
-    nbins : int
-        number of histogram bins for building the PDF and CDF
-    kp_max_num : int
-        Max number of key-points to be matched.
-        Key-points in every frame are indexed (in descending order)
-        by the strength of the response. Only kp_max_num is kept for
-        further processing.
-        Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
-    SIFT_nfeatures : int
-        SIFT libary default is 0. The number of best features to retain.
-        The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
-    SIFT_nOctaveLayers : int
-        SIFT libary default  is 3. The number of layers in each octave.
-        3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
-    SIFT_contrastThreshold : double
-        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
-        The larger the threshold, the less features are produced by the detector.
-        The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
-        When nOctaveLayers is set to default and if you want to use the value used in
-        D. Lowe paper (0.03), set this argument to 0.09.
-    SIFT_edgeThreshold : double
-        SIFT libary default  is 10. The threshold used to filter out edge-like features.
-        Note that the its meaning is different from the contrastThreshold,
-        i.e. the larger the edgeThreshold, the less features are filtered out
-        (more features are retained).
-    SIFT_sigma : double
-        SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
-        If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
-    
-    Returns:
-    fnms : str array
-        array of paths to the files containing Key-Points and Descriptors
-    '''
-    minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding  = data_minmax
-    sliding_minmax = kwargs.get("sliding_minmax", True)
-    use_DASK = kwargs.get("use_DASK", False)
-    DASK_client_retries = kwargs.get("DASK_client_retries", 3)
-    if sliding_minmax:
-        params_s3 = [[dts3[0], dts3[1], dts3[2], kwargs] for dts3 in zip(fls, data_min_sliding, data_max_sliding)]
-    else:
-        params_s3 = [[fl, data_min_glob, data_max_glob, kwargs] for fl in fls]        
-    if use_DASK:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
-        futures_s3 = DASK_client.map(extract_keypoints_descr_files, params_s3, retries = DASK_client_retries)
-        fnms = DASK_client.gather(futures_s3)
-    else:
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
-        fnms = []
-        for j, param_s3 in enumerate(tqdm(params_s3, desc='Extracting Key Points and Descriptors: ')):
-            fnms.append(extract_keypoints_descr_files(param_s3))
-    return fnms
 
 
 def estimate_kpts_transform_error(src_pts, dst_pts, transform_matrix):
@@ -10915,7 +10831,9 @@ class FIBSEM_dataset:
             Max number of key-points to be matched.
             Key-points in every frame are indexed (in descending order) by the strength of the response.
             Only kp_max_num is kept for further processing.
-            Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+            Set this value to -1 if you want to keep ALL keypoints (may take long time to process)
+        use_existing_restults_kpdes : boolean
+            Deafult is False. If True and this had already been performed, use existing results.
     
         Returns:
         fnms : array of str
@@ -10946,6 +10864,7 @@ class FIBSEM_dataset:
             SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
             SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
             SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
+            use_existing_restults_kpdes = kwargs.get('use_existing_restults_kpdes', False)
 
             minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
             kpt_kwargs = {'ftype' : ftype,
@@ -10957,7 +10876,8 @@ class FIBSEM_dataset:
                         'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
                         'SIFT_contrastThreshold' : SIFT_contrastThreshold,
                         'SIFT_edgeThreshold' : SIFT_edgeThreshold,
-                        'SIFT_sigma' : SIFT_sigma}
+                        'SIFT_sigma' : SIFT_sigma,
+                        'use_existing_restults_kpdes' : use_existing_restults_kpdes}
 
             if sliding_minmax:
                 params_s3 = [[dts3[0], dts3[1], dts3[2], kpt_kwargs] for dts3 in zip(self.fls, data_min_sliding, data_max_sliding)]
