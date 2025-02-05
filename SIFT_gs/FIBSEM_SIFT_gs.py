@@ -7582,6 +7582,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         Filepath of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)
     disp_res : bolean
         If True (default), intermediate messages and results will be displayed.
+    use_existing_data : boolean
+        Default is False. If True and the data exists (saved inso XLSX), use that.   
 
     Returns:
     list of 12 parameters: FIBSEM_Data_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y, ScanRate, EHT, SEMSpecimenI
@@ -7626,52 +7628,32 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     sliding_minmax = kwargs.get("sliding_minmax", True)
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                             # window size 701, polynomial order 3
+    if fit_params[0] != 'None':
+        sv_apert = min([fit_params[1], len(frame_inds)//8*2+1])
     Mill_Volt_Rate_um_per_V = kwargs.get("Mill_Volt_Rate_um_per_V", 31.235258870176065)
     kwargs['Mill_Volt_Rate_um_per_V'] = Mill_Volt_Rate_um_per_V
     
     FIBSEM_Data_xlsx = kwargs.get('FIBSEM_data_xlsx', 'FIBSEM_Data.xlsx')
     FIBSEM_Data_xlsx_path = os.path.join(data_dir, FIBSEM_Data_xlsx)
     disp_res = kwargs.get("disp_res", False)
+    use_existing_data = kwargs.get('use_existing_data', False)
 
-    frame = FIBSEM_frame(fls[0], ftype=ftype, calculate_scaled_images=calculate_scaled_images)
-    if frame.EightBit == 1 and ftype == 1:
-        if disp_res:
-            print('Original data is 8-bit, no need to find Min and Max for 8-bit conversion')
-        data_min_glob = np.uint8(0)
-        data_max_glob =  np.uint8(255)
-        data_min_sliding = np.zeros(nfrs, dtype=np.uint8)
-        data_max_sliding = np.full(nfrs, np.uint8(255), dtype=np.uint8)
-        data_minmax_glob = np.zeros((nfrs, 2), dtype=np.uint8)
-        data_minmax_glob[1, :] = np.uint8(255)
-        mill_rate_WD = np.zeros(nfrs, dtype=float)
-        mill_rate_MV = np.zeros(nfrs, dtype=float)
-        center_x = np.zeros(nfrs, dtype=float)
-        center_y = np.zeros(nfrs, dtype=float)
-        ScanRate = np.zeros(nfrs, dtype=float)
-        EHT = np.zeros(nfrs, dtype=float)
-        SEMSpecimenI = np.zeros(nfrs, dtype=float)
-
-    else:
-        params_s2 = [[fl, kwargs] for fl in np.array(fls)[frame_inds]]
-        results_s2 = np.zeros((len(frame_inds), 9))
-        errors_s2 = []
-        if use_DASK:
-            if disp_res:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
-            futures = DASK_client.map(evaluate_FIBSEM_frame, params_s2, retries = DASK_client_retries)
-            results_temp = np.array(DASK_client.gather(futures))
-            for j, res_temp in enumerate(tqdm(results_temp, desc='Converting the Results', display = disp_res)):
-                results_s2[j, :] = res_temp[0:9]
-                errors_s2.append(res_temp[9])
-        else:
-            if disp_res:
-                print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
-            for j, param_s2 in enumerate(tqdm(params_s2, desc='Evaluating FIB-SEM frames (data min/max, mill rate, FOV shifts): ', display = disp_res)):
-                res_temp = evaluate_FIBSEM_frame(param_s2)
-                results_s2[j, :] = res_temp[0:9]
-                errors_s2.append(res_temp[9])
-
-        data_minmax_glob = results_s2[:, 0:2]
+    if use_existing_data and os.path.exists(FIBSEM_Data_xlsx_path):
+        int_results = pd.read_excel(FIBSEM_Data_xlsx_path, sheet_name='FIBSEM Data')
+        fr = int_results['Frame']
+        data_min = int_results['Min']
+        data_max = int_results['Max']
+        data_minmax_glob = np.vstack((data_min, data_max)).T
+        mill_rate_WD = int_results['Working Distance (mm)']
+        mill_rate_MV = int_results['Milling Y Voltage (V)']
+        center_x = int_results['FOV X Center (Pix)']
+        center_y = int_results['FOV Y Center (Pix)']
+        ScanRate = int_results['Scan Rate (Hz)']
+        EHT = int_results['EHT (kV)']
+        try:
+            SEMSpecimenI = int_results['SEMSpecimenI (nA)']
+        except:
+            SEMSpecimenI = EHT*0.0
         data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
         trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
         if fit_params[0] != 'None':
@@ -7683,13 +7665,64 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
             print('Not smoothing the Min/Max data')
             data_min_sliding = data_minmax_glob[:, 0].astype(np.double)
             data_max_sliding = data_minmax_glob[:, 1].astype(np.double)
-        mill_rate_WD = results_s2[:, 2]
-        mill_rate_MV = results_s2[:, 3]
-        center_x = results_s2[:, 4]
-        center_y = results_s2[:, 5]
-        ScanRate = results_s2[:, 6]
-        EHT = results_s2[:, 7]
-        SEMSpecimenI = results_s2[:, 8]
+    else:
+        frame = FIBSEM_frame(fls[0], ftype=ftype, calculate_scaled_images=calculate_scaled_images)
+        if frame.EightBit == 1 and ftype == 1:
+            if disp_res:
+                print('Original data is 8-bit, no need to find Min and Max for 8-bit conversion')
+            data_min_glob = np.uint8(0)
+            data_max_glob =  np.uint8(255)
+            data_min_sliding = np.zeros(nfrs, dtype=np.uint8)
+            data_max_sliding = np.full(nfrs, np.uint8(255), dtype=np.uint8)
+            data_minmax_glob = np.zeros((nfrs, 2), dtype=np.uint8)
+            data_minmax_glob[1, :] = np.uint8(255)
+            mill_rate_WD = np.zeros(nfrs, dtype=float)
+            mill_rate_MV = np.zeros(nfrs, dtype=float)
+            center_x = np.zeros(nfrs, dtype=float)
+            center_y = np.zeros(nfrs, dtype=float)
+            ScanRate = np.zeros(nfrs, dtype=float)
+            EHT = np.zeros(nfrs, dtype=float)
+            SEMSpecimenI = np.zeros(nfrs, dtype=float)
+
+        else:
+            params_s2 = [[fl, kwargs] for fl in np.array(fls)[frame_inds]]
+            results_s2 = np.zeros((len(frame_inds), 9))
+            errors_s2 = []
+            if use_DASK:
+                if disp_res:
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
+                futures = DASK_client.map(evaluate_FIBSEM_frame, params_s2, retries = DASK_client_retries)
+                results_temp = np.array(DASK_client.gather(futures))
+                for j, res_temp in enumerate(tqdm(results_temp, desc='Converting the Results', display = disp_res)):
+                    results_s2[j, :] = res_temp[0:9]
+                    errors_s2.append(res_temp[9])
+            else:
+                if disp_res:
+                    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using Local Computation')
+                for j, param_s2 in enumerate(tqdm(params_s2, desc='Evaluating FIB-SEM frames (data min/max, mill rate, FOV shifts): ', display = disp_res)):
+                    res_temp = evaluate_FIBSEM_frame(param_s2)
+                    results_s2[j, :] = res_temp[0:9]
+                    errors_s2.append(res_temp[9])
+
+            data_minmax_glob = results_s2[:, 0:2]
+            data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
+            trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
+            if fit_params[0] != 'None':
+                sv_apert = min([fit_params[1], len(frame_inds)//8*2+1])
+                print('Using fit_params: ', 'SG', sv_apert, fit_params[2])
+                data_min_sliding = savgol_filter(data_minmax_glob[:, 0].astype(np.double), sv_apert, fit_params[2])
+                data_max_sliding = savgol_filter(data_minmax_glob[:, 1].astype(np.double), sv_apert, fit_params[2])
+            else:
+                print('Not smoothing the Min/Max data')
+                data_min_sliding = data_minmax_glob[:, 0].astype(np.double)
+                data_max_sliding = data_minmax_glob[:, 1].astype(np.double)
+            mill_rate_WD = results_s2[:, 2]
+            mill_rate_MV = results_s2[:, 3]
+            center_x = results_s2[:, 4]
+            center_y = results_s2[:, 5]
+            ScanRate = results_s2[:, 6]
+            EHT = results_s2[:, 7]
+            SEMSpecimenI = results_s2[:, 8]
 
     if disp_res:
         print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the FIBSEM dataset statistics (Min/Max, Mill Rate, FOV Shifts into the file: ', FIBSEM_Data_xlsx_path)
@@ -7772,7 +7805,7 @@ def extract_keypoints_descr_files(params):
         SIFT_sigma : double
             SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
             If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
-        use_existing_restults_kpdes : boolean
+        use_existing_data : boolean
             Deafult is False. If True and this had already been performed, use existing results.
 
     Returns:
@@ -7787,10 +7820,10 @@ def extract_keypoints_descr_files(params):
     nbins = kwargs.get("nbins", 256)
     #kp_max_num = kwargs.get("kp_max_num", 10000)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
-    use_existing_restults_kpdes = kwargs.get('use_existing_restults_kpdes', False)
+    use_existing_data = kwargs.get('use_existing_data', False)
     fnm = os.path.splitext(fl)[0] + '_kpdes.bin'
 
-    if use_existing_restults_kpdes and os.path.exists(fnm):
+    if use_existing_data and os.path.exists(fnm):
         pass
     else:
         SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
@@ -7989,7 +8022,7 @@ def determine_transformations_files(params_dsf):
     fnm_1 - keypoints for the first image (source)
     fnm_2 - keypoints for the first image (destination)
     and kwargs must include:
-    use_existing_restults_fnm_matches : boolean
+    use_existing_data : boolean
         Deafult is False. If True and this had already been performed, use existing results.
     TransformType - transformation type to be used (ShiftTransform, XScaleShiftTransform, ScaleShiftTransform, AffineTransform, RegularizedAffineTransform)
     BF_Matcher -  if True - use BF matcher, otherwise use FLANN matcher for keypoint matching
@@ -8011,7 +8044,7 @@ def determine_transformations_files(params_dsf):
     '''
     fnm_1, fnm_2, kwargs = params_dsf
 
-    use_existing_restults_fnm_matches = kwargs.get('use_existing_restults_fnm_matches', False)
+    use_existing_data = kwargs.get('use_existing_data', False)
     ftype = kwargs.get("ftype", 0)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
     l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
@@ -8040,7 +8073,7 @@ def determine_transformations_files(params_dsf):
     else:
         fnm_matches = ''
 
-    if use_existing_restults_fnm_matches and os.path.exists(fnm_matches):
+    if use_existing_data and os.path.exists(fnm_matches):
         transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = pickle.load(open(fnm_matches, 'rb'))
     else:
         if TransformType == RegularizedAffineTransform:
@@ -8750,7 +8783,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
     memory_profiling : boolean
         If True will perfrom memory profiling. Default is False
-    use_existing_restults_fnm_matches : boolean
+    use_existing_data : boolean
         Deafult is False. If True and this had already been performed, use existing results
     Returns:
     dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
@@ -8797,7 +8830,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     SIFT_sigma = kwargs.get('SIFT_sigma', 0.0)
     start = kwargs.get('start', 'edges')
     estimation = kwargs.get('estimation', 'interval')
-    use_existing_restults_fnm_matches = kwargs.get('use_existing_restults_fnm_matches', False)
+    use_existing_data = kwargs.get('use_existing_data', False)
 
     if memory_profiling:
         elapsed_time = elapsed_since(start_time)
@@ -10689,6 +10722,8 @@ class FIBSEM_dataset:
             Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
         FIBSEM_Data_xlsx : str
             Filepath of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)
+        use_existing_data : boolean
+            Default is False. If True and the data exists (saved inso XLSX), use that.            
         disp_res : bolean
             If True (default), intermediate messages and results will be displayed.
 
@@ -10737,6 +10772,7 @@ class FIBSEM_dataset:
         FIBSEM_Data_xlsx_default = os.path.join(data_dir, self.fnm_reg.replace('.mrc', '_FIBSEM_Data.xlsx'))
         FIBSEM_Data_xlsx = kwargs.get('FIBSEM_Data_xlsx', FIBSEM_Data_xlsx_default)
         disp_res = kwargs.get('disp_res', True)
+        use_existing_data = kwargs.get('use_existing_data', False)
 
         local_kwargs = {'use_DASK' : use_DASK,
                         'DASK_client_retries' : DASK_client_retries,
@@ -10750,7 +10786,8 @@ class FIBSEM_dataset:
                         'fit_params' : fit_params,
                         'Mill_Volt_Rate_um_per_V' : Mill_Volt_Rate_um_per_V,
                         'FIBSEM_Data_xlsx' : FIBSEM_Data_xlsx,
-                        'disp_res' : disp_res}
+                        'disp_res' : disp_res,
+                        'use_existing_data' : use_existing_data}
 
         if disp_res:
             print('Evaluating the parameters of FIBSEM data set (data Min/Max, Working Distance, Milling Y Voltage, FOV center positions, Scan Rate, EHT)')
@@ -10830,7 +10867,7 @@ class FIBSEM_dataset:
             Key-points in every frame are indexed (in descending order) by the strength of the response.
             Only kp_max_num is kept for further processing.
             Set this value to -1 if you want to keep ALL keypoints (may take long time to process)
-        use_existing_restults_kpdes : boolean
+        use_existing_data : boolean
             Deafult is False. If True and this had already been performed, use existing results.
     
         Returns:
@@ -10862,7 +10899,7 @@ class FIBSEM_dataset:
             SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
             SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
             SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
-            use_existing_restults_kpdes = kwargs.get('use_existing_restults_kpdes', False)
+            use_existing_data = kwargs.get('use_existing_data', False)
 
             minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
             kpt_kwargs = {'ftype' : ftype,
@@ -10875,7 +10912,7 @@ class FIBSEM_dataset:
                         'SIFT_contrastThreshold' : SIFT_contrastThreshold,
                         'SIFT_edgeThreshold' : SIFT_edgeThreshold,
                         'SIFT_sigma' : SIFT_sigma,
-                        'use_existing_restults_kpdes' : use_existing_restults_kpdes}
+                        'use_existing_data' : use_existing_data}
 
             if sliding_minmax:
                 params_s3 = [[dts3[0], dts3[1], dts3[2], kpt_kwargs] for dts3 in zip(self.fls, data_min_sliding, data_max_sliding)]
@@ -10939,7 +10976,7 @@ class FIBSEM_dataset:
             'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
         estimation : string
             'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
-        use_existing_restults_fnm_matches : boolean
+        use_existing_data : boolean
             Deafult is False. If True and this had already been performed, use existing results
     
         Returns:
@@ -10979,7 +11016,7 @@ class FIBSEM_dataset:
             save_res_png  = kwargs.get("save_res_png", self.save_res_png )
             start = kwargs.get('start', 'edges')
             estimation = kwargs.get('estimation', 'interval')
-            use_existing_restults_fnm_matches = kwargs.get('use_existing_restults_fnm_matches', False)
+            use_existing_data = kwargs.get('use_existing_data', False)
             dt_kwargs = {'ftype' : ftype,
                             'TransformType' : TransformType,
                             'l2_matrix' : l2_matrix,
@@ -10994,7 +11031,7 @@ class FIBSEM_dataset:
                             'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold,
                             'start' : start,
                             'estimation' : estimation,
-                            'use_existing_restults_fnm_matches' : use_existing_restults_fnm_matches}
+                            'use_existing_data' : use_existing_data}
 
             params_s4 = []
             for j, fnm in enumerate(self.fnms[:-1]):
