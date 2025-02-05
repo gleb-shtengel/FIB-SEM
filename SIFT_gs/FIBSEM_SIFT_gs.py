@@ -7651,6 +7651,10 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         ScanRate = int_results['Scan Rate (Hz)']
         EHT = int_results['EHT (kV)']
         try:
+            errors_s2 = int_results['Error Code']
+        except:
+            errors_s2 = fr * 0
+        try:
             SEMSpecimenI = int_results['SEMSpecimenI (nA)']
         except:
             SEMSpecimenI = EHT*0.0
@@ -7683,6 +7687,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
             ScanRate = np.zeros(nfrs, dtype=float)
             EHT = np.zeros(nfrs, dtype=float)
             SEMSpecimenI = np.zeros(nfrs, dtype=float)
+            errors_s2 = np.zeros(nfrs, dtype=int)
 
         else:
             params_s2 = [[fl, kwargs] for fl in np.array(fls)[frame_inds]]
@@ -7728,7 +7733,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Saving the FIBSEM dataset statistics (Min/Max, Mill Rate, FOV Shifts into the file: ', FIBSEM_Data_xlsx_path)
         # Create a Pandas Excel writer using XlsxWriter as the engine.
     xlsx_writer = pd.ExcelWriter(FIBSEM_Data_xlsx_path, engine='xlsxwriter')
-    columns=['Frame', 'Min', 'Max', 'Sliding Min', 'Sliding Max', 'Working Distance (mm)', 'Milling Y Voltage (V)', 'FOV X Center (Pix)', 'FOV Y Center (Pix)', 'Scan Rate (Hz)', 'EHT (kV)', 'SEMSpecimenI (nA)']
+    columns=['Frame', 'Min', 'Max', 'Sliding Min', 'Sliding Max', 'Working Distance (mm)', 'Milling Y Voltage (V)', 'FOV X Center (Pix)', 'FOV Y Center (Pix)', 'Scan Rate (Hz)', 'EHT (kV)', 'SEMSpecimenI (nA)', 'Error Code']
     minmax_df = pd.DataFrame(np.vstack((frame_inds.T,
         data_minmax_glob.T,
         data_min_sliding.T,
@@ -7739,7 +7744,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         center_y.T,
         ScanRate.T,
         EHT.T,
-        SEMSpecimenI.T)).T, columns = columns, index = None)
+        SEMSpecimenI.T,
+        np.array(errors_s2).T)).T, columns = columns, index = None)
     minmax_df.to_excel(xlsx_writer, index=None, sheet_name='FIBSEM Data')
     kwargs_info = pd.DataFrame([kwargs]).T   # prepare to be save in transposed format
     kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
