@@ -8041,8 +8041,7 @@ def determine_transformations_files(params_dsf):
         fnm_matches = ''
 
     if use_existing_restults_fnm_matches and os.path.exists(fnm_matches):
-        kpts, int_results = pickle.load(open(fnm_matches, 'rb'))
-        transform_matrix, error_abs_mean, iteration, error_FWHMx, error_FWHMy = int_results
+        transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = pickle.load(open(fnm_matches, 'rb'))
     else:
         if TransformType == RegularizedAffineTransform:
             def estimate(self, src, dst):
@@ -8137,8 +8136,8 @@ def determine_transformations_files(params_dsf):
                 error_FWHMx = np.nan
                 error_FWHMy = np.nan
         if save_matches:
-            int_results = [transform_matrix, error_abs_mean, iteration, error_FWHMx, error_FWHMy]
-            pickle.dump([kpts, int_results], open(fnm_matches, 'wb'))
+            int_results = [transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration]
+            pickle.dump(int_results, open(fnm_matches, 'wb'))
 
     return transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
 
