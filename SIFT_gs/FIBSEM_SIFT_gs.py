@@ -8079,9 +8079,15 @@ def determine_transformations_files(params_dsf):
     else:
         fnm_matches = ''
 
-    if use_existing_data and os.path.exists(fnm_matches):
-        transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = pickle.load(open(fnm_matches, 'rb'))
-    else:
+    try_existing = use_existing_data and os.path.exists(fnm_matches)
+
+    if try_existing:
+        try:
+            transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = pickle.load(open(fnm_matches, 'rb'))
+        except:
+            try_existing = False
+            
+    if not try_existing:
         if TransformType == RegularizedAffineTransform:
             def estimate(self, src, dst):
                 self.params = determine_regularized_affine_transform(src, dst, l2_matrix, targ_vector)
