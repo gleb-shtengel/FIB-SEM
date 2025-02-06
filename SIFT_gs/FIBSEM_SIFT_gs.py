@@ -11085,7 +11085,7 @@ class FIBSEM_dataset:
             self.error_abs_mean = np.nan_to_num(np.array([result[3] for result in results_s4]))
             self.error_FWHMx = [result[4] for result in results_s4]
             self.error_FWHMy = [result[5] for result in results_s4]
-            print('Mean Number of Keypoints :', np.mean(self.npts).astype(np.int16))
+            print('Mean Number of Keypoints :', np.mean(self.npts).astype(np.int64))
         return results_s4
 
 
