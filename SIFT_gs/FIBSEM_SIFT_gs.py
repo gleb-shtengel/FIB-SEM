@@ -9711,8 +9711,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
                                  [0.0, 1.0, yi],
                                  [0.0, 0.0, 1.0]])
         inv_shift_matrix = np.linalg.inv(shift_matrix)
-        if disp_res:
-            print('Set up shift matrix')
+
     else:
         padx = 0
         pady = 0
@@ -9737,9 +9736,8 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     '''
     tr_args = [ImgB_fraction, xsz, ysz, xi, xa, yi, ya, int_order, invert_data, flipY, flatten_image, image_correction_file, perform_transformation, shift_matrix, inv_shift_matrix, perform_deformation, deformation_type, ftype, dtp, fill_value]
     chunk_of_frame_parametrs_dataset = []
-    if disp_res:
-        print('Construct parameter sets')
-    for j, st_frame in enumerate(tqdm(st_frames, desc='Setting up parameter sets', display=False)):
+
+    for j, st_frame in enumerate(tqdm(st_frames, desc='Setting up parameter sets', display=disp_res)):
         #save_filename = os.path.join(os.path.split(fls[st_frame])[0],'Registered_Frame_{:d}.tif'.format(j))
         save_filename = os.path.splitext(fls[st_frame])[0]+'_transformed.tif'
         process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
