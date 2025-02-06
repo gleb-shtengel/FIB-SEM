@@ -9741,8 +9741,10 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
         #save_filename = os.path.join(os.path.split(fls[st_frame])[0],'Registered_Frame_{:d}.tif'.format(j))
         save_filename = os.path.splitext(fls[st_frame])[0]+'_transformed.tif'
         process_frames = np.arange(st_frame, min(st_frame+zbin_factor, (frame_inds[-1]+1)))
-        chunk_of_frame_parametrs_dataset.append([save_filename, np.array(fls)[process_frames], np.array(tr_matr_cum_residual)[process_frames], np.array(deformation_fields)[process_frames], np.array(image_scales)[process_frames], np.array(image_offsets)[process_frames], tr_args])
-
+        if perform_deformation:
+            chunk_of_frame_parametrs_dataset.append([save_filename, np.array(fls)[process_frames], np.array(tr_matr_cum_residual)[process_frames], np.array(deformation_fields)[process_frames], np.array(image_scales)[process_frames], np.array(image_offsets)[process_frames], tr_args])
+        else:
+            chunk_of_frame_parametrs_dataset.append([save_filename, np.array(fls)[process_frames], np.array(tr_matr_cum_residual)[process_frames], np.zeros((len(process_frames), YResolution), dtype=float), np.array(image_scales)[process_frames], np.array(image_offsets)[process_frames], tr_args])
     if use_DASK:
         if disp_res:
             print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Transform and Save Chunks of Frames: Starting DASK jobs')
