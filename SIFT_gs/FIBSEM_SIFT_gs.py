@@ -8361,22 +8361,28 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
         tys = np.zeros(len(tr_matr_cum), dtype=float)
         
         failed_to_open_matches = 0
+        failed_to_open_fnms = []
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Recalculating the shifts for preserved scales: ')):
             try:
                 transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = pickle.load(open(fnm_matches, 'rb'))
                 src_pts, dst_pts = kpts
-
                 txs[j+1] = np.mean(tr_matr_cum[j, 0, 0] * dst_pts[:, 0] + tr_matr_cum[j, 0, 1] * dst_pts[:, 1]
                                    - tr_matr_cum[j+1, 0, 0] * src_pts[:, 0] - tr_matr_cum[j+1, 0, 1] * src_pts[:, 1])
                 tys[j+1] = np.mean(tr_matr_cum[j, 1, 1] * dst_pts[:, 1] + tr_matr_cum[j, 1, 0] * dst_pts[:, 0]
                                    - tr_matr_cum[j+1, 1, 1] * src_pts[:, 1] - tr_matr_cum[j+1, 1, 0] * src_pts[:, 0])
             except:
                 failed_to_open_matches += 1
+                failed_to_open_fnms.append(fnm_matches)
                 txs[j+1] = 0.0
                 tys[j+1] = 0.0
         if failed_to_open_matches > 0:
             if verbose:
                 print('Failed to open {:d} files containgng matched keypoints'.format(failed_to_open_matches))
+                failed_fnms_file = os.path.join(data_dir, 'Failed_to_read_fnms.txt')
+                print('Saving the filenames of failed to open files into: ', failed_fnms_file)
+                with open(failed_fnms_file, 'w') as f:
+                    for line in failed_to_open_fnms:
+                        f.write(f"{line}\n")
                 print('Transformation Matrix optimization will most likely not work')
         txs_cum = np.cumsum(txs)
         tys_cum = np.cumsum(tys)
