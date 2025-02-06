@@ -9694,6 +9694,8 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     
     if pad_edges and perform_transformation:
         shape = [YResolution, XResolution]
+        if disp_res:
+            print('Determining padding offsets')
         xi, yi, padx, pady = determine_pad_offsets(shape, tr_matr_cum_residual)
         #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, tr_matr_cum_residual)
         #padx = int(xmx - xmn)
