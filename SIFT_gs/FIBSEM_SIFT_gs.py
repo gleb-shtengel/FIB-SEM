@@ -8086,7 +8086,7 @@ def determine_transformations_files(params_dsf):
             transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = pickle.load(open(fnm_matches, 'rb'))
         except:
             try_existing = False
-            
+
     if not try_existing:
         if TransformType == RegularizedAffineTransform:
             def estimate(self, src, dst):
@@ -8363,7 +8363,8 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
         failed_to_open_matches = 0
         for j, fnm_matches in enumerate(tqdm(fnms_matches, desc='Recalculating the shifts for preserved scales: ')):
             try:
-                (src_pts, dst_pts), int_results = pickle.load(open(fnm_matches, 'rb'))
+                transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = pickle.load(open(fnm_matches, 'rb'))
+                src_pts, dst_pts = kpts
 
                 txs[j+1] = np.mean(tr_matr_cum[j, 0, 0] * dst_pts[:, 0] + tr_matr_cum[j, 0, 1] * dst_pts[:, 1]
                                    - tr_matr_cum[j+1, 0, 0] * src_pts[:, 0] - tr_matr_cum[j+1, 0, 1] * src_pts[:, 1])
@@ -8523,7 +8524,9 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
                     print('calculate_residual_deformation_fields_dataset: Step: ', j)
                     print(fnm_matches)
                     print(tr_matr_cum[j])
-                src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
+                #src_pts, dst_pts = pickle.load(open(fnm_matches, 'rb'))
+                transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration = pickle.load(open(fnm_matches, 'rb'))
+                src_pts, dst_pts = kpts
                 deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j+1], tr_matr_cum[j], image_shape,
                                                                                 deformation_type = '1DY',
                                                                                 deformation_sigma = deformation_sigma,
@@ -9894,7 +9897,7 @@ def check_for_nomatch_frames_dataset(fls, fnms, fnms_matches,
             npts[frj-1] = np.array(len(new_step4_res[2][0]))
             error_abs_mean[frj-1] = new_step4_res[3]
             transformation_matrix[frj-1] = np.array(new_step4_res[0])
-        print('Mean Number of Keypoints :', np.mean(npts).astype(int))
+        print('Mean Number of Keypoints :', np.mean(npts).astype(np.int64))
     return frames_to_remove, fls, fnms, fnms_matches, error_abs_mean, npts, transformation_matrix, FOVtrend_x, FOVtrend_y, FIBSEM_Data
 
 def select_blobs_LoG_analyze_transitions_2D_dataset(params):
