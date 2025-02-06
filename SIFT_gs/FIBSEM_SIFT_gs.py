@@ -8084,6 +8084,10 @@ def determine_transformations_files(params_dsf):
     if try_existing:
         try:
             transform_matrix, fnm_matches_loc, kpts, error_abs_mean_loc, error_FWHMx_loc, error_FWHMy_loc, iteration_loc = pickle.load(open(fnm_matches, 'rb'))
+            error_abs_mean = error_abs_mean_loc
+            error_FWHMx = error_FWHMx_loc
+            error_FWHMy = error_FWHMy_loc
+            iteration = iteration_loc
         except:
             try_existing = False
 
