@@ -1629,6 +1629,10 @@ def Two_Image_NCC_SNR(img1, img2, **kwargs):
     '''
     zero_mean = kwargs.get("zero_mean", True)
     
+    # convert into floats
+    img1 = img1.astype(float)
+    img2 = img2.astype(float)
+
     if img1.shape==img2.shape:
         ysz, xsz = img1.shape
         if zero_mean:
