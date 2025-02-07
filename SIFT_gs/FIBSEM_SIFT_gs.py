@@ -5181,8 +5181,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     sample_frame_mask = xlsx_name.replace('_RegistrationQuality.xlsx', '_sample_image_frame*.*')
     unsorted_sample_frame_files = glob.glob(os.path.join(base_dir, sample_frame_mask))
     try:
-        unsorter_frames = [int(x.split('frame')[1].split('.png')[0]) for x in unsorted_sample_frame_files]
-        sorted_inds = argsort(unsorter_frames)
+        unsorted_frames = [int(x.split('frame')[1].split('.png')[0]) for x in unsorted_sample_frame_files]
+        sorted_inds = np.argsort(unsorted_frames)
         existing_sample_frame_files = [unsorted_sample_frame_files[i] for i in sorted_inds]
     except:
         existing_sample_frame_files = unsorted_sample_frame_files
