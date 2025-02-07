@@ -1877,9 +1877,9 @@ def Two_Image_Analysis(params):
 
 
     I1 = tiff.imread(os.path.normpath(frame1_filename))
-    I1c = I1[yi_eval:ya_eval, xi_eval:xa_eval]
+    I1c = I1[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
     I2 = tiff.imread(os.path.normpath(frame2_filename))
-    I2c = I2[yi_eval:ya_eval, xi_eval:xa_eval]
+    I2c = I2[yi_eval:ya_eval, xi_eval:xa_eval].astype(float)
     fr_mean = np.abs(I1c/2.0 + I2c/2.0)
     dy, dx = np.shape(I2c)
 
