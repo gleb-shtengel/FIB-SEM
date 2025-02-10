@@ -33,8 +33,6 @@ from scipy.signal import convolve2d
 from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit as cf
 
-from openpyxl import load_workbook
-
 from skimage.feature import blob_dog, blob_log, blob_doh
 from sklearn.linear_model import (LinearRegression,
     TheilSenRegressor,
