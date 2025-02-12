@@ -1577,6 +1577,8 @@ def check_registration(img0, img1, **kwargs):
         DPI for PNG output. Default is 300
     verbose : boolean
         If True, outputs will be printed
+    fontsize : int
+        Fontsize
     
     '''
     threshold_min = kwargs.get("threshold_min", 1e-3)
@@ -1593,7 +1595,6 @@ def check_registration(img0, img1, **kwargs):
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
     drmax = kwargs.get("drmax", 1.5)
     max_iter = kwargs.get("max_iter", 2500)
-    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     save_res_png  = kwargs.get("save_res_png", True)
     save_filename = kwargs.get('save_filename', 'check_registration_output.png')
@@ -1605,6 +1606,7 @@ def check_registration(img0, img1, **kwargs):
     SIFT_sigma = kwargs.get('SIFT_sigma', 1.6)
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.010)  # fraction of data points for initial RANSAC iteration step.
     verbose = kwargs.get('verbose', True)
+    fontsize = kwargs.get('fontsize', 12) 
     
     YResolution, XResolution = img0.shape
     
@@ -1697,7 +1699,7 @@ def check_registration(img0, img1, **kwargs):
     error_abs_mean = np.mean(np.abs(reg_errors))
     
     fig = plt.figure(figsize=(10, 15))
-    fig.subplots_adjust(left=0.01, bottom=0.01, right=1.0, top=0.99, wspace=0.1, hspace=0.002)
+    fig.subplots_adjust(left=0.08, bottom=0.05, right=0.99, top=0.99, wspace=0.15, hspace=-0.10)
     gs = GridSpec(3, 2, figure=fig)
     ax0 = fig.add_subplot(gs[0:2, :])
     ax0.imshow(img1, cmap='Greys', vmin = d0, vmax=d1)
@@ -1711,8 +1713,8 @@ def check_registration(img0, img1, **kwargs):
         ys = yshifts
         # the code below is for vector map. vectors have origin coordinates x and y, and vector projections xs and ys.
         vec_field = ax0.quiver(x,y,xs,ys,M, scale=50, width =0.0015, cmap='jet')
-        cbar = fig.colorbar(vec_field, pad=0.02, shrink=0.70, orientation = 'horizontal', format="%.1f")
-        cbar.set_label('Magnitude of the Residual Registration Error (pix)', fontsize=fsize_label)
+        cbar = fig.colorbar(vec_field, pad=0.015, shrink=0.70, orientation = 'horizontal', format="%.1f")
+        cbar.set_label('Magnitude of the Residual Registration Error (pix)', fontsize=fontsize)
 
         ax0.text(0.005, 1.00 - 0.010*XResolution/YResolution, fl0, fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.023*XResolution/YResolution, Sample_ID, fontsize=fsize_text, transform=ax0.transAxes)
@@ -1724,6 +1726,9 @@ def check_registration(img0, img1, **kwargs):
         ax0.text(0.005, 1.00 - 0.101*XResolution/YResolution, 'RANSAC_initial_fraction={:.4f}, max_iter={:d}'.format(RANSAC_initial_fraction, max_iter), fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.114*XResolution/YResolution,  'drmax={:.3f}'.format(drmax), fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.127*XResolution/YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize_text, transform=ax0.transAxes)
+        
+        ax0.text(0.95, 1.00 - 0.010*XResolution/YResolution, 'Sxx={:.6f}, Sxy={:.6f}, Tx={:.3e}'.format(SIFT_contrastThreshold, SIFT_sigma), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.95, 1.00 - 0.023*XResolution/YResolution, Sample_ID, fontsize=fsize_text, transform=ax0.transAxes)
     if verbose:
         print('RANSAC_initial_fraction = {:.4f}, max_iter={:d}'.format(RANSAC_initial_fraction, max_iter))
         print('# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches))
@@ -1733,12 +1738,13 @@ def check_registration(img0, img1, **kwargs):
     error_FWHMx, indxi, indxa, mxx, mxx_ind = find_FWHM(xbins, xcounts[:-1], verbose=False, max_aver_aperture=5)
     dbx = (xbins[1]-xbins[0])/2.0
     axx.set_xlabel('Residual X Error (pixels)')
+    axx.set_ylabel('Count')
     axy = fig.add_subplot(gs[2, 1])
     ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64)
     error_FWHMy, indyi, indya, mxy, mxy_ind = find_FWHM(ybins, ycounts[:-1], verbose=False, max_aver_aperture=5)
     dby = (ybins[1]-ybins[0])/2.0
     axy.set_xlabel('Residual Y Error (pixels)')
-    fsz = 12
+    axy.set_ylabel('Count')
 
     xcounts, xbins, xhist_patches = axx.hist(xshifts, bins=64, color='#1f77b4')
     error_FWHMx, indxi, indxa, mxx, mxx_ind = find_FWHM(xbins, xcounts[:-1], verbose=False, max_aver_aperture=5)
@@ -1746,9 +1752,9 @@ def check_registration(img0, img1, **kwargs):
     #axx.plot([xbins[indxi]+dbx, xbins[indxa]+dbx], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
     axx.plot([xbins[indxi], xbins[indxa]], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
     axx.plot([xbins[mxx_ind]+dbx], [mxx], 'rd')
-    axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fsz)
-    axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fsz)
-    axx.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMx), transform=axx.transAxes, fontsize=fsz)
+    axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fontsize)
+    axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fontsize)
+    axx.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMx), transform=axx.transAxes, fontsize=fontsize)
     ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64, color='#1f77b4')
     error_FWHMy, indyi, indya, mxy, mxy_ind = find_FWHM(ybins, ycounts[:-1], verbose=False, max_aver_aperture=5)
     dby = (ybins[1]-ybins[0
@@ -1756,14 +1762,16 @@ def check_registration(img0, img1, **kwargs):
     #axy.plot([ybins[indyi] + dby, ybins[indya] + dby], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
     axy.plot([ybins[indyi], ybins[indya]], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
     axy.plot([ybins[mxy_ind] + dby], [mxy], 'rd')
-    axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fsz)
-    axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fsz)
-    axy.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMy), transform=axy.transAxes, fontsize=fsz)
+    axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fontsize)
+    axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fontsize)
+    axy.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMy), transform=axy.transAxes, fontsize=fontsize)
 
+    
     for ax in [axx, axy]:
         ax.grid(True)
         
     if save_res_png:
+        axx.text(-0.05, -0.15, save_filename, transform=axx.transAxes, fontsize=fontsize-2)
         if verbose:
             print('Figure is saved into the filr: ', save_filename) 
         fig.savefig(save_filename, dpi=dpi)
