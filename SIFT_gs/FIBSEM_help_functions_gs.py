@@ -1595,6 +1595,7 @@ def check_registration(img0, img1, **kwargs):
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
     drmax = kwargs.get("drmax", 1.5)
     max_iter = kwargs.get("max_iter", 2500)
+    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     save_res_png  = kwargs.get("save_res_png", True)
     save_filename = kwargs.get('save_filename', 'check_registration_output.png')
@@ -1698,7 +1699,9 @@ def check_registration(img0, img1, **kwargs):
     reg_errors, xshifts, yshifts = estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)
     error_abs_mean = np.mean(np.abs(reg_errors))
     
-    fig = plt.figure(figsize=(10, 15))
+    fig_xsize = 10.0
+    fig_ysize = fig_xsize * YResolution / XResolution + 5.0
+    fig = plt.figure(figsize=(fig_xsize, fig_ysize))
     fig.subplots_adjust(left=0.08, bottom=0.05, right=0.99, top=0.99, wspace=0.15, hspace=-0.10)
     gs = GridSpec(3, 2, figure=fig)
     ax0 = fig.add_subplot(gs[0:2, :])
@@ -1727,8 +1730,8 @@ def check_registration(img0, img1, **kwargs):
         ax0.text(0.005, 1.00 - 0.114*XResolution/YResolution,  'drmax={:.3f}'.format(drmax), fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.127*XResolution/YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize_text, transform=ax0.transAxes)
         
-        ax0.text(0.95, 1.00 - 0.010*XResolution/YResolution, 'Sxx={:.6f}, Sxy={:.6f}, Tx={:.3e}'.format(SIFT_contrastThreshold, SIFT_sigma), fontsize=fsize_text, transform=ax0.transAxes)
-        ax0.text(0.95, 1.00 - 0.023*XResolution/YResolution, Sample_ID, fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.75, 1.00 - 0.023*XResolution/YResolution, 'Sxx={:.5f},  Sxy={:.5f},  Tx={:.3e}'.format(transform_matrix[0,0], transform_matrix[0,1], transform_matrix[0,2]), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.75, 1.00 - 0.036*XResolution/YResolution, 'Syx={:.5f},  Syy={:.5f},  Ty={:.3e}'.format(transform_matrix[1,0], transform_matrix[1,1], transform_matrix[1,2]), fontsize=fsize_text, transform=ax0.transAxes)
     if verbose:
         print('RANSAC_initial_fraction = {:.4f}, max_iter={:d}'.format(RANSAC_initial_fraction, max_iter))
         print('# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches))
@@ -1771,7 +1774,7 @@ def check_registration(img0, img1, **kwargs):
         ax.grid(True)
         
     if save_res_png:
-        axx.text(-0.05, -0.15, save_filename, transform=axx.transAxes, fontsize=fontsize-2)
+        axx.text(-0.07, -0.13, save_filename, transform=axx.transAxes, fontsize=fontsize-2)
         if verbose:
             print('Figure is saved into the filr: ', save_filename) 
         fig.savefig(save_filename, dpi=dpi)
