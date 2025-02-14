@@ -2014,7 +2014,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
     save_filename : str
-        Path to the filename to save the results. If empty, mrc_filename+'_RegistrationQuality.csv' will be used
+        Path to the filename to save the results. If empty, mrc_filename+'_RegistrationQuality.xlsx' will be used
     save_sample_frames_png : bolean
         If True, sample frames with superimposed eval box and registration analysis data will be saved into png files. Default is True
 
@@ -4119,7 +4119,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
     save_filename : str
-        Path to the filename to save the results. If empty, tif_filename+'_RegistrationQuality.csv' will be used
+        Path to the filename to save the results. If empty, tif_filename+'_RegistrationQuality.xlsx' will be used
 
     Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX spreadsheet file
     '''
@@ -11293,6 +11293,7 @@ class FIBSEM_dataset:
 
         pickle.dump(self.__dict__, open(dump_filename, 'wb'))
 
+        '''
         npts_fnm = dump_filename.replace('_params.bin', '_Npts_Errs_data.csv')
         Tr_matrix_xls_fnm = dump_filename.replace('_params.bin', '_Transform_Matrix_data.csv')
         
@@ -11307,6 +11308,7 @@ class FIBSEM_dataset:
                  'T20 (0.0)', 'T21 (0.0)', 'T22 (1.0)']
         tr_mx_dt = pd.DataFrame(self.transformation_matrix.reshape((len(self.transformation_matrix), 9)), columns = columns, index = None)
         tr_mx_dt.to_csv(Tr_matrix_xls_fnm, index = None)
+        '''
         return dump_filename
 
     def check_for_nomatch_frames(self, thr_npt, **kwargs):
