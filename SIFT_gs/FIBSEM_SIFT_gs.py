@@ -9813,6 +9813,8 @@ def save_data_stack(FIBSEMstack, **kwargs):
             Python data type for saving. Deafult is int16, the other option currently is uint8.
         disp_res : bolean
             Display messages and intermediate results
+        single_mrc_write : boolean
+            if True, entire MRC stack is written in a single shot, otherwise (False, Default) frame-by-frame
         
     Returns:
         fnms_saved : list of strings
@@ -9828,6 +9830,8 @@ def save_data_stack(FIBSEMstack, **kwargs):
     dtp = kwargs.get("dtp", np.int16)
     disp_res  = kwargs.get("disp_res", False )
     nz, ny, nx = FIBSEMstack.shape
+    single_mrc_write = kwargs.get('single_mrc_write', False)
+
     if disp_res:
         print('The resulting stack shape will be  nx={:d}, ny={:d}, nz={:d},  data type:'.format(nx, ny, nz), dtp)
         print('Voxel destreak_mrc_stackSize (nm): {:2f} x {:2f} x {:2f}'.format(voxel_size.x, voxel_size.y, voxel_size.z))
@@ -9878,8 +9882,11 @@ def save_data_stack(FIBSEMstack, **kwargs):
                 voxel_size_angstr.z = voxel_size_angstr.z * 10.0
                 #mrc.header.cella = voxel_size_angstr
                 mrc.voxel_size = voxel_size_angstr
-                for j, FIBSEMframe in enumerate(tqdm(FIBSEMstack, desc = 'Saving Frames into MRC File: ', display = disp_res)):
-                    mrc.data[j,:,:] = FIBSEMframe.astype(dtp)
+                if single_mrc_write:
+                    mrc.data = FIBSEMstack.astype(dtp)
+                else:
+                    for j, FIBSEMframe in enumerate(tqdm(FIBSEMstack, desc = 'Saving Frames into MRC File: ', display = disp_res)):
+                        mrc.data[j,:,:] = FIBSEMframe.astype(dtp)
                 mrc.close()
     else:
         print('Registered data set is NOT saved into a file')
@@ -11546,6 +11553,8 @@ class FIBSEM_dataset:
             If True (Default), intermediate frames (TIFF files) will be removed
         disp_res : bolean
             If True (default), intermediate messages and results will be displayed.
+        single_mrc_write : boolean
+            if True, entire MRC stack is written in a single shot, otherwise (False, Default) frame-by-frame
         
         Returns:
         reg_summary, reg_summary_xlsx
@@ -11663,6 +11672,7 @@ class FIBSEM_dataset:
         dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is np.uint8.
         fill_value = kwargs.get('fill_value', 0.0) + offset
         remove_intermediate_frames = kwargs.get('remove_intermediate_frames', True)
+        single_mrc_write = kwargs.get('single_mrc_write', False)
         
         save_kwargs = {'fnm_types' : fnm_types,
                         'fnm_reg' : fnm_reg,
@@ -11699,6 +11709,7 @@ class FIBSEM_dataset:
                         'stop_evaluation_box' : stop_evaluation_box,
                         'save_sample_frames_png' : save_sample_frames_png,
                         'save_registration_summary' : save_registration_summary,
+                        'single_mrc_write' : single_mrc_write,
                         'disp_res' : disp_res}
 
         # first, transform, bin and save frame chunks into individual tif files
