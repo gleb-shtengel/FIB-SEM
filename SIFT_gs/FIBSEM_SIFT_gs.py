@@ -1932,6 +1932,15 @@ def evaluate_registration_two_frames(params_mrc):
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r')
     header = mrc_obj.header
     '''
+    0 8-bit signed integer (range -128 to 127)
+    1 16-bit signed integer
+    2 32-bit signed real
+    3 transform : complex 16-bit integers
+    4 transform : complex 32-bit reals
+    6 16-bit unsigned integer
+    12 16-bit float (IEEE754)
+    101 4-bit data packed two per byte
+    
     mode 0 -> uint8
     mode 1 -> int16
     mode 2 -> float32
@@ -2053,6 +2062,15 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
         if ('extra' not in record) and ('label' not in record):
             header_dict[record] = header[record]
     '''
+    0 8-bit signed integer (range -128 to 127)
+    1 16-bit signed integer
+    2 32-bit signed real
+    3 transform : complex 16-bit integers
+    4 transform : complex 32-bit reals
+    6 16-bit unsigned integer
+    12 16-bit float (IEEE754)
+    101 4-bit data packed two per byte
+    
     mode 0 -> uint8
     mode 1 -> int16
     mode 2 -> float32
@@ -9849,6 +9867,8 @@ def save_data_stack(FIBSEMstack, **kwargs):
                     mrc_mode = 1
                 if dtp==np.uint16:
                     mrc_mode = 6
+                if dtp==np.float16:
+                    mrc_mode = 12
                     
                 # Make a new, empty memory-mapped MRC file
                 mrc = mrcfile.new_mmap(fpath_reg, shape=(nz, ny, nx), mrc_mode=mrc_mode, overwrite=True)
