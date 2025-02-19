@@ -9883,7 +9883,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
                 #mrc.header.cella = voxel_size_angstr
                 mrc.voxel_size = voxel_size_angstr
                 if single_mrc_write:
-                    mrc.data = FIBSEMstack.astype(dtp)
+                    mrc.data[:] = FIBSEMstack.astype(dtp)
                 else:
                     for j, FIBSEMframe in enumerate(tqdm(FIBSEMstack, desc = 'Saving Frames into MRC File: ', display = disp_res)):
                         mrc.data[j,:,:] = FIBSEMframe.astype(dtp)
