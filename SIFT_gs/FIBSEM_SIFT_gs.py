@@ -8558,7 +8558,7 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
                     print(fnm_matches)
                     print(tr_matr_cum[j])
                 transform_matrix, fnm_matches_loc, [src_pts, dst_pts], error_abs_mean_loc, error_FWHMx_loc, error_FWHMy_loc, iteration_loc = pickle.load(open(fnm_matches, 'rb'))
-                deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j+1], tr_matr_cum[j], image_shape,
+                deformation_fields[j+1] = determine_residual_deformation_field(src_pts, dst_pts, tr_matr_cum[j], tr_matr_cum[j+1], image_shape,
                                                                                 deformation_type = '1DY',
                                                                                 deformation_sigma = deformation_sigma,
                                                                                 zero_mean=zero_mean,
