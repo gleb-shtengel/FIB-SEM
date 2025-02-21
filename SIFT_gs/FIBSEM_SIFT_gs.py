@@ -9872,7 +9872,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
                 if dtp==np.uint16:
                     mrc_mode = 6
                 if dtp==np.float16:
-                    dtp=np.int16:
+                    dtp=np.int16
                     mrc_mode = 1
                     
                 # Make a new, empty memory-mapped MRC file
