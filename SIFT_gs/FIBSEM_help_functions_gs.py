@@ -393,12 +393,14 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
     image_height, image_width = image_shape
     # Create a regular grid
     grid_x, grid_y = np.meshgrid(np.linspace(0, image_width), np.linspace(0, image_height))
-
-    src_pts_transformed = src_pts @ transformation_matrix_src[0:2, 0:2].T + transformation_matrix_src[0:2, 2]
-    dst_pts_transformed = dst_pts @ transformation_matrix_dst[0:2, 0:2].T + transformation_matrix_dst[0:2, 2]
+    
+    transformation_matrix_src_inv = np.linalg.inv(transformation_matrix_src)
+    transformation_matrix_dst_inv = np.linalg.inv(transformation_matrix_dst)
+    
+    src_pts_transformed = src_pts @ transformation_matrix_src_inv[0:2, 0:2].T + transformation_matrix_src_inv[0:2, 2]
+    dst_pts_transformed = dst_pts @ transformation_matrix_dst_inv[0:2, 0:2].T + transformation_matrix_dst_inv[0:2, 2]
     xshifts, yshifts = (dst_pts_transformed - src_pts_transformed).T
-    #yshifts = (dst_pts_transformed - src_pts_transformed)[:,1]
-    x, y = dst_pts_transformed.T
+    x, y = dst_pts.T
     if verbose:
         print('determine_residual_deformation_field : will calculate residual deformation field in format: ', deformation_type, ',  df_sigma(s)=', deformation_sigma)
 
@@ -412,9 +414,9 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
             pass
         x_profile = np.zeros(image_width, dtype=float)
         cnts = np.zeros(image_width, dtype=int)
-        xints = y.astype(int)
+        xints = x.astype(int)
         for xint, yshift in zip(xints, yshifts):
-            x_profile[xint] = y_profile[xint] + yshift
+            x_profile[xint] = x_profile[xint] + yshift
             cnts[xint] = cnts[xint] + 1
         x_profile = x_profile/cnts
         x_profile_smoothed = astro_convolve(x_profile, Gaussian1DKernel(stddev=deformation_sigma))
