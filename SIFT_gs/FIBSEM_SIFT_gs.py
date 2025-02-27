@@ -2401,7 +2401,6 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     EM_max : float
         Max value for EM data range. If not defined will be determined automatically from the section data.
 
-    
     display_scale_bars : boolean
         If True (default), the scale bars are displayed in cross-sections.
     loc : (float, float)
