@@ -2393,7 +2393,7 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     addtl_sp : float
         Additional white space between the cross-section plots. Default is 0.0.
     xsection_linewidth : float
-        widt of the cross-secion line. Default is 0.5.
+        width of the cross-secion line. Default is 0.5.
     xsection_line_color : string
         color of the cross-secion line. Defalt is 'white'.
     EM_min : float
@@ -2660,6 +2660,8 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
             binning factor in y-direction
         mode  : str
             Binning mode. Default is 'mean', other option is 'sum'
+        mrc_mode : int
+            mrc mode
         flipY : boolean
             If Trye, the data will be flipped along Y axis (0 index) AFTER cropping.
         invert_data : boolean
@@ -2708,7 +2710,17 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
         mode 4 -> complex64
         mode 6 -> uint16
     '''
-    mrc_mode = mrc_obj.header.mode
+    mrc_mode =  kwargs.get('mrc_mode', mrc_obj.header.mode)
+    dtp = np.int16
+    if mrc_mode == 0:
+        dtp = np.int8
+    if mrc_mode == 2:
+        dtp = np.float32
+    if mrc_mode == 4:
+        dtp = np.complex64
+    if mrc_mode == 6:
+        dtp = np.uint16
+
     voxel_size_angstr = mrc_obj.voxel_size
     voxel_size_angstr_new = voxel_size_angstr.copy()
     voxel_size_angstr_new.x = voxel_size_angstr.x * xbin_factor
@@ -2746,8 +2758,8 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     print('Source Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
     if mode == 'sum':
         mrc_mode = 1
-        dt = np.int16
-    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dt)
+        dtp = np.int16
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dtp)
     st_frames = np.arange(fri, fra, zbin_factor)
     mrc_obj.close()
     
@@ -2805,9 +2817,9 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
                             binned_cropped_fr = 65535 - binned_cropped_fr
                         if mrc_mode != 0 and mrc_mode != 6:
                             binned_cropped_fr = np.invert(binned_cropped_fr)
-                    mrc_new.data[j,:,:] = binned_cropped_fr
+                    mrc_new.data[j,:,:] = binned_cropped_fr.astype(dtp)
                 if 'h5' in fnm_types:
-                    bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
+                    bdv_writer.append_plane(plane=binned_cropped_fr.astype(dtp), z=j, time=0, channel=0)
                 future.cancel()
 
         if len(params_mult) > 0:
@@ -2823,9 +2835,9 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
                             binned_cropped_fr = 65535 - binned_cropped_fr
                         if mrc_mode != 0 and mrc_mode != 6:
                             binned_cropped_fr = np.invert(binned_cropped_fr)
-                    mrc_new.data[j,:,:] = binned_cropped_fr
+                    mrc_new.data[j,:,:] = binned_cropped_fr.astype(dtp)
                 if 'h5' in fnm_types:
-                    bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
+                    bdv_writer.append_plane(plane=binned_cropped_fr.astype(dtp), z=j, time=0, channel=0)
                 future.cancel()
 
     else:
@@ -2840,9 +2852,9 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
                         binned_cropped_fr = 65535 - binned_cropped_fr
                     if mrc_mode != 0 and mrc_mode != 6:
                         binned_cropped_fr = np.invert(binned_cropped_fr)
-                mrc_new.data[j,:,:] = binned_cropped_fr
+                mrc_new.data[j,:,:] = binned_cropped_fr.astype(dtp)
             if 'h5' in fnm_types:
-                bdv_writer.append_plane(plane=binned_cropped_fr, z=j, time=0, channel=0)
+                bdv_writer.append_plane(plane=binned_cropped_fr.astype(dtp), z=j, time=0, channel=0)
 
     if 'mrc' in fnm_types:
         mrc_new.close()
