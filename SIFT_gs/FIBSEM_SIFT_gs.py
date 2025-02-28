@@ -7309,7 +7309,8 @@ class FIBSEM_frame:
         calc_corr : boolean
             If True - the full image correction is calculated
         degree : int 
-            The maximal degree of the polynomial features for sklearn.preprocessing.PolynomialFeatures. Default is 2.
+            The maximal degree of the polynomial features for sklearn.preprocessing.PolynomialFeatures. 
+            should be a list of the same length as image_names. If a single value, then it is applied to all images. Default is 2.
         ignore_Y  : boolean
             If True - the polynomial fit to only X is perfromed
         liear_Y  : boolean
@@ -7347,11 +7348,12 @@ class FIBSEM_frame:
         res_fname = kwargs.get("res_fname", os.path.splitext(self.fname)[0]+'_Image_Flattening.png')
         save_correction_binary = kwargs.get("save_correction_binary", False)
         dpi = kwargs.get("dpi", 300)
+        degrees = kwargs.get('degree', 2)
 
         img_correction_arrays = []
         img_correction_coeffs = []
         img_correction_intercepts = []
-        for image_name in image_names:
+        for j, image_name in enumerate(image_names):
             if image_name == 'RawImageA':
                 img = self.RawImageA - self.Scaling[1,0]
             if image_name == 'RawImageB':
@@ -7369,6 +7371,10 @@ class FIBSEM_frame:
             Xsect = kwargs.get("Xsect", xsz//2)
             Ysect = kwargs.get("Ysect", ysz//2)
             kwargs['res_fname'] = res_fname.replace('.png', '_' + image_name + '.png')
+            try:
+                kwargs['degree']=degrees[j]
+            except:
+                pass
             intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, image_name=image_name, **kwargs)
             img_correction_arrays.append(img_correction_array)
             img_correction_coeffs.append(coefs)
