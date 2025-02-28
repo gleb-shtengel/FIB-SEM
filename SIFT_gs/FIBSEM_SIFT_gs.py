@@ -9609,10 +9609,11 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
             xi_eval, xa_eval, yi_eval, ya_eval = eval_bounds[frame_ind]
             dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
             ax.imshow(fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
-            sample_text = 'Frame={:d}'.format(frame_ind)
+            frame_text = 'Frame={:d}'.format(frame_ind)
+            ax.text(0.06, 0.95, frame_text, color='red', transform=ax.transAxes, fontsize=12)
             for k, metric in enumerate(eval_metrics):
-                sample_text = sample_text + ',  '+ metric + '={:.3f}'.format(image_metrics[frame_ind, k])
-            ax.text(0.06, 0.95, sample_text, color='red', transform=ax.transAxes, fontsize=12)
+                sample_text = metric + '={:.3f}'.format(image_metrics[frame_ind, k])
+                ax.text(0.50, 0.95-k*0.1, sample_text, color='red', transform=ax.transAxes, fontsize=12)
             rect_patch = patches.Rectangle((xi_eval, yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
             ax.add_patch(rect_patch)
             ax.axis('off')
