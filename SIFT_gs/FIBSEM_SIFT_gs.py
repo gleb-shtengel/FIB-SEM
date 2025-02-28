@@ -11547,6 +11547,8 @@ class FIBSEM_dataset:
             ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
         add_offset : boolean
             If True - the Dark Count offset will be added before saving to make values positive (set True if saving into BigDataViewer HDF5 - it uses UI16 data format)
+        offset : float
+            Offset to be subtracted (see above). Default is Scaling[1, 0]*(1.0-ImgB_fraction) + Scaling[1, 1]*ImgB_fraction
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         perform_transformation : boolean
@@ -11651,7 +11653,7 @@ class FIBSEM_dataset:
         else:
             add_offset = kwargs.get("add_offset", False)
         if add_offset:
-            offset = self.Scaling[1, 0] * (1.0-ImgB_fraction) + self.Scaling[1, 1] * ImgB_fraction
+            offset = kwargs.get('offset', self.Scaling[1, 0] * (1.0-ImgB_fraction) + self.Scaling[1, 1] * ImgB_fraction)
         else:
             offset = 0.0
         save_sample_frames_png = kwargs.get("save_sample_frames_png", True)
