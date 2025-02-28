@@ -18,6 +18,7 @@ import matplotlib
 import matplotlib.image as mpimg
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from matplotlib.gridspec import GridSpec
 from IPython.core.pylabtools import figsize, getfigs
 from PIL import Image as PILImage
 from PIL.TiffTags import TAGS
@@ -5201,6 +5202,10 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
         filename to save the results. Default is file_xlsx with extension '.xlsx' replaced with '.png'
     invert_data : bolean
         If True, the representative data frames will use inverse LUT. 
+    sample_frames_layout : str
+        Default is 'vertical'. Another option is 'horizontal'.
+    full_filename_path : boolean
+        Default is True. If False, only the filename, no path is printed in the title
     dump_filename : str
         Filename of a binary dump of the FIBSEM_dataset object.
 
@@ -5219,6 +5224,8 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     png_file_default = file_xlsx.replace('.xlsx','.png')
     png_file = kwargs.get("png_file", png_file_default)
     dump_filename = kwargs.get("dump_filename", '')
+    sample_frames_layout = kwargs.get('sample_frames_layout', 'vertical')
+    full_filename_path = kwargs.get('full_filename_path', True)
     
     Regisration_data = pd.read_excel(file_xlsx, sheet_name='Registration Quality Statistics')
     # columns=['Frame', 'xi_eval', 'xa_eval', 'yi_eval', 'ya_eval', 'Npts', 'Mean Abs Error', 'NSAD', 'NCC', 'NMI']
@@ -5262,14 +5269,29 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     stack_filename = os.path.normpath(stack_info_dict.get('Stack Filename', default_stack_name))
     data_dir = stack_info_dict.get('data_dir', '')
     ftype = stack_info_dict.get("ftype", 0)
-       
     
-    heights = [0.8]*3 + [1.5]*num_metrics
-    gs_kw = dict(height_ratios=heights)
-    fig, axs = plt.subplots((num_metrics+3), 1, figsize=(6, 2*(num_metrics+2)), gridspec_kw=gs_kw)
-    fig.subplots_adjust(left=0.14, bottom=0.04, right=0.99, top=0.98, wspace=0.18, hspace=0.04)
+    fig_xsize = 6.0
+    if sample_frames_layout == 'horizontal':
+        fig_ysize = fig_xsize/3.0*(num_metrics+1)
+        heights = [1.0]*(num_metrics+1)
+        fig = plt.figure(figsize=(fig_xsize, fig_ysize))
+        fig.subplots_adjust(left=0.14, bottom=0.04, right=0.99, top=0.98, wspace=0.01, hspace=0.04)
+        gs = GridSpec(num_metrics+1, 3, figure=fig)#, height_ratios=heights)
+        ax00 = fig.add_subplot(gs[0, 0])
+        ax01 = fig.add_subplot(gs[0, 1])
+        ax02 = fig.add_subplot(gs[0, 2])
+        axs = [ax00, ax01, ax02]
+        for j, metric in enumerate(eval_metrics):
+            axs.append(fig.add_subplot(gs[j+1, :]))
+    else:
+        fig_ysize = fig_xsize/3.0*(num_metrics+2)
+        heights = [0.8]*3 + [1.5]*num_metrics        
+        fig = plt.figure(figsize=(fig_xsize, fig_ysize))
+        fig.subplots_adjust(left=0.14, bottom=0.04, right=0.99, top=0.98, wspace=0.18, hspace=0.04)
+        gs = GridSpec(num_metrics+3, 1, figure=fig, height_ratios=heights)
+        axs = [fig.add_subplot(gss) for gss in gs]
     for ax in axs[0:3]:
-        ax.axis('off')
+        ax.axis(False)
     
     fs=12
     lwl=1
@@ -5279,7 +5301,6 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
         for jf, ax in enumerate(axs[0:3]):
             try:
                 ax.imshow(mpimg.imread(sample_frame_files[jf]))
-                ax.axis(False)
             except:
                 pass
     else:
@@ -5431,8 +5452,14 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     axs[-1].set_xlabel('Binned Frame #')
     for ax in axs[2:]:
         ax.grid(True)
-        
-    axs[0].text(-0.15, 2.7,stack_filename, transform=axs[3].transAxes)
+    if full_filename_path:
+        ttl = stack_filename
+    else:
+        ttl = os.path.split(stack_filename)[-1]
+    if sample_frames_layout == 'horizontal':
+        axs[0].text(-0.15, 1.05, ttl, transform=axs[0].transAxes)
+    else:
+        axs[0].set_title(ttl)
     fig.savefig(png_file, dpi=300)
 
 
