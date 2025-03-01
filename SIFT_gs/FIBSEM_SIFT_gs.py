@@ -2211,7 +2211,10 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
                     ax.imshow(fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
                 else:
                     ax.imshow(fr_img, cmap='Greys', vmin=dmin, vmax=dmax)
-                ax.text(0.06, 0.95, 'Frame={:d},  NSAD={:.3f},  NCC={:.3f},  NMI={:.3f}'.format(frame_ind, image_nsad[j-1], image_ncc[j-1], image_mi[j-1]), color='red', transform=ax.transAxes, fontsize=12)
+                ax.text(0.06, 0.95, 'Frame={:d}'.format(frame_ind), color='red', transform=ax.transAxes, fontsize=12)
+                ax.text(0.50, 0.95, 'NSAD={:.3f}'.format(image_nsad[j-1]), color='red', transform=ax.transAxes, fontsize=12)
+                ax.text(0.50, 0.85, 'NCC={:.3f}'.format(image_ncc[j-1]), color='red', transform=ax.transAxes, fontsize=12)
+                ax.text(0.50, 0.75, 'NMI={:.3f}'.format(image_mi[j-1]), color='red', transform=ax.transAxes, fontsize=12)
                 rect_patch = patches.Rectangle((xi_eval, yi_eval), np.abs(xa_eval-xi_eval)-2, np.abs(ya_eval-yi_eval)-2, linewidth=1.0, edgecolor='yellow',facecolor='none')
                 ax.add_patch(rect_patch)
                 ax.axis('off')
@@ -2622,9 +2625,9 @@ def bin_crop_frames(bin_crop_parameters):
     mrc_filename  = os.path.normpath(mrc_filename)
     mrc_obj = mrcfile.mmap(mrc_filename, mode='r', permissive=True)
     if mode == 'mean':
-        zbinnd_fr = np.mean(mrc_obj.data[start_frame_ID:stop_frame_ID, yi:ya, xi:xa], axis=0)
+        zbinnd_fr = np.mean(mrc_obj.data[start_frame_ID:stop_frame_ID, yi:ya, xi:xa].astype(np.float32), axis=0)
     else:
-        zbinnd_fr = np.sum(mrc_obj.data[start_frame_ID:stop_frame_ID, yi:ya, xi:xa], axis=0)
+        zbinnd_fr = np.sum(mrc_obj.data[start_frame_ID:stop_frame_ID, yi:ya, xi:xa].astype(np.float32), axis=0)
     if (xbin_factor > 1) or (ybin_factor > 1):
         if mode == 'mean':
             zbinnd_fr = np.mean(np.mean(zbinnd_fr.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
