@@ -9940,7 +9940,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
                     
                 # Make a new, empty memory-mapped MRC file
                 if disp_res:
-                     print('The resulting stack will saved using mrc_mode={%d},  data type='.format(mrc_mode), dtp)
+                     print('The resulting stack will saved using mrc_mode={:d},  data type='.format(mrc_mode), dtp)
                 mrc = mrcfile.new_mmap(fpath_reg, shape=(nz, ny, nx), mrc_mode=mrc_mode, overwrite=True)
                 voxel_size_angstr = voxel_size.copy()
                 voxel_size_angstr.x = voxel_size_angstr.x * 10.0
