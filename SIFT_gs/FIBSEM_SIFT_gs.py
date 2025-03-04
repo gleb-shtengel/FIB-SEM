@@ -9952,7 +9952,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
                     start_frames = np.arange(0, nz, chunk_length)
                     for start_frame in tqdm(start_frames, desc = 'Saving Chunks of Frames into MRC File: ', display = disp_res):
                         stop_frame = np.min((start_frame+chunk_length, nz-1))
-                        mrc_new.data[start_frame:stop_frame] = FIBSEMstack[start_frame:stop_frame].astype(dtp)
+                        mrc.data[start_frame:stop_frame] = FIBSEMstack[start_frame:stop_frame].astype(dtp)
                 else:
                     for j, FIBSEMframe in enumerate(tqdm(FIBSEMstack, desc = 'Saving Frames into MRC File: ', display = disp_res)):
                         mrc.data[j,:,:] = FIBSEMframe.astype(dtp)
