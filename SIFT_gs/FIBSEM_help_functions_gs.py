@@ -419,7 +419,11 @@ def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix
         for xint, yshift in zip(xints, yshifts):
             x_profile[xint] = x_profile[xint] + yshift
             cnts[xint] = cnts[xint] + 1
-        x_profile = np.nan_to_num(x_profile/cnts)
+        if zero_mean:
+            x_profile_weighted = x_profile/cnts
+            x_profile = np.nan_to_num(x_profile_weighted - np.nanmean(x_profile_weighted))
+        else:
+            x_profile = np.nan_to_num(x_profile_weighted)
         x_profile_smoothed = astro_convolve(x_profile, Gaussian1DKernel(stddev=deformation_sigma))
         #deformation_field = np.repeat(x_profile_smoothed[:, np.newaxis], image_height, 1).T
         deformation_field = x_profile_smoothed
@@ -434,17 +438,22 @@ def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix
         for yint, xshift in zip(yints, xshifts):
             y_profile[yint] = y_profile[yint] + xshift
             cnts[yint] = cnts[yint] + 1
-        y_profile = np.nan_to_num(y_profile/cnts)
+        #y_profile = np.nan_to_num(y_profile/cnts)
+        if zero_mean:
+            y_profile_weighted = y_profile/cnts
+            y_profile = np.nan_to_num(y_profile_weighted - np.nanmean(y_profile_weighted))
+        else:
+            y_profile = np.nan_to_num(y_profile_weighted)
         y_profile_smoothed = astro_convolve(y_profile, Gaussian1DKernel(stddev=deformation_sigma))
         #deformation_field = np.repeat(y_profile_smoothed[:, np.newaxis], image_width, 1)
         deformation_field = y_profile_smoothed
     if verbose:
         print('determine_residual_deformation_field : Output  deformation_field shape: ', deformation_field.shape)
         print('determine_residual_deformation_field : finished calculation. Average residual deformation = {:.2f} pixels'.format(np.mean(deformation_field)))
-    if zero_mean:
-        if verbose:
-            print('Zero_mean = ', zero_mean, ' the mean value will be subtracted')
-        deformation_field = deformation_field - np.mean(deformation_field)
+    #if zero_mean:
+    #    if verbose:
+    #        print('Zero_mean = ', zero_mean, ' the mean value will be subtracted')
+    #    deformation_field = deformation_field - np.mean(deformation_field)
     return deformation_field
 
 def argmax2d(X):
