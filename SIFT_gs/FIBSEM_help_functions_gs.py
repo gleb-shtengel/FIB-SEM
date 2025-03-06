@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 from matplotlib.gridspec import GridSpec
 from IPython.core.pylabtools import figsize, getfigs
+import cv2
 
 from astropy.convolution import Gaussian1DKernel
 from astropy.convolution import convolve as astro_convolve
@@ -347,7 +348,7 @@ def convert_tr_matr_into_deformation_field(transformation_matrix, image_shape, *
     return deformation_field
 
 
-def determine_residual_deformation_field (src_pts, dst_pts, transformation_matrix_src, transformation_matrix_dst, image_shape, **kwargs):
+def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix_src, transformation_matrix_dst, image_shape, **kwargs):
     '''
     Calculates residual deformation field from given source points, destination points, and transformation matrices for both
 
@@ -444,7 +445,7 @@ def determine_residual_deformation_field (src_pts, dst_pts, transformation_matri
         if verbose:
             print('Zero_mean = ', zero_mean, ' the mean value will be subtracted')
         deformation_field = deformation_field - np.mean(deformation_field)
-    return deformation_field
+    return deformation_field.astype(np.float32)
 
 def argmax2d(X):
     return np.unravel_index(X.argmax(), X.shape)
@@ -1608,8 +1609,11 @@ def check_registration(img0, img1, **kwargs):
     SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.025)
     SIFT_sigma = kwargs.get('SIFT_sigma', 1.6)
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.010)  # fraction of data points for initial RANSAC iteration step.
+    Sample_ID = kwargs.get('Sample_ID', '')
+    filename = kwargs.get('filename', '') 
     verbose = kwargs.get('verbose', True)
     fontsize = kwargs.get('fontsize', 12) 
+    fsize_text = kwargs.get('fsize_text', 6)
     
     YResolution, XResolution = img0.shape
     
@@ -1650,8 +1654,9 @@ def check_registration(img0, img1, **kwargs):
         print('Extracting KeyPoints (SIFT) on the first image')
     sift1 = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
     kp1, des1 = sift1.detectAndCompute(img0_uint8, None)
+    n_kpts=len(kp1)
     if verbose:
-        print('Extracted {:d} keypoints'.format(len(kp1)))
+        print('Extracted {:d} keypoints'.format(n_kpts))
     print('Extracting KeyPoints (SIFT) on the second image')
     sift2 = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
     kp2, des2 = sift2.detectAndCompute(img1_uint8, None)
@@ -1721,7 +1726,7 @@ def check_registration(img0, img1, **kwargs):
         cbar = fig.colorbar(vec_field, pad=0.015, shrink=0.70, orientation = 'horizontal', format="%.1f")
         cbar.set_label('Magnitude of the Residual Registration Error (pix)', fontsize=fontsize)
 
-        ax0.text(0.005, 1.00 - 0.010*XResolution/YResolution, fl0, fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.010*XResolution/YResolution, filename, fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.023*XResolution/YResolution, Sample_ID, fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.036*XResolution/YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.049*XResolution/YResolution, TransformType.__name__, fontsize=fsize_text, transform=ax0.transAxes)
