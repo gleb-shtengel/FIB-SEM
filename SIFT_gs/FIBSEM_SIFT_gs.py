@@ -9507,7 +9507,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
                     pass
                 if deformation_type == 'post_2D':
                     pass
-                frame_img_reg = cv2.remap(frame_img, df[:, :, 0],df[:, :, 1], interpolation=interpolation, borderValue=fill_value )
+                frame_img_reg = cv2.remap(frame_img, df[:, :, 0].astype(float), df[:, :, 1].astype(float), interpolation=interpolation, borderValue=fill_value )
             else:
                 transf = ProjectiveTransform(matrix = shift_matrix @ (tr_matrix @ inv_shift_matrix))
                 frame_img_reg = warp(frame_img, transf, order = int_order, preserve_range=True, mode='constant', cval=fill_value)

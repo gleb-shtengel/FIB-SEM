@@ -445,7 +445,7 @@ def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix
         if verbose:
             print('Zero_mean = ', zero_mean, ' the mean value will be subtracted')
         deformation_field = deformation_field - np.mean(deformation_field)
-    return deformation_field.astype(np.float32)
+    return deformation_field
 
 def argmax2d(X):
     return np.unravel_index(X.argmax(), X.shape)
