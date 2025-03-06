@@ -419,7 +419,7 @@ def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix
         for xint, yshift in zip(xints, yshifts):
             x_profile[xint] = x_profile[xint] + yshift
             cnts[xint] = cnts[xint] + 1
-        x_profile = x_profile/cnts
+        x_profile = np.nan_to_num(x_profile/cnts)
         x_profile_smoothed = astro_convolve(x_profile, Gaussian1DKernel(stddev=deformation_sigma))
         #deformation_field = np.repeat(x_profile_smoothed[:, np.newaxis], image_height, 1).T
         deformation_field = x_profile_smoothed
@@ -434,7 +434,7 @@ def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix
         for yint, xshift in zip(yints, xshifts):
             y_profile[yint] = y_profile[yint] + xshift
             cnts[yint] = cnts[yint] + 1
-        y_profile = y_profile/cnts
+        y_profile = np.nan_to_num(y_profile/cnts)
         y_profile_smoothed = astro_convolve(y_profile, Gaussian1DKernel(stddev=deformation_sigma))
         #deformation_field = np.repeat(y_profile_smoothed[:, np.newaxis], image_width, 1)
         deformation_field = y_profile_smoothed
