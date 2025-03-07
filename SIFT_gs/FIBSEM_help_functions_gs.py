@@ -408,7 +408,7 @@ def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix
     if deformation_type == '2D':
         # placeholder for now
         deformation_field = np.zeros((image_height, image_width), dtype=float)
-    elif deformation_type == '1DX':
+    elif deformation_type == '1DX':  # only vertical shifts are considered, they are averaged over Y-coordinate. doeformation field has only X-dependent Y-component 
         try:
             deformation_sigma = deformation_sigma[0]
         except:
@@ -419,15 +419,15 @@ def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix
         for xint, yshift in zip(xints, yshifts):
             x_profile[xint] = x_profile[xint] + yshift
             cnts[xint] = cnts[xint] + 1
+        x_profile_weighted = x_profile/cnts
         if zero_mean:
-            x_profile_weighted = x_profile/cnts
             x_profile = np.nan_to_num(x_profile_weighted - np.nanmean(x_profile_weighted))
         else:
             x_profile = np.nan_to_num(x_profile_weighted)
         x_profile_smoothed = astro_convolve(x_profile, Gaussian1DKernel(stddev=deformation_sigma))
         #deformation_field = np.repeat(x_profile_smoothed[:, np.newaxis], image_height, 1).T
         deformation_field = x_profile_smoothed
-    else:
+    else:      # only horizontal shifts are considered, they are averaged over X-coordinate. doeformation field has only Y-dependent X-component 
         try:
             deformation_sigma = deformation_sigma[0]
         except:
@@ -438,9 +438,8 @@ def determine_residual_deformation_field(src_pts, dst_pts, transformation_matrix
         for yint, xshift in zip(yints, xshifts):
             y_profile[yint] = y_profile[yint] + xshift
             cnts[yint] = cnts[yint] + 1
-        #y_profile = np.nan_to_num(y_profile/cnts)
+        y_profile_weighted = y_profile/cnts
         if zero_mean:
-            y_profile_weighted = y_profile/cnts
             y_profile = np.nan_to_num(y_profile_weighted - np.nanmean(y_profile_weighted))
         else:
             y_profile = np.nan_to_num(y_profile_weighted)
