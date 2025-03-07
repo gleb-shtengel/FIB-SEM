@@ -9228,6 +9228,286 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     return(dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy)
 
 
+def check_registration(img0, img1, **kwargs):
+    '''
+    Debugging tool. Perform SIFT registration check on two images. Will perform SIFT, and then report Residual Errors and plot residual error histograms
+    
+    Parameters:
+    img0 : 2D array
+    img1 : 2D array
+    
+    kwargs:
+    threshold_min : float
+        CDF threshold for determining the minimum data value
+    threshold_max : float
+        CDF threshold for determining the maximum data value
+    TransformType : object reference
+        Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
+        Choose from the following options:
+            ShiftTransform - only x-shift and y-shift
+            XScaleShiftTransform  -  x-scale, x-shift, y-shift
+            ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
+            AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
+            RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
+    l2_matrix : 2D float array
+        matrix of regularization (shrinkage) parameters
+    targ_vector = 1D float array
+        target vector for regularization
+    solver : str
+        Solver used for SIFT ('RANSAC' or 'LinReg')
+    RANSAC_initial_fraction : float
+        Fraction of data points for initial RANSAC iteration step. Default is 0.005.
+    drmax : float
+        In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
+        In the case of 'LinReg' - outlier threshold for iterative regression
+    max_iter : int
+        Max number of iterations in the iterative procedure above (RANSAC or LinReg)
+    BFMatcher : boolean
+        If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+    save_matches : boolean
+        If True, matches will be saved into individual files
+    kp_max_num : int
+        Max number of key-points to be matched.
+        Key-points in every frame are indexed (in descending order) by the strength of the response.
+        Only kp_max_num is kept for further processing.
+        Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
+    SIFT_nfeatures : int
+        SIFT libary default is 0. The number of best features to retain.
+        The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+    SIFT_nOctaveLayers : int
+        SIFT libary default  is 3. The number of layers in each octave.
+        3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+    SIFT_contrastThreshold : double
+        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        The larger the threshold, the less features are produced by the detector.
+        The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+        When nOctaveLayers is set to default and if you want to use the value used in
+        D. Lowe paper (0.03), set this argument to 0.09.
+    SIFT_edgeThreshold : double
+        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        Note that the its meaning is different from the contrastThreshold,
+        i.e. the larger the edgeThreshold, the less features are filtered out
+        (more features are retained).
+    SIFT_sigma : double
+        SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
+        If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
+    save_res_png  : boolean
+        Save PNG images of the intermediate processing statistics and final registration quality check
+    save_filename : string
+        Filename for saving the images
+    dpi : int
+        DPI for PNG output. Default is 300
+    verbose : boolean
+        If True, outputs will be printed
+    fontsize : int
+        Fontsize
+    
+    '''
+    threshold_min = kwargs.get("threshold_min", 1e-3)
+    threshold_max = kwargs.get("threshold_max", 1e-3)
+    nbins = kwargs.get('nbins', 64)
+    TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
+    l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
+    l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
+    l2_matrix_default[2,2] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix_default[5,5] = 0                                 # turn OFF the regularization on shifts
+    l2_matrix = kwargs.get("l2_matrix", l2_matrix_default)
+    targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
+    solver = kwargs.get("solver", 'RANSAC')
+    RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
+    drmax = kwargs.get("drmax", 1.5)
+    max_iter = kwargs.get("max_iter", 2500)
+    #kp_max_num = kwargs.get("kp_max_num", -1)
+    Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
+    save_res_png  = kwargs.get("save_res_png", True)
+    save_filename = kwargs.get('save_filename', 'check_registration_output.png')
+    dpi = kwargs.get('dpi', 300)
+    SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
+    SIFT_nOctaveLayers = kwargs.get('SIFT_nOctaveLayers', 3)
+    SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10.0)
+    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.025)
+    SIFT_sigma = kwargs.get('SIFT_sigma', 1.6)
+    RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.010)  # fraction of data points for initial RANSAC iteration step.
+    Sample_ID = kwargs.get('Sample_ID', '')
+    filename = kwargs.get('filename', '') 
+    verbose = kwargs.get('verbose', True)
+    fontsize = kwargs.get('fontsize', 12) 
+    fsize_text = kwargs.get('fsize_text', 6)
+    
+    YResolution, XResolution = img0.shape
+    
+    SIFT_kwargs = {
+        'threshold_min' : threshold_min, 
+        'threshold_max' : threshold_max,
+        'nbins' : nbins,
+        'TransformType' : TransformType,
+        'SIFT_nfeatures' : SIFT_nfeatures,
+        'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
+        'SIFT_contrastThreshold' : SIFT_contrastThreshold,
+        'SIFT_edgeThreshold' : SIFT_edgeThreshold,
+        'SIFT_sigma' : SIFT_sigma,
+        'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold,
+        'l2_matrix' : l2_matrix,
+        'targ_vector': targ_vector, 
+        'solver' : 'RANSAC',
+        'RANSAC_initial_fraction' : RANSAC_initial_fraction,
+        'drmax' : drmax,
+        'max_iter' : max_iter}
+    
+    
+    d0, d1 = get_min_max_thresholds(img0, thr_min=threshold_min, thr_max=threshold_max, disp_res=False)
+    img0_uint8 = np.clip(255*(img0-d0)/(d1-d0), 0, 255).astype(np.uint8)
+    d0, d1 = get_min_max_thresholds(img1, thr_min=threshold_min, thr_max=threshold_max, disp_res=False)
+    img1_uint8 = np.clip(255*(img1-d0)/(d1-d0), 0, 255).astype(np.uint8)
+    if verbose:
+        print('thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max))
+        print(TransformType.__name__)
+        print('SIFT_nfeatures={:d}'.format(SIFT_nfeatures))
+        print('SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold))
+        print('SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma))
+        print('RANSAC_initial_fraction={:.3f}'.format(RANSAC_initial_fraction))
+        print('drmax={:.3f}'.format(drmax))
+        
+        print('')
+    if verbose:
+        print('Extracting KeyPoints (SIFT) on the first image')
+    sift1 = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
+    kp1, des1 = sift1.detectAndCompute(img0_uint8, None)
+    n_kpts=len(kp1)
+    if verbose:
+        print('Extracted {:d} keypoints'.format(n_kpts))
+    print('Extracting KeyPoints (SIFT) on the second image')
+    sift2 = cv2.SIFT_create(nfeatures=SIFT_nfeatures, nOctaveLayers=SIFT_nOctaveLayers, edgeThreshold=SIFT_edgeThreshold, contrastThreshold=SIFT_contrastThreshold, sigma=SIFT_sigma)
+    kp2, des2 = sift2.detectAndCompute(img1_uint8, None)
+    if verbose:
+        print('Extracted {:d} keypoints'.format(len(kp2)))
+
+    if verbose:
+        print('Finding Matches')
+    if TransformType == RegularizedAffineTransform:
+        def estimate(self, src, dst):
+            self.params = determine_regularized_affine_transform(src, dst, l2_matrix, targ_vector)
+        RegularizedAffineTransform.estimate = estimate
+    FLANN_INDEX_KDTREE = 1
+    index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
+    search_params = dict(checks = 50)
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+    matches = flann.knnMatch(des1, des2, k=2)
+
+    # Lowe's Ratio test
+    good = []
+    for m, n in matches:
+        if m.distance < Lowe_Ratio_Threshold * n.distance:
+            good.append(m)
+
+    src_pts = np.float32([ kp1[m.queryIdx].pt for m in good ]).reshape(-1, 2)
+    dst_pts = np.float32([ kp2[m.trainIdx].pt for m in good ]).reshape(-1, 2)
+
+    if verbose:
+        print('Finding Transformation Matrix')
+    min_samples = np.int32(len(src_pts)*RANSAC_initial_fraction)
+    model, inliers = ransac((src_pts, dst_pts),
+        TransformType, min_samples = min_samples,
+        residual_threshold = drmax, max_trials = max_iter)
+    n_inliers = np.sum(inliers)
+    inlier_keypoints_left = [cv2.KeyPoint(point[0], point[1], 1) for point in src_pts[inliers]]
+    inlier_keypoints_right = [cv2.KeyPoint(point[0], point[1], 1) for point in dst_pts[inliers]]
+    placeholder_matches = [cv2.DMatch(idx, idx, 1) for idx in range(n_inliers)]
+    src_pts_ransac = np.float32([ inlier_keypoints_left[m.queryIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
+    dst_pts_ransac = np.float32([ inlier_keypoints_right[m.trainIdx].pt for m in placeholder_matches ]).reshape(-1, 2)
+    kpts = [src_pts_ransac, dst_pts_ransac]
+    transform_matrix = model.params
+    if verbose:
+        print('Transform_Matrix:')
+        print(transform_matrix)
+
+    iteration = len(src_pts)- len(src_pts_ransac)
+    reg_errors, xshifts, yshifts = estimate_kpts_transform_error(src_pts_ransac, dst_pts_ransac, transform_matrix)
+    error_abs_mean = np.mean(np.abs(reg_errors))
+    
+    fig_xsize = 10.0
+    fig_ysize = fig_xsize * YResolution / XResolution + 5.0
+    fig = plt.figure(figsize=(fig_xsize, fig_ysize))
+    fig.subplots_adjust(left=0.08, bottom=0.05, right=0.99, top=0.99, wspace=0.15, hspace=-0.10)
+    gs = GridSpec(3, 2, figure=fig)
+    ax0 = fig.add_subplot(gs[0:2, :])
+    ax0.imshow(img1, cmap='Greys', vmin = d0, vmax=d1)
+    ax0.axis(False)
+
+    n_matches = len(xshifts)
+    if n_matches > 0:
+        x, y = dst_pts_ransac.T
+        M = np.sqrt(xshifts*xshifts+yshifts*yshifts)
+        xs = xshifts
+        ys = yshifts
+        # the code below is for vector map. vectors have origin coordinates x and y, and vector projections xs and ys.
+        vec_field = ax0.quiver(x,y,xs,ys,M, scale=50, width =0.0015, cmap='jet')
+        cbar = fig.colorbar(vec_field, pad=0.015, shrink=0.70, orientation = 'horizontal', format="%.1f")
+        cbar.set_label('Magnitude of the Residual Registration Error (pix)', fontsize=fontsize)
+
+        ax0.text(0.005, 1.00 - 0.010*XResolution/YResolution, filename, fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.023*XResolution/YResolution, Sample_ID, fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.036*XResolution/YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.049*XResolution/YResolution, TransformType.__name__, fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.062*XResolution/YResolution, 'SIFT_nfeatures={:d}'.format(SIFT_nfeatures), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.075*XResolution/YResolution, 'SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.088*XResolution/YResolution, 'SIFT_contrastThreshold={:.3f},  SIFT_sigma={:.3f}'.format(SIFT_contrastThreshold, SIFT_sigma), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.101*XResolution/YResolution, 'RANSAC_initial_fraction={:.4f}, max_iter={:d}'.format(RANSAC_initial_fraction, max_iter), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.114*XResolution/YResolution,  'drmax={:.3f}'.format(drmax), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.127*XResolution/YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize_text, transform=ax0.transAxes)
+        
+        ax0.text(0.75, 1.00 - 0.023*XResolution/YResolution, 'Sxx={:.5f},  Sxy={:.5f},  Tx={:.3e}'.format(transform_matrix[0,0], transform_matrix[0,1], transform_matrix[0,2]), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.75, 1.00 - 0.036*XResolution/YResolution, 'Syx={:.5f},  Syy={:.5f},  Ty={:.3e}'.format(transform_matrix[1,0], transform_matrix[1,1], transform_matrix[1,2]), fontsize=fsize_text, transform=ax0.transAxes)
+    if verbose:
+        print('RANSAC_initial_fraction = {:.4f}, max_iter={:d}'.format(RANSAC_initial_fraction, max_iter))
+        print('# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches))
+
+    axx = fig.add_subplot(gs[2, 0])
+    xcounts, xbins, xhist_patches = axx.hist(xshifts, bins=64)
+    error_FWHMx, indxi, indxa, mxx, mxx_ind = find_FWHM(xbins, xcounts[:-1], verbose=False, max_aver_aperture=5)
+    dbx = (xbins[1]-xbins[0])/2.0
+    axx.set_xlabel('Residual X Error (pixels)')
+    axx.set_ylabel('Count')
+    axy = fig.add_subplot(gs[2, 1])
+    ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64)
+    error_FWHMy, indyi, indya, mxy, mxy_ind = find_FWHM(ybins, ycounts[:-1], verbose=False, max_aver_aperture=5)
+    dby = (ybins[1]-ybins[0])/2.0
+    axy.set_xlabel('Residual Y Error (pixels)')
+    axy.set_ylabel('Count')
+
+    xcounts, xbins, xhist_patches = axx.hist(xshifts, bins=64, color='#1f77b4')
+    error_FWHMx, indxi, indxa, mxx, mxx_ind = find_FWHM(xbins, xcounts[:-1], verbose=False, max_aver_aperture=5)
+    dbx = (xbins[1]-xbins[0])/2.0
+    #axx.plot([xbins[indxi]+dbx, xbins[indxa]+dbx], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
+    axx.plot([xbins[indxi], xbins[indxa]], [mxx/2.0, mxx/2.0], 'r', linewidth = 4)
+    axx.plot([xbins[mxx_ind]+dbx], [mxx], 'rd')
+    axx.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(xshifts)), transform=axx.transAxes, fontsize=fontsize)
+    axx.text(0.05, 0.8, 'median={:.3f}'.format(np.median(xshifts)), transform=axx.transAxes, fontsize=fontsize)
+    axx.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMx), transform=axx.transAxes, fontsize=fontsize)
+    ycounts, ybins, yhist_patches = axy.hist(yshifts, bins=64, color='#1f77b4')
+    error_FWHMy, indyi, indya, mxy, mxy_ind = find_FWHM(ybins, ycounts[:-1], verbose=False, max_aver_aperture=5)
+    dby = (ybins[1]-ybins[0
+        ])/2.0
+    #axy.plot([ybins[indyi] + dby, ybins[indya] + dby], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
+    axy.plot([ybins[indyi], ybins[indya]], [mxy/2.0, mxy/2.0], 'r', linewidth = 4)
+    axy.plot([ybins[mxy_ind] + dby], [mxy], 'rd')
+    axy.text(0.05, 0.9, 'mean={:.3f}'.format(np.mean(yshifts)), transform=axy.transAxes, fontsize=fontsize)
+    axy.text(0.05, 0.8, 'median={:.3f}'.format(np.median(yshifts)), transform=axy.transAxes, fontsize=fontsize)
+    axy.text(0.05, 0.7, 'FWHM={:.3f}'.format(error_FWHMy), transform=axy.transAxes, fontsize=fontsize)
+
+    
+    for ax in [axx, axy]:
+        ax.grid(True)
+        
+    if save_res_png:
+        axx.text(-0.07, -0.13, save_filename, transform=axx.transAxes, fontsize=fontsize-2)
+        if verbose:
+            print('Figure is saved into the filr: ', save_filename) 
+        fig.savefig(save_filename, dpi=dpi)
+    return error_FWHMx, error_FWHMy
+
+
+
 def save_inlens_data(fname):
     tfr = FIBSEM_frame(fname)
     tfr.save_images_tif('A')
