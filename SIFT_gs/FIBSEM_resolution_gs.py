@@ -546,7 +546,8 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
                 transition_summary.insert(0, '', rows)
                 transition_summary.to_excel(xlsx_writer, index=None, sheet_name=sheet_name)
         if save_data_xlsx:
-            xlsx_writer.save()
+            #xlsx_writer.save()
+            xlsx_writer.close()
     else:
         Xpt1 = []
         Xpt2 = []
@@ -1123,7 +1124,8 @@ def analyze_edge_transitions_image(image, **kwargs):
     kwargs['Assymetry'] = np.abs(p_opt[0]/p_opt[2])
     kwargs_info = pd.DataFrame([kwargs]).T # prepare to be save in transposed format
     kwargs_info.to_excel(xlsx_writer, header=False, sheet_name='kwargs Info')
-    xlsx_writer.save()
+    #xlsx_writer.save()
+    xlsx_writer.close()
         
     return results_file_xlsx, centers_selected, center_grads_selected, transition_distances_selected
 
