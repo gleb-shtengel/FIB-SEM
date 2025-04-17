@@ -6995,7 +6995,11 @@ class FIBSEM_frame:
             thresholds_disp = kwargs.get("thresholds_disp", [1e-3, 1e-3])
             nbins_analysis = kwargs.get("nbins_analysis", 100)
             thresholds_analysis = kwargs.get("thresholds_analysis", [2e-2, 1e-2])
-            Notes = kwargs.get("Notes", self.Notes.strip('\x00'))
+            try:
+                Notes = kwargs.get("Notes", self.Notes.strip('\x00'))
+            else:
+                Notes = ''
+                pass
             kwargs['kernel'] = kernel
             kwargs['DarkCount'] = DarkCount
             kwargs['img_label'] = image_name
@@ -7099,8 +7103,16 @@ class FIBSEM_frame:
             thresholds_analysis = kwargs.get("thresholds_analysis", [2e-2, 1e-2])
             disp_res = kwargs.get("disp_res", True)
             save_res_png = kwargs.get("save_res_png", True)
-            img_label = kwargs.get("img_label", self.Sample_ID)
-            Notes = kwargs.get("Notes", self.Notes.strip('\x00'))
+            try:
+                img_label = kwargs.get("img_label", self.Sample_ID)
+            else:
+                img_label = ''
+                pass
+            try:
+                Notes = kwargs.get("Notes", self.Notes.strip('\x00'))
+            else:
+                Notes = ''
+                pass
             dpi = kwargs.get("dpi", 300)
 
             noise_kwargs = {'image_name' : image_name,
