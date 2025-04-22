@@ -581,7 +581,7 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
         print('Step4: Displaying the blob map')
     if disp_res:
         szy, szx = image.shape
-        sx = 5.0
+        sx = 15.0
         sy = sx / szx * szy
         fig, ax = plt.subplots(1, 1, figsize=(sx, sy))
         vmin, vmax = get_min_max_thresholds(image, disp_res=False)
