@@ -6997,7 +6997,7 @@ class FIBSEM_frame:
             thresholds_analysis = kwargs.get("thresholds_analysis", [2e-2, 1e-2])
             try:
                 Notes = kwargs.get("Notes", self.Notes.strip('\x00'))
-            else:
+            except:
                 Notes = ''
                 pass
             kwargs['kernel'] = kernel
