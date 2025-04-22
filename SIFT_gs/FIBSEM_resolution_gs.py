@@ -580,7 +580,10 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
     if verbose and disp_res:
         print('Step4: Displaying the blob map')
     if disp_res:
-        fig, ax = plt.subplots(1, 1, figsize=(15, 15))
+        szy, szx = image.shape
+        sx = 5.0
+        sy = sx / szx * szy
+        fig, ax = plt.subplots(1, 1, figsize=(sx, sy))
         vmin, vmax = get_min_max_thresholds(image, disp_res=False)
         ax.imshow(image, cmap='Greys', vmin=vmin, vmax=vmax)
         ax.axis(False)
@@ -593,6 +596,8 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
             c = plt.Circle((x, y), r*3, color=colr, linewidth=0.5, fill=False)
             ax.add_patch(c)
         ax.set_title(title)
+        ax.text(0.02,0.97, 'o  All Blobs', color = 'blue', fontsize = 12, transform=ax.transAxes)
+        ax.text(0.02,0.95, 'o  Good Blobs', color = 'lime', fontsize = 12, transform=ax.transAxes)
     return results_file_xlsx, blobs_LoG, error_flags, tr_results, hst_datas
 
 ############################################
