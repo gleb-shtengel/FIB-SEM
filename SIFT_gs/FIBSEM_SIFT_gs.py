@@ -7105,12 +7105,12 @@ class FIBSEM_frame:
             save_res_png = kwargs.get("save_res_png", True)
             try:
                 img_label = kwargs.get("img_label", self.Sample_ID)
-            else:
+            except:
                 img_label = ''
                 pass
             try:
                 Notes = kwargs.get("Notes", self.Notes.strip('\x00'))
-            else:
+            except:
                 Notes = ''
                 pass
             dpi = kwargs.get("dpi", 300)
