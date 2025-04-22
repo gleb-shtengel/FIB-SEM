@@ -13131,6 +13131,25 @@ class FIBSEM_dataset:
         
 
 def plot_2D_blob_results(results_xlsx, **kwargs):
+    '''
+    Generates the summary plot based on xlsx file created by estimate_resolution_blobs_2D
+    estimate_resolution_blobs_2D analyzes the transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs). gleb.shtengel@gmail.com  04/2025 
+
+    Parameters:
+    ---------
+    results_file_xlsx : file name of Excel workbook of the results created by estimate_resolution_blobs_2D
+    
+    kwargs:
+    ---------
+    save_png : boolean
+        save the image into PNG file. Default is False.
+    save_fname : string
+        file name for to save the image
+    nbins : int
+        bins for histogram
+    verbose : boolean
+        print the outputs. Default is False
+    '''
     save_png = kwargs.get('save_png', False)
     save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_analysis_results_raw.png'))
     nbins = kwargs.get('nbins', 64)
@@ -13245,6 +13264,25 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
 
 
 def plot_2D_blob_examples(results_xlsx, **kwargs):
+    '''
+    Generates a figure with blob examples based on xlsx file created by estimate_resolution_blobs_2D
+    estimate_resolution_blobs_2D analyzes the transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs). gleb.shtengel@gmail.com  04/2025 
+
+    Parameters:
+    ---------
+    results_file_xlsx : file name of Excel workbook of the results created by estimate_resolution_blobs_2D
+    
+    kwargs:
+    ---------
+    save_png : boolean
+        save the image into PNG file. Default is False.
+    save_fname : string
+        file name for to save the image
+    nbins : int
+        bins for histogram
+    verbose : boolean
+        print the outputs. Default is False
+    '''
     save_png = kwargs.get('save_png', False)
     save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_examples.png'))
     verbose = kwargs.get('verbose', False)
@@ -13391,6 +13429,139 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
         xx = int(x)
         yy = int(y)
         subset = frame_eval[yy-dx2:yy+dx2, xx-dx2:xx+dx2]
+        ax_maps[j].imshow(subset, cmap='Greys')#, vmin=0, vmax=160)
+        ax_maps[j].grid(False)
+        ax_maps[j].axis(False)
+        crop_x = patches.Rectangle((-0.5,dx2-0.5),subset_size,1, linewidth=1, edgecolor=clr_x , facecolor='none')
+        crop_y = patches.Rectangle((dx2-0.5, -0.5),1,subset_size, linewidth=1, edgecolor=clr_y, facecolor='none')
+        ax_maps[j].add_patch(crop_x)
+        ax_maps[j].add_patch(crop_y)
+        ax_maps[j].text(xt,yt,'X-Y', color='black',  bbox=dict(facecolor='white', edgecolor='none'), fontsize=fst)
+        amp_x = subset[dx2, :]
+        amp_y = subset[:, dx2]
+
+        a0 = np.min(np.array((amp_x, amp_y)))
+        a1 = np.max(np.array((amp_x, amp_y)))
+        amp_scale = (a0-(a1-a0)/10.0, a1+(a1-a0)/10.0)
+        #print(amp_scale)
+        #print(np.shape(amp_x), np.shape(amp_y), np.shape(amp_z))
+        tr_x = analyze_blob_transitions(amp_x, pixel_size=pixel_size,
+                                col = clr_x,
+                                cols=['green', 'green', 'black'],
+                                bounds=bounds,
+                                bands = bands,
+                                y_scale = amp_scale,
+                                disp_res=True, ax=ax_profiles[j], pref = 'X-',
+                                fs_labels = fs_labels, fs_legend = fs_legend,
+                                verbose = verbose)
+        ax_profiles[j].legend(loc='upper left', fancybox=False, edgecolor="w", fontsize = fs_legend)
+
+        ax2 = ax_profiles[j].twinx()
+        tr_y = analyze_blob_transitions(amp_y, pixel_size=pixel_size,
+                                col = clr_y,
+                                cols=['blue', 'blue', 'black'],
+                                bounds=bounds,
+                                bands = bands,
+                                y_scale = amp_scale,
+                                disp_res=True, ax=ax2, pref = 'Y-',
+                                fs_labels = fs_labels, fs_legend = fs_legend,
+                                       verbose = verbose)
+        ax2.legend(loc='upper right', fancybox=False, edgecolor="w", fontsize = fs_legend)
+        ax_profiles[j].tick_params(labelleft=False)
+        ax2.tick_params(labelright=False)
+        ax2.get_yaxis().set_visible(False)
+
+    if save_png:
+        axs[3,0].text(0.00, -0.15, save_fname, transform=axs[3,0].transAxes, fontsize=caption_fs)
+        fig.savefig(save_fname, dpi=300)
+
+
+
+def plot_2D_blob_examples_single(img, results_xlsx, **kwargs):
+    '''
+    Generates a figure with blob examples based on xlsx file created by estimate_resolution_blobs_2D.
+    Used in the case if a single image was used in blob analysis.
+    estimate_resolution_blobs_2D analyzes the transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs). gleb.shtengel@gmail.com  04/2025 
+
+    Parameters:
+    ---------
+    img : 2D array
+        image
+    results_file_xlsx : file name of Excel workbook of the results created by estimate_resolution_blobs_2D
+    
+    kwargs:
+    ---------
+    save_png : boolean
+        save the image into PNG file. Default is False.
+    save_fname : string
+        file name for to save the image
+    nbins : int
+        bins for histogram
+    verbose : boolean
+        print the outputs. Default is False
+    '''
+    save_png = kwargs.get('save_png', False)
+    save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_examples.png'))
+    verbose = kwargs.get('verbose', False)
+
+    saved_kwargs = read_kwargs_xlsx(results_xlsx, 'kwargs Info')
+    pixel_size = saved_kwargs.get("pixel_size", 1.0)
+    subset_size = saved_kwargs.get("subset_size", 2.0)
+    dx2 = subset_size//2
+    top_text = saved_kwargs.get("top_text", '')
+    bounds = saved_kwargs.get("bounds", [0.0, 0.0])
+    bands = saved_kwargs.get("bands", [3, 2, 3])
+    image_name = saved_kwargs.get("image_name", 'ImageA')
+    calculate_scaled_images = (image_name == 'ImageA') or (image_name == 'ImageB')
+    perform_transformation =  saved_kwargs.get("perform_transformation", False)
+    pad_edges =  saved_kwargs.get("pad_edges", True)
+    ftype =  saved_kwargs.get("ftype", 0)
+    zbin_factor =  saved_kwargs.get("zbin_factor", 1)
+    flipY = saved_kwargs.get("flipY", False)
+    invert_data = saved_kwargs.get("invert_data", False)
+    int_order =  saved_kwargs.get("int_order", 1)
+    offsets =  saved_kwargs.get("offsets", [0, 0, 0, 0])
+    
+    xs=16.0
+    ys = xs*5.0/4.0
+    text_col = 'brown'
+    fst = 40
+    fs = 12
+    fs_legend = 10
+    fs_labels = 12
+    caption_fs = 8
+    
+    trans_str = '{:.2f} to {:.2f} transition (nm)'.format(bounds[0], bounds[1])
+    int_results = pd.read_excel(results_xlsx, sheet_name='Transition analysis results')
+    error_flags = int_results['error_flag']
+    X = int_results['X']
+    Y = int_results['Y']
+    X_selected = np.array(X)[error_flags==0]
+    Y_selected = np.array(Y)[error_flags==0]
+    Xs = np.concatenate((X_selected[0:3], X_selected[-3:]))
+    Ys = np.concatenate((Y_selected[0:3], Y_selected[-3:]))
+
+    xt = 0.0
+    yt = 1.5 
+    clr_x = 'green'
+    clr_y = 'blue'
+    fig, axs = plt.subplots(4,3, figsize=(xs, ys))
+    fig.subplots_adjust(left=0.02, bottom=0.04, right=0.99, top=0.99, wspace=0.15, hspace=0.12)
+
+    ax_maps = [axs[0,0], axs[0,1], axs[0,2], axs[2,0], axs[2,1], axs[2,2]]
+    ax_profiles = [axs[1,0], axs[1,1], axs[1,2], axs[3,0], axs[3,1], axs[3,2]]
+
+    for j, x in enumerate(tqdm(Xs, desc='Generating images/plots for the sample 2D blobs')):
+        ysz, xsz = img.shape
+        xi = 0
+        yi = 0
+        xa = xi + xsz
+        ya = yi + ysz
+
+        y = Ys[j]
+        xx = int(x)
+        yy = int(y)
+        subset = img[yy-dx2:yy+dx2, xx-dx2:xx+dx2].astype(float)
         ax_maps[j].imshow(subset, cmap='Greys')#, vmin=0, vmax=160)
         ax_maps[j].grid(False)
         ax_maps[j].axis(False)
