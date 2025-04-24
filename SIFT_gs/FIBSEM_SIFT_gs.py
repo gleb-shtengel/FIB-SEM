@@ -1072,6 +1072,8 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     nbins_analysis = kwargs.get("nbins_analysis", 100)
     thresholds_analysis = kwargs.get("thresholds_analysis", [2e-2, 1e-2])
     disp_res = kwargs.get("disp_res", True)
+    disp_res_SNR0 = kwargs.get("disp_res_SNR0", True)
+    disp_res_SNR1 = kwargs.get("disp_res_SNR1", True)
     save_res_png = kwargs.get("save_res_png", True)
     res_fname = kwargs.get("res_fname", 'Noise_Analysis.png')
     image_name = kwargs.get("image_name", '')
@@ -1239,9 +1241,11 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     var_fit_header = (mean_vals-DarkCount) * Slope_header
     if disp_res:
         axs[3].plot(mean_vals, var_vals, 'r.', label='data')
-        axs[3].plot(mean_vals, var_fit, 'b', label='linear fit: {:.1f}*x + {:.1f}'.format(popt[0], popt[1]))
+        if disp_res_SNR0:
+            axs[3].plot(mean_vals, var_fit, 'b', label='linear fit: {:.1f}*x + {:.1f}'.format(popt[0], popt[1]))
         ylim3=np.array(axs[3].get_ylim())
-        axs[3].plot(mean_vals, var_fit_header, 'magenta', label='linear fit: {:.1f}*x + {:.1f}'.format(Slope_header, -Slope_header*DarkCount))
+        if disp_res_SNR1:
+            axs[3].plot(mean_vals, var_fit_header, 'magenta', label='linear fit: {:.1f}*x + {:.1f}'.format(Slope_header, -Slope_header*DarkCount))
         axs[3].grid(True)
         axs[3].set_title('Noise Distribution', fontsize=fs+1)
         axs[3].set_xlabel('Image Intensity Mean', fontsize=fs+1)
@@ -1276,18 +1280,20 @@ def Single_Image_Noise_Statistics(img, **kwargs):
         print('Slope of Free Fit: {:.2f}'.format(popt[0]))
         print('Free Fit         : SNR0 <S^2>/<N^2> = {:.2f}'.format(SNR0))
         
-        txt1 = 'Zero Int, Free Fit:    ' +'$I_{0}$' +'={:.1f}'.format(I0)
-        axs[3].text(0.35, 0.17, txt1, transform=axs[3].transAxes, color='blue', fontsize=fs+1)
-        txt2 = 'SNR0 <$S^2$>/<$N^2$> = {:.2f}'.format(SNR0)
-        axs[3].text(0.35, 0.12, txt2, transform=axs[3].transAxes, color='blue', fontsize=fs+1)
+        if disp_res_SNR0:
+            txt1 = 'Zero Int, Free Fit:    ' +'$I_{0}$' +'={:.1f}'.format(I0)
+            axs[3].text(0.35, 0.17, txt1, transform=axs[3].transAxes, color='blue', fontsize=fs+1)
+            txt2 = 'SNR0 <$S^2$>/<$N^2$> = {:.2f}'.format(SNR0)
+            axs[3].text(0.35, 0.12, txt2, transform=axs[3].transAxes, color='blue', fontsize=fs+1)
         
-        txt3 = 'Zero Int, Dark Cnt.:    ' +'$I_{0}$' +'={:.1f}'.format(DarkCount)
-        axs[3].text(0.35, 0.07, txt3, transform=axs[3].transAxes, color='magenta', fontsize=fs+1)
-        txt4 = 'SNR1 <$S^2$>/<$N^2$> = {:.2f}'.format(SNR1)
-        axs[3].text(0.35, 0.02, txt4, transform=axs[3].transAxes, color='magenta', fontsize=fs+1)
+        if disp_res_SNR1:
+            txt3 = 'Zero Int, Dark Cnt.:    ' +'$I_{0}$' +'={:.1f}'.format(DarkCount)
+            axs[3].text(0.35, 0.07, txt3, transform=axs[3].transAxes, color='magenta', fontsize=fs+1)
+            txt4 = 'SNR1 <$S^2$>/<$N^2$> = {:.2f}'.format(SNR1)
+            axs[3].text(0.35, 0.02, txt4, transform=axs[3].transAxes, color='magenta', fontsize=fs+1)
 
         if save_res_png:
-            fig.savefig(res_fname, dpi=300)
+            fig.savefig(res_fname, dpi=dpi)
             print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   results saved into the file: '+res_fname)
     return mean_vals, var_vals, I0, SNR0, SNR1, popt, result
 
