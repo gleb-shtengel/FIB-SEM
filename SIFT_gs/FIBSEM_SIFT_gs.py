@@ -1046,6 +1046,10 @@ def Single_Image_Noise_Statistics(img, **kwargs):
              (default 256) number of histogram bins for building the data histogram in Step 5.
         disp_res : boolean
             (default is False) - to plot/ display the results
+        disp_res_SNR0 : boolean
+            (default is True) - add SNR0 (free fit) results to Variance vs. Intensity plot.
+        disp_res_SNR1 : boolean
+            (default is True) - add SNR1 (use Dark Count from Scaling data) results to Variance vs. Intensity plot.
         save_res_png : boolean
             save the analysis output into a PNG file (default is True)
         res_fname : string
