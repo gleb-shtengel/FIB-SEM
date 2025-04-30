@@ -27,8 +27,8 @@ from struct import unpack
 #from tqdm import tqdm_notebook as tqdm
 from tqdm.notebook import tqdm
 
-import skimage
-print('skimage version: ', skimage.__version__)
+#import skimage
+#print('skimage version: ', skimage.__version__)
 #from skimage.measure import ransac  # this is temporarily patched by my own corrected copies
 
 from skimage.transform import ProjectiveTransform, AffineTransform, EuclideanTransform, warp
@@ -36,16 +36,16 @@ try:
     import skimage.external.tifffile as tiff
 except:
     import tifffile as tiff
-from scipy import __version__ as scipy_version
-print('scipy version:   ', scipy_version)
+#from scipy import __version__ as scipy_version
+#print('scipy version:   ', scipy_version)
 from scipy.signal import savgol_filter
 from scipy import ndimage
 from scipy.signal import convolve2d
 from scipy.ndimage import gaussian_filter
 from scipy.optimize import curve_fit
 
-from sklearn import __version__ as sklearn_version
-print('sklearn version: ', sklearn_version)
+#from sklearn import __version__ as sklearn_version
+#print('sklearn version: ', sklearn_version)
 from sklearn.linear_model import (LinearRegression,
     TheilSenRegressor,
     RANSACRegressor,
@@ -65,8 +65,8 @@ try:
 except:
     pass
 
-import cv2
-print('Open CV version: ', cv2. __version__)
+#import cv2
+#print('Open CV version: ', cv2. __version__)
 import mrcfile
 import h5py
 try:
@@ -84,8 +84,8 @@ import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=np.RankWarning)
 
-import SIFT_gs
-print('SIFT_gs version: ', SIFT_gs.__version__)
+#import SIFT_gs
+#print('SIFT_gs version: ', SIFT_gs.__version__)
 try:
     from SIFT_gs.FIBSEM_help_functions_gs import *
 except:
