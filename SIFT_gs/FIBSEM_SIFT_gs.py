@@ -2883,7 +2883,6 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     return fnms_saved
 
 
-
 def bin_crop_tiff_files(params):
     '''
     Bins tiff files. This routine is used by merge_tiff_files_mrc_stack. ©G.Shtengel 05/2025 gleb.shtengel@gmail.com
@@ -2898,9 +2897,11 @@ def bin_crop_tiff_files(params):
     mrc_filename, dtp, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya = params
     nx_binned = (xa-xi)//xbin_factor
     ny_binned = (ya-yi)//ybin_factor
+    xa = xi + nx_binned * xbin_factor
+    ya = yi + ny_binned * ybin_factor
     frame = np.zeros((ny_binned, nx_binned), dtype=float)
     for fr_num in np.arange(st_frame, stop_frame):
-        init_frame = tiff.imread(fls_tiff[fr_num])[:ny_binned*ybin_factor, :nx_binned*xbin_factor]
+        init_frame = tiff.imread(fls_tiff[fr_num])[yi:ya, xi:xa]
         binned_frame = np.mean(np.mean(init_frame.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
         frame = frame + binned_frame
     return j, frame//(stop_frame-st_frame)
