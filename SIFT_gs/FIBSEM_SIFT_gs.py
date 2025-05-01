@@ -2890,12 +2890,12 @@ def bin_crop_tiff_files(params):
 
     Parameters:
         params : list of parameters
-        params = mrc_filename, dt, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya
+        params = mrc_filename, dtp, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya
 
     Returns:
         j, frame
     '''
-    mrc_filename, dt, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya = params
+    mrc_filename, dtp, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya = params
     nx_binned = (xa-xi)//xbin_factor
     ny_binned = (ya-yi)//ybin_factor
     frame = np.zeros((ny_binned, nx_binned), dtype=float)
@@ -3012,7 +3012,7 @@ def merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
     desc = 'Building Parameters Sets'
     params_mult = []
     for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
-        params = [mrc_filename, dt, st_frame, (min(st_frame+zbin_factor, nz-1)), j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya]
+        params = [mrc_filename, dtp, st_frame, (min(st_frame+zbin_factor, nz-1)), j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya]
         params_mult.append(params)
     
     print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
@@ -3021,8 +3021,8 @@ def merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
     if 'mrc' in fnm_types:
         fnms_saved.append(mrc_filename)
         mrc_new = mrcfile.new_mmap(mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
-        mrc_new.voxel_size = voxel_size_angstr_new
-        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
+        mrc_new.voxel_size = voxel_size_angstr
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr.x, voxel_size_angstr.y, voxel_size_angstr.z))
         desc = 'Saving the data stack into MRC file'
 
     if 'h5' in fnm_types:
