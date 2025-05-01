@@ -2883,6 +2883,234 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     return fnms_saved
 
 
+
+def bin_crop_tiff_files(params):
+    '''
+    Bins tiff files. This routine is used by merge_tiff_files_mrc_stack. ©G.Shtengel 05/2025 gleb.shtengel@gmail.com
+
+    Parameters:
+        params : list of parameters
+        params = mrc_filename, dt, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya
+
+    Returns:
+        j, frame
+    '''
+    mrc_filename, dt, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya = params
+    nx_binned = (xa-xi)//xbin_factor
+    ny_binned = (ya-yi)//ybin_factor
+    frame = np.zeros((ny_binned, nx_binned), dtype=float)
+    for fr_num in np.arange(st_frame, stop_frame):
+        init_frame = tiff.imread(fls_tiff[fr_num])[:ny_binned*ybin_factor, :nx_binned*xbin_factor]
+        binned_frame = np.mean(np.mean(init_frame.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
+        frame = frame + binned_frame
+    return j, frame//(stop_frame-st_frame)
+
+
+def merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
+    '''
+    Bins and crops a stack tiff files (frames) along X-, Y-, or Z-directions and saves it into MRC or HDF5 format. ©G.Shtengel 05/2025 gleb.shtengel@gmail.com
+
+    Parameters:
+        fls_tiff : list of str
+            list of tiff file names (full paths) to be merged
+    **kwargs:
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        DASK_client_retries : int (default is 3)
+            Number of allowed automatic retries if a task fails
+        max_futures : int
+            max number of running futures. Default is 5000.
+        fnm_types : list of strings.
+            File type(s) for output data. Options are: ['h5', 'mrc'].
+            Defauls is ['mrc']. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
+        zbin_factor : int
+            binning factor in z-direction
+        xbin_factor : int
+            binning factor in x-direction
+        ybin_factor : int
+            binning factor in y-direction
+        mode  : str
+            Binning mode. Default is 'mean', other option is 'sum'
+        mrc_mode : int
+            mrc mode
+        flipY : boolean
+            If Trye, the data will be flipped along Y axis (0 index) AFTER cropping.
+        invert_data : boolean
+            If True, invert the data
+        mrc_filename : str
+            name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_merged.mrc" at the end.
+        xi : int
+            left edge of the crop
+        xa : int
+            right edge of the crop
+        yi : int
+            top edge of the crop
+        ya : int
+            bottom edge of the crop
+        fri : int
+            start frame
+        fra : int
+            stop frame
+        voxel_size_angstr : rec array
+            voxel size in Angstroms. Default is 80.0 x 80.0 x 80.0.
+    Returns:
+        fnms_saved : list of str
+            Names of the new (binned and cropped) data files.
+    '''
+    DASK_client = kwargs.get('DASK_client', '')
+    DASK_client_retries = kwargs.get('DASK_client_retries', 3)
+    max_futures = kwargs.get('max_futures', 5000)
+    use_DASK, status_update_address = check_DASK(DASK_client)
+    mrc_filename_default = os.path.splitext(fls_tiff[0])[0] + '_merged.mrc'
+    mrc_filename = kwargs.get('mrc_filename', mrc_filename_default)
+    mrc_filename  = os.path.normpath(mrc_filename)
+
+    fnm_types = kwargs.get("fnm_types", ['mrc'])
+    xbin_factor = kwargs.get("xbin_factor", 1)      # binning factor in in x-direction
+    ybin_factor = kwargs.get("ybin_factor", 1)      # binning factor in in y-direction
+    zbin_factor = kwargs.get("zbin_factor", 1)      # binning factor in in z-direction
+
+    mode = kwargs.get('mode', 'mean')                   # binning mode. Default is 'mean', other option is 'sum'
+    flipY = kwargs.get('flipY', False)
+    invert_data = kwargs.get('invert_data', False)
+
+    mrc_mode = kwargs.get('mrc_mode', 1)
+    
+    if mode == 'sum' and mrc_mode == 0:
+        mrc_mode = 1
+
+    if mrc_mode == 0:
+        dtp = np.int8
+    if mrc_mode == 1:
+        dtp = np.int16
+    if mrc_mode == 2:
+        dtp = np.float32
+    if mrc_mode == 4:
+        dtp = np.complex64
+    if mrc_mode == 6:
+        dtp = np.uint16
+
+    voxel_size_angstr_default = np.rec.fromrecords(80, names=['x', 'y', 'z'], formats=[np.float32, np.float32, np.float32])
+    voxel_size_angstr = kwargs.get('voxel_size_angstr', voxel_size_angstr_default)
+
+    test_tif = tiff.imread(fls_tiff[0])
+    ny, nx = test_tif.shape
+    nz = len(fls_tiff)
+    xi = kwargs.get('xi', 0)
+    xa = kwargs.get('xa', nx)
+    yi = kwargs.get('yi', 0)
+    ya = kwargs.get('ya', ny)
+    fri = kwargs.get('fri', 0)
+    fra = kwargs.get('fra', nz)
+    nx_binned = (xa-xi)//xbin_factor
+    ny_binned = (ya-yi)//ybin_factor
+    xa = xi + nx_binned * xbin_factor
+    ya = yi + ny_binned * ybin_factor
+
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Result mrc_mode: {:d}, source data type:'.format(mrc_mode), dtp)
+    st_frames = np.arange(fri, fra, zbin_factor)
+    
+    desc = 'Building Parameters Sets'
+    params_mult = []
+    for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
+        params = [mrc_filename, dt, st_frame, (min(st_frame+zbin_factor, nz-1)), j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya]
+        params_mult.append(params)
+    
+    print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
+    
+    fnms_saved = []
+    if 'mrc' in fnm_types:
+        fnms_saved.append(mrc_filename)
+        mrc_new = mrcfile.new_mmap(mrc_filename, shape=(len(st_frames), ny_binned, nx_binned), mrc_mode=mrc_mode, overwrite=True)
+        mrc_new.voxel_size = voxel_size_angstr_new
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Result Voxel Size (Angstroms): {:2f} x {:2f} x {:2f}'.format(voxel_size_angstr_new.x, voxel_size_angstr_new.y, voxel_size_angstr_new.z))
+        desc = 'Saving the data stack into MRC file'
+
+    if 'h5' in fnm_types:
+        binned_h5_filename = os.path.splitext(mrc_filename)[0] + '.h5'
+        try:
+            os.remove(binned_h5_filename)
+        except:
+            pass
+        fnms_saved.append(binned_h5_filename)
+        bdv_writer = npy2bdv.BdvWriter(binned_h5_filename, nchannels=1, blockdim=((1, 256, 256),))
+        bdv_writer.append_view(stack=None, virtual_stack_dim=(len(st_frames),ny_binned,nx_binned),
+                    time=0, channel=0,
+                    voxel_size_xyz=(voxel_size_new.x, voxel_size_new.y, voxel_size_new.z), voxel_units='nm')
+        if 'mrc' in fnm_types:
+            desc = 'Saving the data stack into MRC and H5 files'
+        else:
+            desc = 'Saving the data stack into H5 file'
+    
+    if use_DASK:
+        print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Using DASK distributed')
+        #futures = DASK_client.map(bin_crop_frames, params_mult, retries = DASK_client_retries)
+        # In case of a large source file, need to stadge the DASK jobs - cannot start all at once.
+        DASK_batch = 0
+        while len(params_mult) > max_futures:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting DASK batch {:d} with {:d} jobs, {:d} jobs remaining'.format(DASK_batch, max_futures, (len(params_mult)-max_futures)))
+            params_mult = params_mult[max_futures:]
+            DASK_batch += 1
+            
+            for future in as_completed(futures):
+                j, binned_cropped_fr = future.result()
+                if 'mrc' in fnm_types:
+                    if invert_data:
+                        if mrc_mode == 0:  # uint8
+                            binned_cropped_fr = 255 - binned_cropped_fr
+                        if mrc_mode == 6:  # uint16
+                            binned_cropped_fr = 65535 - binned_cropped_fr
+                        if mrc_mode != 0 and mrc_mode != 6:
+                            binned_cropped_fr = np.invert(binned_cropped_fr)
+                    mrc_new.data[j,:,:] = binned_cropped_fr.astype(dtp)
+                if 'h5' in fnm_types:
+                    bdv_writer.append_plane(plane=binned_cropped_fr.astype(dtp), z=j, time=0, channel=0)
+                future.cancel()
+                
+        if len(params_mult) > 0:
+            print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting DASK batch {:d} with {:d} jobs'.format(DASK_batch, len(params_mult)))
+            futures = [DASK_client.submit(bin_crop_tiff_files, params) for params in params_mult]
+            for future in as_completed(futures):
+                j, binned_cropped_fr = future.result()
+                if 'mrc' in fnm_types:
+                    if invert_data:
+                        if mrc_mode == 0:  # uint8
+                            binned_cropped_fr = 255 - binned_cropped_fr
+                        if mrc_mode == 6:  # uint16
+                            binned_cropped_fr = 65535 - binned_cropped_fr
+                        if mrc_mode != 0 and mrc_mode != 6:
+                            binned_cropped_fr = np.invert(binned_cropped_fr)
+                    mrc_new.data[j,:,:] = binned_cropped_fr.astype(dtp)
+                if 'h5' in fnm_types:
+                    bdv_writer.append_plane(plane=binned_cropped_fr.astype(dtp), z=j, time=0, channel=0)
+                future.cancel()
+
+
+    else:
+        desc = 'Performing local computations'
+        for params in tqdm(params_mult, desc = desc):
+            j, binned_cropped_fr = bin_crop_tiff_files(params)
+            if 'mrc' in fnm_types:
+                if invert_data:
+                    if mrc_mode == 0:  # uint8
+                        binned_cropped_fr = 255 - binned_cropped_fr
+                    if mrc_mode == 6:  # uint16
+                        binned_cropped_fr = 65535 - binned_cropped_fr
+                    if mrc_mode != 0 and mrc_mode != 6:
+                        binned_cropped_fr = np.invert(binned_cropped_fr)
+                mrc_new.data[j,:,:] = binned_cropped_fr.astype(dtp)
+            if 'h5' in fnm_types:
+                bdv_writer.append_plane(plane=binned_cropped_fr.astype(dtp), z=j, time=0, channel=0)
+
+    if 'mrc' in fnm_types:
+        mrc_new.close()
+
+    if 'h5' in fnm_types:
+        bdv_writer.write_xml()
+        bdv_writer.close()
+
+    return fnms_saved
+
+
 def destreak_single_frame_kernel_shared(destreak_kernel, params):
     '''
     Read a single frame from MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT.
