@@ -2889,22 +2889,22 @@ def bin_crop_tiff_files(params):
 
     Parameters:
         params : list of parameters
-        params = mrc_filename, dtp, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya
+        params = mrc_filename, dtp, fls_tiff, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya
 
     Returns:
         j, frame
     '''
-    mrc_filename, dtp, st_frame, stop_frame, j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya = params
+    mrc_filename, dtp, fls_tiff, j, xbin_factor, ybin_factor, mode, flipY, xi, xa, yi, ya = params
     nx_binned = (xa-xi)//xbin_factor
     ny_binned = (ya-yi)//ybin_factor
     xa = xi + nx_binned * xbin_factor
     ya = yi + ny_binned * ybin_factor
     frame = np.zeros((ny_binned, nx_binned), dtype=float)
-    for fr_num in np.arange(st_frame, stop_frame):
-        init_frame = tiff.imread(fls_tiff[fr_num])[yi:ya, xi:xa]
+    for fl_tiff in fls_tiff:
+        init_frame = tiff.imread(fl_tiff)[yi:ya, xi:xa]
         binned_frame = np.mean(np.mean(init_frame.reshape(ny_binned, ybin_factor, nx_binned, xbin_factor), axis=3), axis=1)
         frame = frame + binned_frame
-    return j, frame//(stop_frame-st_frame)
+    return j, frame//len(fls_tiff)
 
 
 def merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
@@ -3013,7 +3013,7 @@ def merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
     desc = 'Building Parameters Sets'
     params_mult = []
     for j, st_frame in enumerate(tqdm(st_frames, desc=desc)):
-        params = [mrc_filename, dtp, st_frame, (min(st_frame+zbin_factor, nz-1)), j, xbin_factor, ybin_factor, zbin_factor, mode, flipY, xi, xa, yi, ya]
+        params = [mrc_filename, dtp, fls_tiff[st_frame : (min(st_frame+zbin_factor, nz-1))], j, xbin_factor, ybin_factor, mode, flipY, xi, xa, yi, ya]
         params_mult.append(params)
     
     print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   New Data Set Shape:  {:d} x {:d} x {:d}'.format(nx_binned, ny_binned, len(st_frames)))
@@ -4920,8 +4920,8 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     data_dir = saved_kwargs.get("data_dir", '')
     fnm_reg = saved_kwargs.get("fnm_reg", 'Registration_file.mrc')
     Sample_ID = saved_kwargs.get("Sample_ID", '')
-    threshold_min = saved_kwargs.get("threshold_min", 0.0)
-    threshold_max = saved_kwargs.get("threshold_min", 0.0)
+    thr_min = saved_kwargs.get("thr_min", 0.0)
+    thr_max = saved_kwargs.get("thr_min", 0.0)
     fit_params_saved = saved_kwargs.get("fit_params", ['SG', 101, 3])
     fit_params = kwargs.get("fit_params", fit_params_saved)
     preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -4975,8 +4975,8 @@ def generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
     ax0.plot(xminmax, y_max, 'r', linestyle = '--')
     ax0.text(len(frame_min)/20.0, data_min_glob-dxn/1.75, 'data_min_glob={:.1f}'.format(data_min_glob), fontsize = fs-2, c='b')
     ax0.text(len(frame_min)/20.0, data_max_glob+dxn/2.25, 'data_max_glob={:.1f}'.format(data_max_glob), fontsize = fs-2, c='r')
-    ax0.text(len(frame_min)/20.0, data_min_glob+dxn*4.5, 'threshold_min={:.1e}'.format(threshold_min), fontsize = fs-2, c='b')
-    ax0.text(len(frame_min)/20.0, data_min_glob+dxn*5.5, 'threshold_max={:.1e}'.format(threshold_max), fontsize = fs-2, c='r')
+    ax0.text(len(frame_min)/20.0, data_min_glob+dxn*4.5, 'thr_min={:.1e}'.format(thr_min), fontsize = fs-2, c='b')
+    ax0.text(len(frame_min)/20.0, data_min_glob+dxn*5.5, 'thr_max={:.1e}'.format(thr_max), fontsize = fs-2, c='r')
     ldm = 70
     data_dir_short = data_dir if len(data_dir)<ldm else '... '+ data_dir[-ldm:]
 
@@ -5933,7 +5933,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         
     ysize_fig = 4
     ysize_tbl = 0.25 * nfls
-    fst3 = 8
+    fst3 = 6
     fig3, axs3 = plt.subplots(2, 1, figsize=(7, ysize_fig+ysize_tbl),  gridspec_kw={"height_ratios" : [ysize_tbl, ysize_fig]})
     fig3.subplots_adjust(left=0.10, bottom=0.10, right=0.98, top=0.96, wspace=0.05, hspace=0.05)
 
@@ -5984,7 +5984,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
                    colLabels = columns2,
                    cellLoc = 'center',
                    colLoc = 'center',
-                   bbox = [0.38, 0, 0.55, 1.0],  # (left, bottom, width, height)
+                   bbox = [0.45, 0, 0.55, 1.0],  # (left, bottom, width, height)
                   fontsize=16)
     rl = max([len(pf) for pf in labels])
     #tbl2.auto_set_column_width(col=[rl+5, len(columns2[0]), len(columns2[1]), len(columns2[2]), len(columns2[3])])
@@ -6898,17 +6898,17 @@ class FIBSEM_frame:
         with number of bins determined by parameter nbins (default = 256)
         and normalizes it to get the probability distribution function (PDF),
         from which a cumulative distribution function (CDF) is calculated.
-        Then given the threshold_min, threshold_max parameters,
+        Then given the thr_min, thr_max parameters,
         the minimum and maximum values for the image are found by finding
-        the intensities at which CDF= threshold_min and (1- threshold_max), respectively.
+        the intensities at which CDF= thr_min and (1- thr_max), respectively.
 
         Parameters
         ----------
         image_name : string
             the name of the image to perform this operations (defaulut is 'RawImageA')
-        threshold_min : float
+        thr_min : float
             CDF threshold for determining the minimum data value
-        threshold_max : float
+        thr_max : float
             CDF threshold for determining the maximum data value
         nbins : int
             number of histogram bins for building the PDF and CDF
@@ -7780,9 +7780,9 @@ def evaluate_FIBSEM_frame(params):
     with number of bins determined by parameter nbins (default = 256)
     and normalizes it to get the probability distribution function (PDF),
     from which a cumulative distribution function (CDF) is calculated.
-    Then given the threshold_min, threshold_max parameters,
+    Then given the thr_min, thr_max parameters,
     the minimum and maximum values for the image are found by finding
-    the intensities at which CDF= threshold_min and (1- threshold_max), respectively.
+    the intensities at which CDF= thr_min and (1- thr_max), respectively.
     2. Extracts WD, MillingYVoltage, center_x, center_y data from the header
     
     Parameters:
@@ -7795,9 +7795,9 @@ def evaluate_FIBSEM_frame(params):
             file type (0 - Shan Xu's .dat, 1 - tif)
         image_name: string
             the name of the image to perform this operations (defaulut is 'RawImageA')
-        threshold_min : float
+        thr_min : float
             CDF threshold for determining the minimum data value
-        threshold_max : float
+        thr_max : float
             CDF threshold for determining the maximum data value
         nbins : int
             number of histogram bins for building the PDF and CDF
@@ -7810,8 +7810,8 @@ def evaluate_FIBSEM_frame(params):
     ftype = kwargs.get("ftype", 0)
     image_name = kwargs.get("image_name", 'RawImageA')
     calculate_scaled_images = (image_name == 'ImageA') or (image_name == 'ImageB')
-    thr_min = kwargs.get("threshold_min", 1e-3)
-    thr_max = kwargs.get("threshold_max", 1e-3)
+    thr_min = kwargs.get("thr_min", 1e-3)
+    thr_max = kwargs.get("thr_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     ex_error=None
     try:
@@ -7894,9 +7894,9 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         data directory (path) for saving the data
     image_name: string
             the name of the image to perform this operations (defaulut is 'RawImageA')
-    threshold_min : float
+    thr_min : float
         CDF threshold for determining the minimum data value
-    threshold_max : float
+    thr_max : float
         CDF threshold for determining the maximum data value
     nbins : int
         number of histogram bins for building the PDF and CDF
@@ -7954,8 +7954,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     data_dir = kwargs.get("data_dir", '')
     image_name = kwargs.get("image_name", 'RawImageA')
     calculate_scaled_images = (image_name == 'ImageA') or (image_name == 'ImageB')
-    threshold_min = kwargs.get("threshold_min", 1e-3)
-    threshold_max = kwargs.get("threshold_max", 1e-3)
+    thr_min = kwargs.get("thr_min", 1e-3)
+    thr_max = kwargs.get("thr_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     sliding_minmax = kwargs.get("sliding_minmax", True)
     fit_params =  kwargs.get("fit_params", False)           # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
@@ -7990,8 +7990,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
             SEMSpecimenI = int_results['SEMSpecimenI (nA)']
         except:
             SEMSpecimenI = EHT*0.0
-        data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
-        trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
+        data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = thr_min, thr_max = thr_max, nbins = nbins, disp_res=False)
+        trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = thr_min, thr_max = thr_max, nbins = nbins, disp_res=False)
         if fit_params[0] != 'None':
             sv_apert = min([fit_params[1], len(frame_inds)//8*2+1])
             print('Using fit_params: ', 'SG', sv_apert, fit_params[2])
@@ -8042,8 +8042,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
                     errors_s2.append(res_temp[9])
 
             data_minmax_glob = results_s2[:, 0:2]
-            data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
-            trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = threshold_min, thr_max = threshold_max, nbins = nbins, disp_res=False)
+            data_min_glob, trash = get_min_max_thresholds(data_minmax_glob[:, 0], thr_min = thr_min, thr_max = thr_max, nbins = nbins, disp_res=False)
+            trash, data_max_glob = get_min_max_thresholds(data_minmax_glob[:, 1], thr_min = thr_min, thr_max = thr_max, nbins = nbins, disp_res=False)
             if fit_params[0] != 'None':
                 sv_apert = min([fit_params[1], len(frame_inds)//8*2+1])
                 print('Using fit_params: ', 'SG', sv_apert, fit_params[2])
@@ -8153,8 +8153,8 @@ def extract_keypoints_descr_files(params):
     fl, dmin, dmax, kwargs = params
     ftype = kwargs.get("ftype", 0)
     verbose = kwargs.get("verbose", False)
-    thr_min = kwargs.get("threshold_min", 1e-3)
-    thr_max = kwargs.get("threshold_max", 1e-3)
+    thr_min = kwargs.get("thr_min", 1e-3)
+    thr_max = kwargs.get("thr_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     #kp_max_num = kwargs.get("kp_max_num", 10000)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
@@ -8526,8 +8526,8 @@ def determine_transformations_files(params_dsf):
 def build_filename(fname, **kwargs):
     ftype = kwargs.get("ftype", 0)
     dtp = kwargs.get("dtp", np.int16)                             #  int16 or uint8
-    threshold_min = kwargs.get("threshold_min", 1e-3)
-    threshold_max = kwargs.get("threshold_max", 1e-3)
+    thr_min = kwargs.get("thr_min", 1e-3)
+    thr_max = kwargs.get("thr_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
     l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
@@ -8906,9 +8906,9 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
         file type (0 - Shan Xu's .dat, 1 - tif)
     fnm_reg : str
         filename for the final registed dataset
-    threshold_min : float
+    thr_min : float
         CDF threshold for determining the minimum data value
-    threshold_max : float
+    thr_max : float
         CDF threshold for determining the maximum data value
     nbins : int
         number of histogram bins for building the PDF and CDF
@@ -8946,8 +8946,8 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
-    threshold_min = kwargs.get("threshold_min", 1e-3)
-    threshold_max = kwargs.get("threshold_max", 1e-3)
+    thr_min = kwargs.get("thr_min", 1e-3)
+    thr_max = kwargs.get("thr_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
     l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
@@ -8986,12 +8986,12 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     img = np.ravel(frame.RawImageA)
     fsz=12
     fszl=11
-    dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins)
+    dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins)
     xi = dmin-(np.abs(dmax-dmin)/10)
     xa = dmax+(np.abs(dmax-dmin)/10)
 
     fig, axs = plt.subplots(2,1, figsize=(6,6))
-    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFT_contrastThreshold={:.3f}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, SIFT_contrastThreshold, comp_time), fontsize=fszl)
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFT_contrastThreshold={:.3f}, comp.time={:.1f}sec'.format(thr_min, thr_max, SIFT_contrastThreshold, comp_time), fontsize=fszl)
     
     hist, bins, patches = axs[0].hist(img, bins = nbins)
     axs[0].set_xlim(xi, xa)
@@ -9002,19 +9002,19 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     cdf = np.cumsum(pdf)
     xCDF = bins[0:-1]+(bins[1]-bins[0])/2.0
     xthr = [xCDF[0], xCDF[-1]]
-    ythr_min = [threshold_min, threshold_min]
-    y1thr_max = [1-threshold_max, 1-threshold_max]
+    ythr_min = [thr_min, thr_min]
+    y1thr_max = [1-thr_max, 1-thr_max]
 
     axs[1].plot(xCDF, cdf, label='CDF')
-    axs[1].plot(xthr, ythr_min, 'r', label='thr_min={:.5f}'.format(threshold_min))
+    axs[1].plot(xthr, ythr_min, 'r', label='thr_min={:.5f}'.format(thr_min))
     axs[1].plot([dmin, dmin], [0, 1], 'r', linestyle = '--', label = 'data_min={:.1f}'.format(dmin))
-    axs[1].plot(xthr, y1thr_max, 'g', label='1.0 - thr_max = {:.5f}'.format(1-threshold_max))
+    axs[1].plot(xthr, y1thr_max, 'g', label='1.0 - thr_max = {:.5f}'.format(1-thr_max))
     axs[1].plot([dmax, dmax], [0, 1], 'g', linestyle = '--', label = 'data_max={:.1f}'.format(dmax))
     axs[1].set_xlabel('Intensity Level', fontsize = fsz)
     axs[1].set_ylabel('CDF', fontsize = fsz)
     axs[1].set_xlim(xi, xa)
     axs[1].legend(loc='center', fontsize=fsz)
-    axs[0].set_title('Data Min and Max with thr_min={:.0e},  thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize = fsz)
+    axs[0].set_title('Data Min and Max with thr_min={:.0e},  thr_max={:.0e}'.format(thr_min, thr_max), fontsize = fsz)
     for ax in axs.ravel():
         ax.grid(True)
         
@@ -9043,9 +9043,9 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     print('Extracted {:d} keyponts'.format(len(kp1)))
     # the code below is for vector map. vectors have origin coordinates x and y, and vector projections xs and ys.
     vec_field = ax.scatter(x,y, s=0.02, marker='o', c='r')
-    ax.text(0.01, 1.1-0.13*frame.YResolution/frame.XResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}, SIFT_nfeatures={:d}'.format(threshold_min, threshold_max, SIFT_nfeatures), fontsize=fsize, transform=ax.transAxes)
+    ax.text(0.01, 1.1-0.13*frame.YResolution/frame.XResolution, Sample_ID + ', thr_min={:.0e}, thr_max={:.0e}, SIFT_nfeatures={:d}'.format(thr_min, thr_max, SIFT_nfeatures), fontsize=fsize, transform=ax.transAxes)
     if save_res_png :
-        png_name = os.path.splitext(fr)[0] + '_SIFT_kpts_eval_'+'_thr_min{:.5f}_thr_max{:.5f}.png'.format(threshold_min, threshold_max) 
+        png_name = os.path.splitext(fr)[0] + '_SIFT_kpts_eval_'+'_thr_min{:.5f}_thr_max{:.5f}.png'.format(thr_min, thr_max) 
         fig2.savefig(png_name, dpi=300)
     return(dmin, dmax, comp_time, src_pts)
 
@@ -9073,9 +9073,9 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         file type (0 - Shan Xu's .dat, 1 - tif)
     fnm_reg : str
         filename for the final registed dataset
-    threshold_min : float
+    thr_min : float
         CDF threshold for determining the minimum data value
-    threshold_max : float
+    thr_max : float
         CDF threshold for determining the maximum data value
     nbins : int
         number of histogram bins for building the PDF and CDF
@@ -9158,8 +9158,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ftype = kwargs.get("ftype", 0)
     data_dir = kwargs.get("data_dir", '')
     fnm_reg = kwargs.get("fnm_reg", 'Registration_file.mrc')
-    threshold_min = kwargs.get("threshold_min", 1e-3)
-    threshold_max = kwargs.get("threshold_max", 1e-3)
+    thr_min = kwargs.get("thr_min", 1e-3)
+    thr_max = kwargs.get("thr_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -9230,7 +9230,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     img = np.ravel(frame.RawImageA)
     fsz = 12
     fszl = 11
-    dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins)
+    dmin, dmax = frame.get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins)
     xi = dmin-(np.abs(dmax-dmin)/10)
     xa = dmax+(np.abs(dmax-dmin)/10)
     
@@ -9245,7 +9245,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
                     elapsed_time))
 
     fig, axs = plt.subplots(2,2, figsize=(12,8))
-    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFT_contrastThreshold={:.3f}'.format(threshold_min, threshold_max, SIFT_contrastThreshold), fontsize=fszl)
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, SIFT_contrastThreshold={:.3f}'.format(thr_min, thr_max, SIFT_contrastThreshold), fontsize=fszl)
 
     hist, bins, patches = axs[0,0].hist(img, bins = nbins)
     axs[0,0].set_xlim(xi, xa)
@@ -9256,23 +9256,23 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     cdf = np.cumsum(pdf)
     xCDF = bins[0:-1]+(bins[1]-bins[0])/2.0
     xthr = [xCDF[0], xCDF[-1]]
-    ythr_min = [threshold_min, threshold_min]
-    y1thr_max = [1-threshold_max, 1-threshold_max]
+    ythr_min = [thr_min, thr_min]
+    y1thr_max = [1-thr_max, 1-thr_max]
 
     axs[1,0].plot(xCDF, cdf, label='CDF')
-    axs[1,0].plot(xthr, ythr_min, 'r', label='thr_min={:.5f}'.format(threshold_min))
+    axs[1,0].plot(xthr, ythr_min, 'r', label='thr_min={:.5f}'.format(thr_min))
     axs[1,0].plot([dmin, dmin], [0, 1], 'r', linestyle = '--', label = 'data_min={:.1f}'.format(dmin))
-    axs[1,0].plot(xthr, y1thr_max, 'g', label='1.0 - thr_max = {:.5f}'.format(1-threshold_max))
+    axs[1,0].plot(xthr, y1thr_max, 'g', label='1.0 - thr_max = {:.5f}'.format(1-thr_max))
     axs[1,0].plot([dmax, dmax], [0, 1], 'g', linestyle = '--', label = 'data_max={:.1f}'.format(dmax))
     axs[1,0].set_xlabel('Intensity Level', fontsize = fsz)
     axs[1,0].set_ylabel('CDF', fontsize = fsz)
     axs[1,0].set_xlim(xi, xa)
     axs[1,0].legend(loc='center', fontsize=fsz)
-    axs[0,0].set_title('Data Min and Max with thr_min={:.0e},  thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize = fsz)
+    axs[0,0].set_title('Data Min and Max with thr_min={:.0e},  thr_max={:.0e}'.format(thr_min, thr_max), fontsize = fsz)
 
     minmax = []
     for j,f in enumerate(fs):
-        minmax.append(FIBSEM_frame(f, ftype=ftype, calculate_scaled_images=False).get_image_min_max(image_name = 'RawImageA', thr_min=threshold_min, thr_max=threshold_max, nbins=nbins))
+        minmax.append(FIBSEM_frame(f, ftype=ftype, calculate_scaled_images=False).get_image_min_max(image_name = 'RawImageA', thr_min=thr_min, thr_max=thr_max, nbins=nbins))
         if memory_profiling:
             elapsed_time = elapsed_since(start_time)
             rss_after, vms_after, shared_after = get_process_memory()
@@ -9391,7 +9391,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     for ax in axs.ravel():
         ax.grid(True)
     
-    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, comp.time={:.1f}sec'.format(threshold_min, threshold_max, comp_time), fontsize=fszl)
+    fig.suptitle(Sample_ID + ',  thr_min={:.0e}, thr_max={:.0e}, comp.time={:.1f}sec'.format(thr_min, thr_max, comp_time), fontsize=fszl)
 
     if TransformType == RegularizedAffineTransform:
         tstr = ['{:d}'.format(x) for x in targ_vector] 
@@ -9401,7 +9401,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     axs[0,0].text(0.01, 1.14, otext, fontsize=fszl, transform=axs[0,0].transAxes)        
     if save_res_png :
-        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(threshold_min, threshold_max)))
+        png_name = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0] + '_SIFT_eval_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(thr_min, thr_max)))
         fig.savefig(png_name, dpi=300)
     if memory_profiling:
         elapsed_time = elapsed_since(start_time)
@@ -9446,7 +9446,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
 
     ax.text(0.005, 1.00 - 0.010*frame.XResolution/frame.YResolution, fs[0], fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.023*frame.XResolution/frame.YResolution, Sample_ID, fontsize=fsize_text, transform=ax.transAxes)
-    ax.text(0.005, 1.00 - 0.036*frame.XResolution/frame.YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize=fsize_text, transform=ax.transAxes)
+    ax.text(0.005, 1.00 - 0.036*frame.XResolution/frame.YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(thr_min, thr_max), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.049*frame.XResolution/frame.YResolution, TransformType.__name__+ ', ' + solver + ',  ' + matcher, fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.062*frame.XResolution/frame.YResolution, 'SIFT_nfeatures={:d}'.format(SIFT_nfeatures), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.075*frame.XResolution/frame.YResolution, 'SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold), fontsize=fsize_text, transform=ax.transAxes)
@@ -9455,7 +9455,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ax.text(0.005, 1.00 - 0.114*frame.XResolution/frame.YResolution, 'drmax={:.3f}'.format(drmax), fontsize=fsize_text, transform=ax.transAxes)
     ax.text(0.005, 1.00 - 0.127*frame.XResolution/frame.YResolution, '# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches), fontsize=fsize_text, transform=ax.transAxes)
     if verbose:
-        print('thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max))
+        print('thr_min={:.0e}, thr_max={:.0e}'.format(thr_min, thr_max))
         print(TransformType.__name__+ ', ' + solver + ',  ' + matcher)
         print('SIFT_nfeatures={:d}'.format(SIFT_nfeatures))
         print('SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold))
@@ -9465,7 +9465,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         print('# of keypoints = {:d}, # of matches ={:d}'.format(n_kpts, n_matches))
 
     if save_res_png :
-        fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(threshold_min, threshold_max)))
+        fig2_fnm = os.path.join(data_dir, (os.path.splitext(os.path.split(fs[0])[-1])[0]+'_SIFT_vmap_'+TransformType.__name__ + '_' + solver +'_thr_min{:.0e}_thr_max{:.0e}.png'.format(thr_min, thr_max)))
         fig2.savefig(fig2_fnm, dpi=600)
     if memory_profiling:
         elapsed_time = elapsed_since(start_time)
@@ -9488,9 +9488,9 @@ def check_registration(img0, img1, **kwargs):
     img1 : 2D array
     
     kwargs:
-    threshold_min : float
+    thr_min : float
         CDF threshold for determining the minimum data value
-    threshold_max : float
+    thr_max : float
         CDF threshold for determining the maximum data value
     TransformType : object reference
         Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
@@ -9554,8 +9554,8 @@ def check_registration(img0, img1, **kwargs):
         Fontsize
     
     '''
-    threshold_min = kwargs.get("threshold_min", 1e-3)
-    threshold_max = kwargs.get("threshold_max", 1e-3)
+    thr_min = kwargs.get("thr_min", 1e-3)
+    thr_max = kwargs.get("thr_max", 1e-3)
     nbins = kwargs.get('nbins', 64)
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
     l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
@@ -9588,8 +9588,8 @@ def check_registration(img0, img1, **kwargs):
     YResolution, XResolution = img0.shape
     
     SIFT_kwargs = {
-        'threshold_min' : threshold_min, 
-        'threshold_max' : threshold_max,
+        'thr_min' : thr_min, 
+        'thr_max' : thr_max,
         'nbins' : nbins,
         'TransformType' : TransformType,
         'SIFT_nfeatures' : SIFT_nfeatures,
@@ -9606,12 +9606,12 @@ def check_registration(img0, img1, **kwargs):
         'max_iter' : max_iter}
     
     
-    d0, d1 = get_min_max_thresholds(img0, thr_min=threshold_min, thr_max=threshold_max, disp_res=False)
+    d0, d1 = get_min_max_thresholds(img0, thr_min=thr_min, thr_max=thr_max, disp_res=False)
     img0_uint8 = np.clip(255*(img0-d0)/(d1-d0), 0, 255).astype(np.uint8)
-    d0, d1 = get_min_max_thresholds(img1, thr_min=threshold_min, thr_max=threshold_max, disp_res=False)
+    d0, d1 = get_min_max_thresholds(img1, thr_min=thr_min, thr_max=thr_max, disp_res=False)
     img1_uint8 = np.clip(255*(img1-d0)/(d1-d0), 0, 255).astype(np.uint8)
     if verbose:
-        print('thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max))
+        print('thr_min={:.0e}, thr_max={:.0e}'.format(thr_min, thr_max))
         print(TransformType.__name__)
         print('SIFT_nfeatures={:d}'.format(SIFT_nfeatures))
         print('SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold))
@@ -9698,7 +9698,7 @@ def check_registration(img0, img1, **kwargs):
 
         ax0.text(0.005, 1.00 - 0.010*XResolution/YResolution, filename, fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.023*XResolution/YResolution, Sample_ID, fontsize=fsize_text, transform=ax0.transAxes)
-        ax0.text(0.005, 1.00 - 0.036*XResolution/YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(threshold_min, threshold_max), fontsize=fsize_text, transform=ax0.transAxes)
+        ax0.text(0.005, 1.00 - 0.036*XResolution/YResolution, 'thr_min={:.0e}, thr_max={:.0e}'.format(thr_min, thr_max), fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.049*XResolution/YResolution, TransformType.__name__, fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.062*XResolution/YResolution, 'SIFT_nfeatures={:d}'.format(SIFT_nfeatures), fontsize=fsize_text, transform=ax0.transAxes)
         ax0.text(0.005, 1.00 - 0.075*XResolution/YResolution, 'SIFT_nOctaveLayers={:d},  SIFT_edgeThreshold={:.3f}'.format(SIFT_nOctaveLayers, SIFT_edgeThreshold), fontsize=fsize_text, transform=ax0.transAxes)
@@ -10263,7 +10263,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
             'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
     deformation_fields : float array
     dtp  : dtype
-        Python data type for saving. Deafult is int16, the other option currently is uint8.
+        Python data type for saving. Deafult is int16.
     fill_value : float
         Fill value for padding. Default is zero.
     disp_res : bolean
@@ -10302,7 +10302,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     invert_data =  kwargs.get("invert_data", False)
     perform_deformation = kwargs.get("perform_deformation", False)
     deformation_type = kwargs.get("deformation_type", 'post_1DY')
-    dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is uint8.
+    dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16.
     disp_res = kwargs.get("disp_res", False)
     nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
     end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
@@ -10745,9 +10745,9 @@ class FIBSEM_dataset:
         filename for the final registed dataset
     use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-    threshold_min : float
+    thr_min : float
         CDF threshold for determining the minimum data value
-    threshold_max : float
+    thr_max : float
         CDF threshold for determining the maximum data value
     nbins : int
         number of histogram bins for building the PDF and CDF
@@ -10924,9 +10924,9 @@ class FIBSEM_dataset:
             pixel size in nm. Default is 8.0
         Scaling : 2D array of floats
             scaling parameters allowing to convert I16 data into actual electron counts 
-        threshold_min : float
+        thr_min : float
             CDF threshold for determining the minimum data value
-        threshold_max : float
+        thr_max : float
             CDF threshold for determining the maximum data value
         nbins : int
             number of histogram bins for building the PDF and CDF
@@ -11059,8 +11059,8 @@ class FIBSEM_dataset:
         self.EightBit = kwargs.get("EightBit", 1)
         self.use_DASK = kwargs.get("use_DASK", True)
         self.DASK_client_retries = kwargs.get("DASK_client_retries", 3)
-        self.threshold_min = kwargs.get("threshold_min", 1e-3)
-        self.threshold_max = kwargs.get("threshold_max", 1e-3)
+        self.thr_min = kwargs.get("thr_min", 1e-3)
+        self.thr_max = kwargs.get("thr_max", 1e-3)
         self.nbins = kwargs.get("nbins", 256)
         self.sliding_minmax = kwargs.get("sliding_minmax", True)
         self.TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
@@ -11159,9 +11159,9 @@ class FIBSEM_dataset:
             file type (0 - Shan Xu's .dat, 1 - tif)
         fnm_reg : str
             filename for the final registed dataset
-        threshold_min : float
+        thr_min : float
             CDF threshold for determining the minimum data value
-        threshold_max : float
+        thr_max : float
             CDF threshold for determining the maximum data value
         nbins : int
             number of histogram bins for building the PDF and CDF
@@ -11243,8 +11243,8 @@ class FIBSEM_dataset:
         data_dir = kwargs.get("data_dir", self.data_dir)
         ftype = kwargs.get("ftype", self.ftype)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
-        threshold_min = kwargs.get("threshold_min", self.threshold_min)
-        threshold_max = kwargs.get("threshold_max", self.threshold_max)
+        thr_min = kwargs.get("thr_min", self.thr_min)
+        thr_max = kwargs.get("thr_max", self.thr_max)
         nbins = kwargs.get("nbins", self.nbins)
         TransformType = kwargs.get("TransformType", self.TransformType)
         l2_matrix = kwargs.get("l2_matrix", self.l2_matrix)
@@ -11278,8 +11278,8 @@ class FIBSEM_dataset:
                                 'Sample_ID' : Sample_ID,
                                 'data_dir' : data_dir,
                                 'fnm_reg' : fnm_reg,
-                                'threshold_min' : threshold_min,
-                                'threshold_max' : threshold_max,
+                                'thr_min' : thr_min,
+                                'thr_max' : thr_max,
                                 'nbins' : nbins,
                                 'evaluation_box' : evaluation_box,
                                 'TransformType' : TransformType, 
@@ -11367,9 +11367,9 @@ class FIBSEM_dataset:
             Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
         data_dir : str
             data directory (path)  for saving the data
-        threshold_min : float
+        thr_min : float
             CDF threshold for determining the minimum data value
-        threshold_max : float
+        thr_max : float
             CDF threshold for determining the maximum data value
         nbins : int
             number of histogram bins for building the PDF and CDF
@@ -11421,8 +11421,8 @@ class FIBSEM_dataset:
         ftype = kwargs.get("ftype", self.ftype)
         frame_inds = kwargs.get("frame_inds", np.arange(len(self.fls)))
         data_dir = self.data_dir
-        threshold_min = kwargs.get("threshold_min", self.threshold_min)
-        threshold_max = kwargs.get("threshold_max", self.threshold_max)
+        thr_min = kwargs.get("thr_min", self.thr_min)
+        thr_max = kwargs.get("thr_max", self.thr_max)
         nbins = kwargs.get("nbins", self.nbins)
         sliding_minmax = kwargs.get("sliding_minmax", self.sliding_minmax)
         fit_params = kwargs.get("fit_params", self.fit_params)
@@ -11442,8 +11442,8 @@ class FIBSEM_dataset:
                         'ftype' : ftype,
                         'frame_inds' : frame_inds,
                         'data_dir' : data_dir,
-                        'threshold_min' : threshold_min,
-                        'threshold_max' : threshold_max,
+                        'thr_min' : thr_min,
+                        'thr_max' : thr_max,
                         'nbins' : nbins,
                         'sliding_minmax' : sliding_minmax,
                         'fit_params' : fit_params,
@@ -11505,9 +11505,9 @@ class FIBSEM_dataset:
             0 - 16-bit data, 1: 8-bit data
         fnm_reg : str
             filename for the final registed dataset
-        threshold_min : float
+        thr_min : float
             CDF threshold for determining the minimum data value
-        threshold_max : float
+        thr_max : float
             CDF threshold for determining the maximum data value
         nbins : int
             number of histogram bins for building the PDF and CDF
@@ -11550,8 +11550,8 @@ class FIBSEM_dataset:
             ftype = kwargs.get("ftype", self.ftype)
             data_dir = self.data_dir
             fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
-            threshold_min = kwargs.get("threshold_min", self.threshold_min)
-            threshold_max = kwargs.get("threshold_max", self.threshold_max)
+            thr_min = kwargs.get("thr_min", self.thr_min)
+            thr_max = kwargs.get("thr_max", self.thr_max)
             nbins = kwargs.get("nbins", self.nbins)
             sliding_minmax = kwargs.get("sliding_minmax", self.sliding_minmax)
             data_minmax = kwargs.get("data_minmax", self.data_minmax)
@@ -11566,8 +11566,8 @@ class FIBSEM_dataset:
 
             minmax_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding = data_minmax
             kpt_kwargs = {'ftype' : ftype,
-                        'threshold_min' : threshold_min,
-                        'threshold_max' : threshold_max,
+                        'thr_min' : thr_min,
+                        'thr_max' : thr_max,
                         'nbins' : nbins,
                         #'kp_max_num' : kp_max_num,
                         'SIFT_nfeatures' : SIFT_nfeatures,
