@@ -3049,6 +3049,7 @@ def merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
         DASK_batch = 0
         while len(params_mult) > max_futures:
             print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Starting DASK batch {:d} with {:d} jobs, {:d} jobs remaining'.format(DASK_batch, max_futures, (len(params_mult)-max_futures)))
+            futures = [DASK_client.submit(bin_crop_tiff_files, params) for params in params_mult[0:max_futures]]
             params_mult = params_mult[max_futures:]
             DASK_batch += 1
             
