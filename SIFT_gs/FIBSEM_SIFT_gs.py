@@ -7302,6 +7302,10 @@ class FIBSEM_frame:
                  (default 256) number of histogram bins for building the data histogram in Step 5.
             disp_res : boolean
                 (default is False) - to plot/ display the results
+            disp_res_SNR0 : boolean
+                (default is True) - add SNR0 (free fit) results to Variance vs. Intensity plot.
+            disp_res_SNR1 : boolean
+                (default is True) - add SNR1 (use Dark Count from Scaling data) results to Variance vs. Intensity plot.
             save_res_png : boolean
                 save the analysis output into a PNG file (default is True)
             res_fname : string
@@ -7320,7 +7324,7 @@ class FIBSEM_frame:
         '''
         image_name = kwargs.get("image_name", 'RawImageA')
         res_fname_default = os.path.splitext(self.fname)[0] + '_Noise_Analysis_' + image_name + '.png'
-        res_fname = kwargs.get("res_fname", res_fname_default)
+        res_fname = kwargs.get("res_fname", res_fname_default)1
 
         if image_name == 'RawImageA':
             ImgEM = self.RawImageA.astype(float)
@@ -7342,7 +7346,10 @@ class FIBSEM_frame:
             nbins_analysis = kwargs.get("nbins_analysis", 100)
             thresholds_analysis = kwargs.get("thresholds_analysis", [2e-2, 1e-2])
             disp_res = kwargs.get("disp_res", True)
+            disp_res_SNR0 = kwargs.get("disp_res_SNR0", True)
+            disp_res_SNR1 = kwargs.get("disp_res_SNR1", True)
             save_res_png = kwargs.get("save_res_png", True)
+            
             try:
                 img_label = kwargs.get("img_label", self.Sample_ID)
             except:
@@ -7365,6 +7372,8 @@ class FIBSEM_frame:
                             'nbins_analysis' : nbins_analysis,
                             'thresholds_analysis' : thresholds_analysis,
                             'disp_res' : disp_res,
+                            'disp_res_SNR0' : disp_res_SNR0,
+                            'disp_res_SNR1' : disp_res_SNR1,
                             'save_res_png' : save_res_png,
                             'res_fname' : res_fname,
                             'Notes' : Notes,
