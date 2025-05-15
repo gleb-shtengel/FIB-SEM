@@ -7324,7 +7324,7 @@ class FIBSEM_frame:
         '''
         image_name = kwargs.get("image_name", 'RawImageA')
         res_fname_default = os.path.splitext(self.fname)[0] + '_Noise_Analysis_' + image_name + '.png'
-        res_fname = kwargs.get("res_fname", res_fname_default)1
+        res_fname = kwargs.get("res_fname", res_fname_default)
 
         if image_name == 'RawImageA':
             ImgEM = self.RawImageA.astype(float)
