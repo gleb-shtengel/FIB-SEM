@@ -86,7 +86,7 @@ def check_DASK(DASK_client, **kwargs):
 
 def swap_elements(a, i, j):
     '''
-    Swaps tw elements of the array.
+    Swaps two elements of the array.
     ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
 
     Parameters:
@@ -133,22 +133,29 @@ def scale_image_gs(image, im_min, im_max, amplitude, **kwargs):
     return out
 
 
-def get_spread(data, window=501, porder=3):
+def get_spread(data, **kwargs):
     '''
     Calculates spread - standard deviation of the (signal - Sav-Gol smoothed signal).
     ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
 
     Parameters:
-    data : 1D array
-    window : int
-        aperture (number of points) for Sav-Gol filter)
-    porder : int
-        polynomial order for Sav-Gol filter
+    ----------
+        data : 1D array
+
+    kwargs:
+    ----------
+        window : int
+            aperture (number of points) for Sav-Gol filter). default is a smaller of 501 or the half size of the array
+        porder : int
+            polynomial order for Sav-Gol filter
 
     Returns:
         data_spread : float
 
     '''
+    window_default = 501 if len(data)>1000 else len(data)//2*2-1
+    window = kwargs.get('window', window_default)
+    porder = kwargs.get('porder', 3)
 
     try:
         #sm_data = savgol_filter(data.astype(np.double), window, porder)
@@ -176,7 +183,7 @@ def get_min_max_thresholds(image, **kwargs):
         Image to be analyzed
 
     kwargs:
-     ----------
+    ----------
     thr_min : float
         lower CDF threshold for determining the minimum data value. Default is 1.0e-3
     thr_max : float
@@ -247,9 +254,11 @@ def calculate_gradent_map(img, ** kwargs):
     Computes 2D Gradient of the image. ©G.Shtengel 10/2024 gleb.shtengel@gmail.com
 
     Parameters:
+    ---------
     img : 2d array
 
     kwargs:
+    ---------
     perform_smoothing : boolean
         If True, the images is smoothed first before gradient application
     kernel : 2D float array
@@ -462,26 +471,26 @@ def argmax2d(X):
 def find_BW(fr, FSC, **kwargs):
     '''
     Find Cutoff Bandwidth using threshold parameter OSNRt. ©G.Shtengel 03/2024 gleb.shtengel@gmail.com
-    Parameters
+    Parameters:
     ---------
     fr : array of Frequency points
     FSC : array of FSC data points
     
-    kwargs
+    kwargs:
     ---------
     SNRt : float
         SNR threshold for determining the resolution bandwidth
     verbose : boolean
         print the outputs. Default is False
     fit_data : boolean
-        If True the BW will be extracted fron inverse power fit.
+        If True the BW will be extracted using inverse power fit.
         If False, the BW will be extracted from the data
     fit_power : int
         parameter for FSC data fitting: FSC_fit  = a/(x**fit_power+a)
     fr_cutoff : float
         The fractional value between 0.0 and 1.0. The data points within the frequency range [0 : max_frequency*cutoff]  will be used.
 
-    Returns
+    Returns:
         BW, fr_fit, FSC_fit
     
     '''
@@ -538,10 +547,12 @@ def find_FWHM(x, y, **kwargs):
     find FWHM of the signal. G.Shtengel 09.2024
     
     Parameters:
+    ---------
     x : array or list of x values
     y : array or list of y values
         
     kwargs:
+    ---------
     start : string
         'edges' (default) or 'center'. start of search.
     estimation : string
@@ -591,6 +602,7 @@ def radial_profile(data, center):
     ©G.Shtengel 08/2020 gleb.shtengel@gmail.com
 
     Parameters:
+    ---------
     data : 2D array
 
     center : list of two ints
@@ -616,25 +628,26 @@ def radial_profile_select_angles(data, center, **kwargs):
     ©G.Shtengel 08/2020 gleb.shtengel@gmail.com
 
     Parameters:
+    ---------
     data : 2D array
     center : list of two ints
         [xcenter, ycenter]
 
-    kwargs
+    kwargs:
+    ---------
     astart : float
-        Start angle for radial averaging. Default is 0
+        Start angle for radial averaging. Default is 0.0
     astop : float
-        Stop angle for radial averaging. Default is 90
+        Stop angle for radial averaging. Default is 90.0
     rstart : float
-        Start radius
+        Start radius (relative). Default is 0.0
     rstop : float
-        Stop radius
+        Stop radius (relative). Default is 1.0
     symm : int
         Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 4.
 
-    Returns
-        radialprofile : float array
-            limited to x-size//2 of the input data
+    Returns:
+        radialprofile : float array       limited to x-size//2 of the input data
     '''
     astart = kwargs.get('astart', -1.0)
     astop = kwargs.get('astop', 1.0)
@@ -671,59 +684,6 @@ def radial_profile_select_angles(data, center, **kwargs):
     nr = np.bincount(rr)
     radialprofile = tbin / nr
     return radialprofile
-
-
-def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
-    '''
-    Build a Rescaler Kernel for the FFT data within a select range of angles.
-    ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
-
-    Parameters:
-    data : 2D array
-
-    kwargs
-    astart : float
-        Start angle for radial segment. Default is -1.0.
-    astop : float
-        Stop angle for radial segment. Default is 1.0.
-    rstart : float
-        Low bound for spatial frequencies in FFT space.
-    rstop : float
-        High bound for spatial frequencies in FFT space.
-    symm : int
-        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 2.
-
-    Returns
-        rescaler : float array
-    '''
-    astart = kwargs.get('astart', -1.0)
-    astop = kwargs.get('astop', 1.0)
-    rstart = kwargs.get('rstart', 0.0)
-    rstop = kwargs.get('rstop', 1.0)
-    symm = kwargs.get('symm', 2)
-    
-    ds = data.shape
-    y, x = np.indices(ds)
-    yc, xc = ds[0]//2, ds[1]//2
-    r = np.sqrt((x - xc)**2 + (y - yc)**2)
-    rmin = np.max(r) * rstart
-    rmax = np.max(r) * rstop
-    r_ang = (np.angle(x - xc+1j*(y - yc), deg=True))
-    
-    rescaler = np.ones(ds, dtype=float)
-    
-    if symm>0:
-        for i in np.arange(symm*2):
-            ai = max((min(((astart + 360.0/symm*i-360), 180.000001)), - 180.000001))
-            aa = max((min(((astop  + 360.0/symm*i-360), 180.000001)), - 180.000001))
-            if np.abs(ai-aa)>1e-10:
-                #print(ai, aa)
-                cond = (r_ang > ai)*(r_ang < aa)*(r >= rmin)*(r <= rmax)
-                rescaler[cond] = 0.0
-    else:
-        cond = (r_ang > astart)*(r_ang < astop)*(r >= rmin)*(r <= rmax)
-        rescaler[cond] = 0.0
-    return rescaler
 
 
 def rescale_FFT_select_radii_angles(data, scale, center, **kwargs):
