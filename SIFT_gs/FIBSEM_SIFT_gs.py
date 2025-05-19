@@ -3589,24 +3589,24 @@ def destreak_smooth_mrc_stack_with_kernels(mrc_filename, destreak_kernel, smooth
 def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     '''
     Estimate transitions in the images inside mrc_stack, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs). gleb.shtengel@gmail.com  06/2023 
-    Parameters
+    Parameters:
     ---------
     mrc_filename : str
         File name (full path) of the mrc stack to be analyzed
         
-    kwargs
+    kwargs:
     ---------
-    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
     DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails
+        Number of allowed automatic retries if a task fails.
     frame_inds : list of int
         List oif frame indecis to use to display the evaluation box.
         Default are [nfrs//10, nfrs//2, nfrs//10*9]
     evaluation_box : list of 4 int
-        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
-        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
+        If evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
     sliding_evaluation_box : boolean
-        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+        If True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box.
     start_evaluation_box : list of 4 int
         see above
     stop_evaluation_box : list of 4 int
@@ -3620,45 +3620,43 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     flipY : boolean
         If True, the data will be flipped along Y-axis. Default is False.
     zbin_factor : int
-
     min_sigma : float
-        min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.0
+        Min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.0
     max_sigma : float
-        min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.5
+        Max sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.5
     threshold : float
-        threshold for LoG search. Default is 0.005. The absolute lower bound for scale space maxima. Local maxima smaller
+        Threshold for LoG search. Default is 0.005. The absolute lower bound for scale space maxima. Local maxima smaller
         than threshold are ignored. Reduce this to detect blobs with less intensities. 
     overlap : float
         A value between 0 and 1. Defaults is 0.1. If the area of two blobs overlaps by a
         fraction greater than 'overlap', the smaller blob is eliminated.    
     pixel_size : float
-        pixel size in nm. Default is 4.0
+        Pixel size in nm. Default is 4.0.
     subset_size : int
-        subset size (pixels) for blob / transition analysis
-        Default is 16.
+        Subset size (pixels) for blob / transition analysis. Default is 16.
     bounds : lists
         List of of transition limits Deafault is [0.37, 0.63].
         Example of multiple lists: [[0.33, 0.67], [0.20, 0.80]].
     bands : list of 3 ints
-        list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
+        List of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
         Deafault is [5 ,3, 5].
     min_thr : float
-        threshold for identifying a 'good' transition (bottom < min_thr* top)
+        Threshold for identifying a 'good' transition (bottom < min_thr* top).
     transition_low_limit : float
-        error flag is incremented by 4 if the determined transition distance is below this value. Default is 0.0
+        Error flag is incremented by 4 if the determined transition distance is below this value. Default is 0.0
     transition_high_limit : float
-        error flag is incremented by 8 if the determined transition distance is above this value. Default is 10.0
+        Error flag is incremented by 8 if the determined transition distance is above this value. Default is 10.0
     verbose : boolean
-        print the outputs. Default is False
+        Print the outputs. Default is False.
     disp_res : boolean
-        display results. Default is False
+        Display results. Default is False.
     title : str
-        title.
+        Title.
     nbins : int
-        bins for histogram
+        Number of bins for histogram.
     save_data_xlsx : boolean
         save the data into Excel workbook. Default is True.
-    results_file_xlsx : file name for Excel workbook to save the results
+    results_file_xlsx : file name for Excel workbook to save the results.
 
     Returns: XY_transitions ; array[len(frame_inds), 4]
         array consists of lines - one line for each frame in frame_inds
@@ -4000,6 +3998,25 @@ def select_blobs_LoG_analyze_transitions_2D_mrc_stack(params):
 
 
 def mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
+    '''
+    Generates a figure with blob examples based on xlsx file created by mrc_stack_estimate_resolution_blobs_2D
+    mrc_stack_estimate_resolution_blobs_2D analyzes the transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs). gleb.shtengel@gmail.com  04/2025 
+
+    Parameters:
+    ---------
+    results_file_xlsx : file name of Excel workbook of the results created by mrc_stack_estimate_resolution_blobs_2D
+    
+    kwargs:
+    ---------
+    save_png : boolean
+        save the image into PNG file. Default is False.
+    save_fname : string
+        file name for to save the image
+    nbins : int
+        bins for histogram
+    verbose : boolean
+        print the outputs. Default is False
+    '''
     save_png = kwargs.get('save_png', False)
     save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_examples.png'))
     verbose = kwargs.get('verbose', False)
@@ -4842,34 +4859,30 @@ def generate_report_ScanRate_EHT_xlsx(ScanRate_EHT_Data_xlsx, **kwargs):
     fig.savefig(os.path.join(data_dir, ScanRate_EHT_Data_xlsx.replace('.xlsx','_FIBSEM_Data_ScanRate_EHT.png')), dpi=300)
 
 
-def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
+def generate_report_FOV_center_shift_xlsx(FOV_center_shift_xlsx, **kwargs):
     '''
     Generate Report Plot for FOV center shift from XLSX spreadsheet file. ©G.Shtengel 12/2022 gleb.shtengel@gmail.com
     
     Parameters:
-    Mill_Rate_Data_xlsx : str
+    FOV_center_shift_xlsx : str
         Path to the XLSX spreadsheet file containing the Working Distance (WD), Milling Y Voltage (MV), and FOV center shifts data.
     
     kwargs:
-    Mill_Volt_Rate_um_per_V : float
-        Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
 
-    Returns: trend_x, trend_y
-        Smoothed FOV shifts
     '''
     disp_res = kwargs.get('disp_res', False)
     if disp_res:
         print('Loading kwarg Data')
-    saved_kwargs = read_kwargs_xlsx(Mill_Rate_Data_xlsx, 'kwargs Info', **kwargs)
+    saved_kwargs = read_kwargs_xlsx(FOV_center_shift_xlsx, 'kwargs Info', **kwargs)
     data_dir = saved_kwargs.get("data_dir", '')
     Sample_ID = saved_kwargs.get("Sample_ID", '')
     
     if disp_res:
         print('Loading FOV Center Location Data')
     try:
-        int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='FIBSEM Data')
+        int_results = pd.read_excel(FOV_center_shift_xlsx, sheet_name='FIBSEM Data')
     except:
-        int_results = pd.read_excel(Mill_Rate_Data_xlsx, sheet_name='Milling Rate Data')
+        int_results = pd.read_excel(FOV_center_shift_xlsx, sheet_name='Milling Rate Data')
     fr = int_results['Frame']
     center_x = int_results['FOV X Center (Pix)']
     center_y = int_results['FOV Y Center (Pix)']
@@ -4902,7 +4915,7 @@ def generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs):
         axs[0].text(-0.15, 1.05, Sample_ID + '    ' +  data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
     except:
         axs[0].text(-0.15, 1.05, data_dir_short, fontsize = fs-2, transform=axs[0].transAxes)
-    fig.savefig(os.path.join(data_dir, Mill_Rate_Data_xlsx.replace('.xlsx','_FOV_XYcenter.png')), dpi=300)
+    fig.savefig(os.path.join(data_dir, FOV_center_shift_xlsx.replace('.xlsx','_FOV_XYcenter.png')), dpi=300)
     return
 
 
@@ -5445,7 +5458,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
     xlsx_fname : str
         full path to the XLSX spreadsheet file
     
-    kwargs
+    kwargs:
     ---------
     sample_frame_files : list
         List of paths to sample frame images
@@ -5733,23 +5746,23 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
     frame_inds : array or list of int
         Array or list oif frame indecis to use to azalyze the data.
     save_res_png : boolean
-        If True, the PNG's of summary plots as well as summary Excel notebook are saved 
+        If True, the PNG's of summary plots as well as summary Excel notebook are saved.
     save_filename : str
-        Filename (full path) to save the results (default is data_dir +'Regstration_Summary.png')
+        Filename (full path) to save the results (default is data_dir +'Regstration_Summary.png').
     nsad_bounds : list of floats
-        Bounds for NSAD plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
+        Bounds for NSAD plot (default is determined by get_min_max_thresholds with thresholds of 1e-4).
     ncc_bounds : list of floats
-        Bounds for NCC plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
+        Bounds for NCC plot (default is determined by get_min_max_thresholds with thresholds of 1e-4).
     nmi_bounds : list of floats
-        Bounds for NMI plot (default is determined by get_min_max_thresholds with thresholds of 1e-4)
+        Bounds for NMI plot (default is determined by get_min_max_thresholds with thresholds of 1e-4).
     colors : array or list of colors
         Optional colors for each plot/file. If not provided, will be auto-generated.
     linewidths : array of float
-        linewidths for individual files. If not provided, all linewidts are set to 0.5
+        linewidths for individual files. If not provided, all linewidths are set to 0.5
 
     Returns
     xlsx_fname : str
-        Filename of the summary Excel notebook
+        Filename of the summary Excel notebook.
     '''
     save_res_png  = kwargs.get("save_res_png", True )
     linewidths = kwargs.get("linewidths", np.ones(len(data_files))*0.5)
@@ -6082,7 +6095,7 @@ class FIBSEM_frame:
     Methods
     -------
     print_header()
-        Prints a formatted content of the file header
+        Prints a formatted content of the file header.
 
     display_images()
         Display auto-scaled detector images without saving the figure into the file.
@@ -6698,7 +6711,7 @@ class FIBSEM_frame:
 
     def print_header(self):
         '''
-        Prints a formatted content of the file header
+        Prints a formatted content of the file header.
 
         '''
         if self.FileVersion == -1 :
@@ -6840,12 +6853,12 @@ class FIBSEM_frame:
         kwargs:
         images_to_save : str
             Images to save. options are: 'A', 'B', or 'Both' (default).
-        invert : boolean
+        invert_data : boolean
             If True, the image will be inverted.
         
         '''
         images_to_save = kwargs.get("images_to_save", 'Both')
-        invert = kwargs.get("invert", False)
+        invert_data = kwargs.get("invert_data", False)
 
         if images_to_save == 'Both' or images_to_save == 'A':
             if self.ftype == 0:
@@ -6853,7 +6866,7 @@ class FIBSEM_frame:
             else:
                 fname_jpg = os.path.splitext(self.fname)[0] + 'DetA.jpg'
             Img = self.RawImageA_8bit_thresholds()[0]
-            if invert:
+            if invert_data:
                 Img =  np.uint8(255) - Img
             PILImage.fromarray(Img).save(fname_jpg)
 
@@ -7011,32 +7024,22 @@ class FIBSEM_frame:
         kwargs:
          ----------
         thr_min : float
-            lower CDF threshold for determining the minimum data value. Default is 1.0e-3
+            Lower CDF threshold for determining the minimum data value. Default is 1.0e-3
         thr_max : float
-            upper CDF threshold for determining the maximum data value. Default is 1.0e-3
+            Upper CDF threshold for determining the maximum data value. Default is 1.0e-3
         data_min : float
-            If different from data_max, this value will be used as low bound for I8 data conversion
+            If different from data_max, this value will be used as low bound for I8 data conversion.
         data_max : float
-            If different from data_min, this value will be used as high bound for I8 data conversion
+            If different from data_min, this value will be used as high bound for I8 data conversion.
         nbins : int
-            number of histogram bins for building the PDF and CDF
-        disp_res : True
-            If True display the results
+            Number of histogram bins for building the PDF and CDF.
+        disp_res : boolean
+            If True (default) display the results.
         dpi : int
-            Default is 300
+            DPI. Default is 300.
         snapshot_name : string
-            the name of the image to perform this operations (defaulut is frame_name + '_snapshot.png').
-        
+            The name of the image to perform this operations (default is frame_name + '_snapshot.png').
 
-
-        Returns
-        dt, data_min, data_max
-            dt : 2D np.uint8 array
-                Converted data
-            data_min : float
-                value used as low bound for I8 data conversion
-            data_max : float
-                value used as high bound for I8 data conversion
         '''
         thr_min = kwargs.get('thr_min', 1.0e-3)
         thr_max = kwargs.get('thr_max', 1.0e-3)
@@ -13391,16 +13394,16 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     kwargs:
     ---------
     save_png : boolean
-        save the image into PNG file. Default is False.
+        Save the image into PNG file. Default is False.
     save_fname : string
-        file name for to save the image
+        File name for to save the image. Deafult is created by replace('.xlsx', '_2D_blob_analysis_results.png').
     nbins : int
-        bins for histogram
+        Number of bins for histogram. Default is 64.
     verbose : boolean
-        print the outputs. Default is False
+        Print the outputs. Default is False
     '''
     save_png = kwargs.get('save_png', False)
-    save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_analysis_results_raw.png'))
+    save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_analysis_results.png'))
     nbins = kwargs.get('nbins', 64)
 
     saved_kwargs = read_kwargs_xlsx(results_xlsx, 'kwargs Info')
@@ -13526,11 +13529,9 @@ def plot_2D_blob_examples(results_xlsx, **kwargs):
     save_png : boolean
         save the image into PNG file. Default is False.
     save_fname : string
-        file name for to save the image
-    nbins : int
-        bins for histogram
+        file name for to save the image. Default is created by replace('.xlsx', '_2D_blob_examples.png').
     verbose : boolean
-        print the outputs. Default is False
+        Print the outputs. Default is False.
     '''
     save_png = kwargs.get('save_png', False)
     save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_examples.png'))
@@ -13741,13 +13742,11 @@ def plot_2D_blob_examples_single(img, results_xlsx, **kwargs):
     kwargs:
     ---------
     save_png : boolean
-        save the image into PNG file. Default is False.
+        Save the image into PNG file. Default is False.
     save_fname : string
-        file name for to save the image
-    nbins : int
-        bins for histogram
+        File name for to save the image. Default is generated by replace('.xlsx', '_2D_blob_examples.png').
     verbose : boolean
-        print the outputs. Default is False
+        Print the outputs. Default is False.
     '''
     save_png = kwargs.get('save_png', False)
     save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_examples.png'))
