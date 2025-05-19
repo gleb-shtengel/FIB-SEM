@@ -609,6 +609,7 @@ def Single_Image_SNR(img, **kwargs):
     img : 2D array
      
     kwargs:
+    ----------
     edge_fraction : float
         fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
     extrapolate_signal : str
@@ -616,12 +617,12 @@ def Single_Image_SNR(img, **kwargs):
         Options are:
             'nearest'  - nearest point (1 pixel away from center)
             'linear'   - linear interpolation of 2-points next to center
-            'parabolic' - parabolic interpolation of 2 point left and 2 points right 
+            'parabolic' - parabolic interpolation of 2 points left and 2 points right 
             'gaussian'  - gaussian interpolation with number of points = aperture
             'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
             Default is 'parabolic'.
     nlags : int
-        in case of 'LDR' (Levinson-Durbin recusrsion) nlags is the recursion order (a number of lags)
+        in case of 'LDR' (Levinson-Durbin recursion) nlags is the recursion order (a number of lags)
     aperture : int
         total number of points for gaussian interpolation
     zero_mean: boolean
@@ -799,7 +800,7 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
     4.  For each histogram bin of the Smoothed Image (Step 3), calculate the mean value and variance for the same pixels in the original image.
     5.  Plot the dependence of the noise variance vs. image intensity.
     6.  One of the parameters is a DarkCount. If it is not explicitly defined as input parameter, it will be set to 0.
-    7.  The equation is determined for a line that passes through the points Intensity=DarkCount and Noise Variance = 0 and is a best fit for
+    7.  The equation is determined for a line that passes through the points Intensity=DarkCount and Noise Variance = 0 and is the best fit for
         the [Mean Intensity, Noise Variance] points determined for each ROI (Step 1 above).
     8.  The data is plotted. Following values of SNR are defined from the slope of the line in Step 7:
         a.  PSNR (Peak SNR) = Intensity /sqrt(Noise Variance) at the intensity at the histogram peak determined in the Step 3.
@@ -1011,7 +1012,8 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     Performs following:
     1. Smooth the image by 2D convolution with a given kernel.
     2. Determine "Noise" as difference between the original raw and smoothed data.
-    3. Select subsets of otiginal, smoothed and noise images by selecting only elements where the filter_array (optional input) is True
+    3. Select subsets of otiginal, smoothed and noise images by selecting only elements where the filter_array (optional input) is True.
+        Use calculate_gradent_map to establish filter_array.
     4. Build a histogram of Smoothed Image (subset if filter_array was set).
     5. For each histogram bin of the Smoothed Image (Step 4), calculate the mean value and variance for the same pixels in the original image.
     6. Plot the dependence of the noise variance vs. image intensity.
@@ -1042,8 +1044,6 @@ def Single_Image_Noise_Statistics(img, **kwargs):
             (default 256) number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5.
         thresholds_analysis: list [thr_min_analysis, thr_max_analysis]
             (default [2e-2, 2e-2]) CDF threshold for building the data histogram in Step 5.
-        nbins_analysis : int
-             (default 256) number of histogram bins for building the data histogram in Step 5.
         disp_res : boolean
             (default is False) - to plot/ display the results
         disp_res_SNR0 : boolean
@@ -3185,8 +3185,6 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     fnm_types : list of strings
         File type(s) for output data. Options are: ['h5', 'mrc'].
         Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
-
-
     partial_destreaking : boolean
         Default is False. if True, only part of the image is destreaked. This is accomplished by destreaking the full image and then building a composite image with a smooth transition from non-destreaked to destreaked.
     transition_direction : str
