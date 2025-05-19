@@ -1664,7 +1664,7 @@ def Two_Image_NCC_SNR(img1, img2, **kwargs):
 
 def Two_Image_FSC(img1, img2, **kwargs):
     '''
-    Perform Fourier Shell Correlation to determine the image resolution, after [1]. ©G.Shtengel, 10/2019. gleb.shtengel@gmail.com
+    Performs Fourier Shell Correlation to determine the image resolution, after [1]. ©G.Shtengel, 10/2019. gleb.shtengel@gmail.com
     FSC is determined from radially averaged foirier cross-correlation (with optional selection of range of angles for radial averaging).
     
     Parameters
@@ -1680,17 +1680,14 @@ def Two_Image_FSC(img1, img2, **kwargs):
         If False, the BW will be extracted from the smoothed FSC data
     smooth_aperture : int
         Smoothing aperture. Default is 20.
-    fit_data : boolean
-        If True the BW will be extracted fron inverse power fit.
-        If False, the BW will be extracted from the data
     fit_power : int
         parameter for FSC data fitting: FSC_fit  = a/(x**fit_power+a)
     fr_cutoff : float
         The fractional value between 0.0 and 1.0. The data points within the frequency range [0 : max_frequency*cutoff]  will be used.
     astart : float
-        Start angle for radial averaging. Default is 0
+        Start angle for radial averaging. Default is 0.0
     astop : float
-        Stop angle for radial averaging. Default is 90
+        Stop angle for radial averaging. Default is 90.0
     symm : int
         Symmetry factor (how many times Start and stop angle intervalks are repeated within 360 deg). Default is 4.
     disp_res : boolean
@@ -2013,36 +2010,37 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     Read MRC stack and analyze registration - calculate NSAD, NCC, and MI.
     ©G.Shtengel, 04/2021. gleb.shtengel@gmail.com
 
-    Parameters
+    Parameters:
     ---------
     mrc_filename : str
-        File name (full path) of the mrc stack to be analyzed
-
+        File name (full path) of the mrc stack to be analyzed.
     kwargs:
-    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    ---------
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
     DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails
+        Number of allowed automatic retries if a task fails.
     frame_inds : array
-        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames.
     invert_data : boolean
-        If True, the data will be inverted
+        If True, the data will be inverted.
     evaluation_box : list of 4 int
-        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
+        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
     sliding_evaluation_box : boolean
-        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box.
     start_evaluation_box : list of 4 int
         see above
     stop_evaluation_box : list of 4 int
         see above
     save_res_png  : boolean
-        Save PNG images of the intermediate processing statistics and final registration quality check
+        Save PNG images of the intermediate processing statistics and final registration quality check.
     save_filename : str
-        Path to the filename to save the results. If empty, mrc_filename+'_RegistrationQuality.xlsx' will be used
-    save_sample_frames_png : bolean
-        If True, sample frames with superimposed eval box and registration analysis data will be saved into png files. Default is True
+        Path to the filename to save the results. If empty, mrc_filename+'_RegistrationQuality.xlsx' will be used.
+    save_sample_frames_png : boolean
+        If True, sample frames with superimposed eval box and registration analysis data will be saved into png files. Default is True.
 
-    Returns reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX spreadsheet file
+    Returns:
+    reg_summary : PD data frame, registration_summary_xlsx : path to summary XLSX spreadsheet file
     '''
     mrc_filename  = os.path.normpath(mrc_filename)
 
@@ -2269,13 +2267,6 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
         File name (full path) of the mrc stack to be analyzed
      
     kwargs:
-    evaluation_box : list of 4 int
-        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
-        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-    save_res_png  : boolean
-        Save PNG images of the intermediate processing statistics and final registration quality check
-    ax : matplotlib ax artist
-        if provided, the data is exported to external ax object.
     frame_inds : array
         List of frame indices to display the evaluation box. If not provided, three frames will be used:
         [nz//10,  nz//2, nz//10*9] where nz is number of frames in mrc stack
@@ -2283,16 +2274,20 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
     sliding_evaluation_box : boolean
-        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+        if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box.
     start_evaluation_box : list of 4 int
         see above
     stop_evaluation_box : list of 4 int
-        see above
+        see above.
     box_linewidth : float
-        linewidth for the box outline. deafault is 1.0
+        linewidth for the box outline. deafault is 1.0.
     box_color : color
-        color for the box outline. deafault is yellow
+        color for the box outline. deafault is yellow.
     invert_data : Boolean
+    save_res_png  : boolean
+        Save PNG images of the intermediate processing statistics and final registration quality check
+    ax : matplotlib ax artist.
+        if provided, the data is exported to external ax object.
     '''
     mrc_filename  = os.path.normpath(mrc_filename)
 
@@ -2390,12 +2385,13 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     Read MRC stack and plot the ortho cross-sections.
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
 
-    Parameters
+    Parameters:
     ---------
     mrc_filename : str
         File name (full path) of the mrc stack to be analyzed
      
     kwargs:
+    ---------
     XZ_section : boolean
         If True (default), XZ cros-section is present.
     ZY_section : boolean
@@ -2407,48 +2403,46 @@ def plot_cross_sections_mrc_stack(mrc_filename, **kwargs):
     box_dimensions : array or list of 3 floats
         Dimensions of the sections to plot (x, y, z) in um (box is centered around center coordinates). Default is full stack size.
     xsection_offsets  : array or list of 3 floats
-        offsets for cross-section location from the center of the box (x, y, z) in um. Default is [0.0, 0.0, 0.0].
+        Offsets for cross-section location from the center of the box (x, y, z) in um. Default is [0.0, 0.0, 0.0].
     addtl_sp : float
         Additional white space between the cross-section plots. Default is 0.0.
     xsection_linewidth : float
-        width of the cross-secion line. Default is 0.5.
+        Width of the cross-section line. Default is 0.5.
     xsection_line_color : string
-        color of the cross-secion line. Defalt is 'white'.
+        Color of the cross-secion line. Default is 'white'.
     EM_min : float
         Min value for EM data range. If not defined will be determined automatically from the section data.
     EM_max : float
         Max value for EM data range. If not defined will be determined automatically from the section data.
-
     display_scale_bars : boolean
         If True (default), the scale bars are displayed in cross-sections.
     loc : (float, float)
-        bar location in fractional axis coordinates (0, 0) is left bottom corner. (1, 1) is top right corner.
+        Bar location in fractional axis coordinates (0, 0) is left bottom corner. (1, 1) is top right corner.
         Default is (0.1, 0.9)
     bar_length_um : float
-        length of the scale bar (um). Default is 1um.
+        Length of the scale bar (um). Default is 1um.
     bar_width : float
-        width of the scale bar. Defalt is 5.0
+        Width of the scale bar. Defalt is 5.0.
     bar_color : string
-        color of the scale bar. Defalt is 'white'
+        Color of the scale bar. Defalt is 'white'.
     display_scale_bar_labels : boolean
-        If True (default), the scale bar labels are displayed
+        If True (default), the scale bar labels are displayed.
     label : string
-        scale bar label. Default is length in um.
+        Scale bar label. Default is length in um.
     label_color : color
-        color of the scale bar label. Defalt is the same as bar_color.
+        Color of the scale bar label. Default is the same as bar_color.
     label_font_size : int
-        Font Size of the scale bar label. Defalt is 12
+        Font Size of the scale bar label. Default is 12.
     label_offset : int
-        Additional vertical offset for the label position. Defalt is 0.
-    
-    save_PNG : bolean
+        Additional vertical offset for the label position. Default is 0.
+    save_PNG : boolean
         If True (default), the data will be saved into PNG file.
     save_filename : string
         Filename to save the image. Defaults is mrc_filename.replace('.mrc', '_crosssections.png')
     dpi : int
         DPI for the PNG file. Dafult is 300.
     
-    Returns: images, exs
+    Returns: images, axs
     '''
     display_scale_bars = kwargs.get('display_scale_bars', True)
     bar_length_um = kwargs.get('bar_length_um', 1.0)  #in um
@@ -2617,6 +2611,7 @@ def bin_crop_frames(bin_crop_parameters):
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
     
     Parameters:
+    ---------
     params : list
         mrc_filename : filename for the MRC source file
         dtp : data type
@@ -2658,46 +2653,48 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     Bins and crops a 3D mrc stack along X-, Y-, or Z-directions and saves it into MRC or HDF5 format. ©G.Shtengel 08/2022 gleb.shtengel@gmail.com
 
     Parameters:
+    ---------
         mrc_filename : str
-            name (full path) of the mrc file to be binned
-    **kwargs:
-        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+            name (full path) of the mrc file to be binned.
+    kwargs:
+    ---------
+        DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
         DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails
+            Number of allowed automatic retries if a task fails.
         max_futures : int
             max number of running futures. Default is 5000.
         fnm_types : list of strings.
             File type(s) for output data. Options are: ['h5', 'mrc'].
             Defauls is ['mrc']. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
         zbin_factor : int
-            binning factor in z-direction
+            binning factor in z-direction.
         xbin_factor : int
-            binning factor in x-direction
+            binning factor in x-direction.
         ybin_factor : int
-            binning factor in y-direction
+            binning factor in y-direction.
         mode  : str
-            Binning mode. Default is 'mean', other option is 'sum'
+            Binning mode. Default is 'mean', other option is 'sum'.
         mrc_mode : int
-            mrc mode
+            mrc mode.
         flipY : boolean
             If Trye, the data will be flipped along Y axis (0 index) AFTER cropping.
         invert_data : boolean
-            If True, invert the data
+            If True, invert the data.
         binned_copped_filename : str
             name (full path) of the mrc file to save the results into. If not present, the new file name is constructed from the original by adding "_zbinXX" at the end.
         xi : int
-            left edge of the crop
+            left edge of the crop.
         xa : int
-            right edge of the crop
+            right edge of the crop.
         yi : int
-            top edge of the crop
+            top edge of the crop.
         ya : int
-            bottom edge of the crop
+            bottom edge of the crop.
         fri : int
-            start frame
+            start frame.
         fra : int
-            stop frame
-        voxel_size_new : rec array
+            stop frame.
+        voxel_size_new : rec array.
             new voxel size in nm. Will be converted into Angstroms for MRC header.
     Returns:
         fnms_saved : list of str
@@ -3151,7 +3148,7 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it into MRC or H5 stack.
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
 
-    Parameters
+    Parameters:
     ---------
     mrc_filename : str
         File name (full path) of the mrc stack to be analyzed
@@ -3163,24 +3160,24 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
          - identified by comparing to data_min and data_max
          - if ouside the above range - replaced by mirror imaged adjacent data
          - after FFT, kernel multiplication, and reverse FFT, they will be replaced by zeros.
-
     kwargs:
-    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    ---------
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
     DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails
+        Number of allowed automatic retries if a task fails.
     max_futures : int
         max number of running futures. Default is 5000.
     frame_inds : array
-        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames.
     invert_data : boolean
-        If True, the data will be inverted
+        If True, the data will be inverted.
     fri : int
         start frame
     fra : int
         stop frame
-    voxel_size : rec array of 3 elemets
+    voxel_size : rec array of 3 elements
         voxel size in nm. Default is the data that was stored in the initial file.
-    disp_res : bolean
+    disp_res : boolean
         Display messages and intermediate results
     fnm_types : list of strings
         File type(s) for output data. Options are: ['h5', 'mrc'].
@@ -3192,19 +3189,20 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     flip_transitionY : boolean
         Default is False. flip transition in Y direction.
     flip_transitionX : boolean
-        Default is False. flip transition in X direction
+        Default is False. flip transition in X direction.
     xi : int
-        Start index of transion if transition_direction is 'X'. Default is 1/2 of the image.
+        Start index of transition if transition_direction is 'X'. Default is 1/2 of the image.
     xa : int
-        Stop index of transion if transition_direction is 'X'. Default is 3/4 of the image.
+        Stop index of transition if transition_direction is 'X'. Default is 3/4 of the image.
     yi : int
-        Start index of transion if transition_direction is 'Y'. Default is 1/2 of the image.
+        Start index of transition if transition_direction is 'Y'. Default is 1/2 of the image.
     ya : int
-        Stop index of transion if transition_direction is 'Y'. Default is 3/4 of the image.
+        Stop index of transition if transition_direction is 'Y'. Default is 3/4 of the image.
     save_filename : str
-        Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used
+        Path to the filename to save the results. If empty, mrc_filename+'_destreaked.mrc' will be used.
     
-    Returns the names of the destreaked stacks
+    Returns:
+        fnms_saved : list of str    Names of the new (binned and cropped) data files.
     '''
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
@@ -3356,6 +3354,7 @@ def smooth_single_frame_kernel_shared(smooth_kernel, params):
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
     
     Parameters:
+    ---------
     smooth_kernel : 2D array - for 2D-convolution
     params : list
         mrc_filename : filename for the MRC source file
@@ -3364,6 +3363,7 @@ def smooth_single_frame_kernel_shared(smooth_kernel, params):
         target_frame_ID : int
             frame to save
         data_min, data_max : floats
+
     Returns : target_frame_ID, transformed_frame
     '''
     mrc_filename, dt, source_frame_ID, target_frame_ID, data_min, data_max = params
@@ -3381,7 +3381,7 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
     Read MRC stack, smooth the data by performing 2D-convolution with smooth_kernel, and save the data.
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
 
-    Parameters
+    Parameters:
     ---------
     mrc_filename : str
         File name (full path) of the mrc stack to be analyzed
@@ -3393,25 +3393,27 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
          - identified by comparing to data_min and data_max
          - if ouside the above range - replaced by mirror imaged adjacent data
          - after FFT, kernel multiplication, and reverse FFT, they will be replaced by zeros.
-
     kwargs:
-    DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+    ---------
+    DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
     DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails
+        Number of allowed automatic retries if a task fails.
     max_futures : int
         max number of running futures. Default is 5000.
     frame_inds : array
-        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+        Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames.
     invert_data : boolean
-        If True, the data will be inverted
+        If True, the data will be inverted.
     fri : int
         start frame
     fra : int
         stop frame
     save_filename : str
-        Path to the filename to save the results. If empty, mrc_filename+'_smoothed.mrc' will be used
-    
-    Returns the name of the smoothed MRC stack
+        Path to the filename to save the results. If empty, mrc_filename+'_smoothed.mrc' will be used.
+
+    Returns:
+        save_filename : str
+            The name of the smoothed MRC stack.
     '''
     DASK_client = kwargs.get('DASK_client', '')
     DASK_client_retries = kwargs.get('DASK_client_retries', 3)
@@ -4387,7 +4389,7 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-    save_sample_frames_png : bolean
+    save_sample_frames_png : boolean
         If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
     sliding_evaluation_box : boolean
         if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
@@ -5449,7 +5451,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
         List of paths to sample frame images
     png_file : str
         filename to save the results. Default is file_xlsx with extension '.xlsx' replaced with '.png'
-    invert_data : bolean
+    invert_data : boolean
         If True, the representative data frames will use inverse LUT. 
     sample_frames_layout : str
         Default is 'vertical'. Another option is 'horizontal'.
@@ -7920,7 +7922,7 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
         Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
     FIBSEM_Data_xlsx : str
         Filepath of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)
-    disp_res : bolean
+    disp_res : boolean
         If True (default), intermediate messages and results will be displayed.
     use_existing_data : boolean
         Default is False. If True and the data exists (saved inso XLSX), use that.   
@@ -9794,7 +9796,7 @@ def transform_chunk_of_frames(frame_filenames, xsz, ysz, ftype,
         Y-size (pixels)
     ftype : int
         File Type. 0 for Shan's .dat files, 1 for tif files
-    flatten_image : bolean
+    flatten_image : boolean
         perform image flattening
     image_correction_file : str
         full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
@@ -10097,13 +10099,13 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
         Evaluation boundaries for analysis
     eval_metrics : list of str
         list of evaluation metrics to use. default is ['NSAD', 'NCC', 'NMI', 'FSC']
-    save_sample_frames_png : bolean
+    save_sample_frames_png : boolean
         If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
     sample_frame_inds : list of int
         list of sample frame indecis
     save_registration_summary : boolean
         If True, the registration summary is saved into XLSX file
-    disp_res : bolean
+    disp_res : boolean
         If True (default), intermediate messages and results will be displayed.
 
     Returns:
@@ -10249,7 +10251,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
         If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
     int_order : int
         The order of interpolation. 1: Bi-linear
-    flatten_image : bolean
+    flatten_image : boolean
         perform image flattening
     image_correction_file : str
         full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
@@ -10274,7 +10276,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
         Python data type for saving. Deafult is int16.
     fill_value : float
         Fill value for padding. Default is zero.
-    disp_res : bolean
+    disp_res : boolean
         Default is False
 
     Returns:
@@ -10410,7 +10412,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
             voxel size in nm
         dtp  : dtype
             Python data type for saving. Deafult is int16, the other option currently is uint8.
-        disp_res : bolean
+        disp_res : boolean
             Display messages and intermediate results
         chunked_mrc_write : boolean
             if True, the MRC stack is written in chunks, otherwise (False, Default) frame-by-frame
@@ -11395,7 +11397,7 @@ class FIBSEM_dataset:
             Filepath of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)
         use_existing_data : boolean
             Default is False. If True and the data exists (saved inso XLSX), use that.            
-        disp_res : bolean
+        disp_res : boolean
             If True (default), intermediate messages and results will be displayed.
 
         Returns:
@@ -12091,7 +12093,7 @@ class FIBSEM_dataset:
             Number of allowed automatic retries if a task fails
         save_transformed_dataset : boolean
             If True (default), the transformed data set will be saved into MRC file
-        save_registration_summary : bolean
+        save_registration_summary : boolean
             If True (default()), the registration analysis data will be saved into XLSX file
         frame_inds : int array (or list)
             Array of frame indecis. Default is all frames (to be transformed).
@@ -12130,7 +12132,7 @@ class FIBSEM_dataset:
                 'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
                 'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
         deformation_fields : float array
-        flatten_image : bolean
+        flatten_image : boolean
             perform image flattening
         image_correction_file : str
             full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
@@ -12153,7 +12155,7 @@ class FIBSEM_dataset:
             see above
         stop_evaluation_box : list of 4 int
             see above
-        save_sample_frames_png : bolean
+        save_sample_frames_png : boolean
             If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
         dtp  : dtype
             Python data type for saving. Deafult is int16, the other option currently is np.uint8.
@@ -12161,7 +12163,7 @@ class FIBSEM_dataset:
             Fill value for padding. Default is zero.
         remove_intermediate_frames : boolean
             If True (Default), intermediate frames (TIFF files) will be removed
-        disp_res : bolean
+        disp_res : boolean
             If True (default), intermediate messages and results will be displayed.
         chunked_mrc_write : boolean
             if True, the MRC stack is written in chunks, otherwise (False, Default) frame-by-frame
