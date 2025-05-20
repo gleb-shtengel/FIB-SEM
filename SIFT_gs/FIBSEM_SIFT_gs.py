@@ -611,34 +611,33 @@ def Single_Image_SNR(img, **kwargs):
     kwargs:
     ----------
     edge_fraction : float
-        fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
+        Fraction of the full auto-correlation  range used to calculate the "mean value" (default is 0.10).
     extrapolate_signal : str
-        extrapolate to find signal autocorrelationb to 0-point (without noise). 
-        Options are:
+        Extrapolation method to find signal auto-correlation at 0-point (“Noise-Free Autocorrelation”). 
+        Options are (default is 'parabolic'):
             'nearest'  - nearest point (1 pixel away from center)
             'linear'   - linear interpolation of 2-points next to center
             'parabolic' - parabolic interpolation of 2 points left and 2 points right 
             'gaussian'  - gaussian interpolation with number of points = aperture
             'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
-            Default is 'parabolic'.
     nlags : int
-        in case of 'LDR' (Levinson-Durbin recursion) nlags is the recursion order (a number of lags)
+        In case of 'LDR' (Levinson-Durbin recursion) nlags is the recursion order (a number of lags). Default is min(xsize/4, ysize/4).
     aperture : int
-        total number of points for gaussian interpolation
+        Total number of points for gaussian interpolation. Default is 6.
     zero_mean: boolean
-        if True (default), auto-correlation is zero-mean
+        If True (default), auto-correlation is zero-mean.
     disp_res : boolean
-        display results (plots) (default is True)
+        Display results (plots) (default is True).
     save_res_png : boolean
-        save the analysis output into a PNG file (default is True)
+        Save the analysis output into a PNG file (default is True).
     res_fname : string
-        filename for the result image ('SNR_result.png')
+        filename for the result image. Default is 'SNR_result.png'.
     img_label : string
-        optional image label
+        Optional image label.
     dpi : int
-        dots-per-inch resolution for the output image
+        Resolution (DPI) for the output PNG image.
     verbose : boolean
-        display intermediate results
+        Display intermediate results.
         
     Returns:
         xSNR, ySNR, rSNR : float, float, float
@@ -792,60 +791,69 @@ def Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):
     '''
     Analyses the noise statistics in the selected ROI's of the EM data
     ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
-    
+    This function is somewhat obsolete. When possible – use Single_Image_SNR(img, **kwargs) , it is more powerful and accurate way of analysing the noise distribution.
     Performs following:
-    1.  Smooth the image by 2D convolution with a given kernel.
-    2.  Determine "Noise" as difference between the original raw and smoothed data.
-    3.  Build a histogram of Smoothed Image.
-    4.  For each histogram bin of the Smoothed Image (Step 3), calculate the mean value and variance for the same pixels in the original image.
-    5.  Plot the dependence of the noise variance vs. image intensity.
-    6.  One of the parameters is a DarkCount. If it is not explicitly defined as input parameter, it will be set to 0.
-    7.  The equation is determined for a line that passes through the points Intensity=DarkCount and Noise Variance = 0 and is the best fit for
-        the [Mean Intensity, Noise Variance] points determined for each ROI (Step 1 above).
-    8.  The data is plotted. Following values of SNR are defined from the slope of the line in Step 7:
-        a.  PSNR (Peak SNR) = Intensity /sqrt(Noise Variance) at the intensity at the histogram peak determined in the Step 3.
-        b.  MSNR (Mean SNR) = Mean Intensity /sqrt(Noise Variance)
-        c.  DSNR (Dynamic SNR) = (Max Intensity - Min Intensity) / sqrt(Noise Variance), where Max and Min Intensity are determined by
-            corresponding cumulative threshold parameters, and Noise Variance is taken at the intensity in the middle of the range
-            (Min Intensity + Max Intensity)/2.0.
+    1. For each of the selected Noise_ROIs, this method will perform the following:
+        1a. Smooth the data by 2D convolution with a given kernel.
+        1b. Determine "Noise" as difference between the original raw and smoothed data.        
+        1c. Calculate the mean intensity value of the data and variance of the above "Noise"
+    2. Plot the dependence of the noise variance vs. image intensity.
+    3. One of the parameters is a DarkCount. If it is not explicitly defined as input parameter,
+        it will be determined from the header data:
+            for RawImageA it is self.Scaling[1,0]
+            for RawImageB it is self.Scaling[1,1]
+    4. The linear equation is determined for a line that passes through the point:
+            Intensity=DarkCount and Noise Variance = 0
+            and is the best fit for the [Mean Intensity, Noise Variance] points
+            determined for each ROI (Step 1 above).
+    5. Another ROI (defined by Hist_ROI parameter) is used to build an
+        intensity histogram of the actual data. Peak of that histogram is determined.
+    6. The data is plotted. Two values of SNR are defined from the slope of the line in Step 4:
+        PSNR (Peak SNR) = Mean Intensity/sqrt(Noise Variance) at the intensity
+            at the histogram peak determined in the Step 5.
+        DSNR (Dynamic SNR) = (Max Intensity - Min Intensity) / sqrt(Noise Variance),
+            where Max and Min Intensity are determined by corresponding cumulative
+            threshold parameters, and Noise Variance is taken at the intensity
+            in the middle of the range (Min Intensity + Max Intensity)/2.0
 
     Parameters
     ----------
     img : 2D array
-        original image
+        Original image
     Noise_ROIs : list of lists: [[left, right, top, bottom]]
-        list of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the noise.
+        List of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the noise.
     Hist_ROI : list [left, right, top, bottom]
-        coordinates (indices) of the boundaries of the image subset to evaluate the real data histogram.
+        Coordinates (indices) of the boundaries of the image subset to evaluate the real data histogram.
 
     kwargs:
+    ----------
     DarkCount : float
-        the value of the Intensity Data at 0.
+        The value of the Intensity Data at 0.
     kernel : 2D float array
-        a kernel to perform 2D smoothing convolution.
+        A kernel to perform 2D smoothing convolution. Default is normalized np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]), where st = 1/np.sqrt(2).
     nbins_disp : int
-        (default 256) number of histogram bins for building the PDF and CDF to determine the data range for data display.
+        Number of histogram bins for building the PDF and CDF to determine the data range for data display. Default is 256.
     thresholds_disp : list [thr_min_disp, thr_max_disp]
-        (default [1e-3, 1e-3]) CDF threshold for determining the min and max data values for display.
+        CDF threshold for determining the min and max data values for display. Default id [1e-3, 1e-3].
     nbins_analysis : int
-        (default 256) number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5.
+        Number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5. Default is 256.
     thresholds_analysis: list [thr_min_analysis, thr_max_analysis]
-        (default [2e-2, 2e-2]) CDF threshold for building the data histogram in Step 5.
-    nbins_analysis : int
-         (default 256) number of histogram bins for building the data histogram in Step 5.
+        CDF threshold for building the data histogram in Step 5. Default is [2e-2, 2e-2].
     disp_res : boolean
-        (default is False) - to plot/ display the results
+        If True - plot/ display the results. Default is True.
     save_res_png : boolean
-        save the analysis output into a PNG file (default is True)
+        Save the analysis output into a PNG file. Default is True.
     res_fname : string
-        filename for the sesult image ('SNR_result.png')
+        Filename - used for plotting the data. Default is 'SNR_result.png'.
     img_label : string
-        optional image label
+        Optional image label.
     Notes : string
-        optional additional notes
+        Optional additional notes.
     dpi : int
-
+        Resolution (DPI) of the PNG image.
+        
     Returns:
+    ----------
     mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR
         mean_vals and var_vals are the Mean Intensity and Noise Variance values for the Noise_ROIs (Step 1)
         NF_slope is the slope of the linear fit curve (Step 4)
@@ -1019,7 +1027,6 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     7. Perform free linear fit of the variance vs. intensity. SNR0 is calculated as <S^2>/<N^2>.
     8. Perform linear fit with forced zero Intercept (DarkCount) of the variance vs. intensity. SNR1 is calculated <S^2>/<N^2>.
 
-
     Parameters
     ----------
     img : 2d array
@@ -1053,11 +1060,11 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     res_fname : str
         Filename - used for plotting the data. Default is'Noise_Analysis.png'
     img_label : string
-        Optional image label
+        Optional image label.
     Notes : string
-        Optional additional notes
+        Optional additional notes.
     dpi : int
-        Resolution (DPI ) of the PNG image.
+        Resolution (DPI) of the PNG image.
 
     Returns:
     mean_vals, var_vals, I0, SNR0, SNR1, popt, result
@@ -2279,9 +2286,9 @@ def show_eval_box_mrc_stack(mrc_filename, **kwargs):
     stop_evaluation_box : list of 4 int
         see above.
     box_linewidth : float
-        linewidth for the box outline. deafault is 1.0.
+        linewidth for the box outline. Default is 1.0.
     box_color : color
-        color for the box outline. deafault is yellow.
+        color for the box outline. Default is yellow.
     invert_data : Boolean
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
@@ -3634,11 +3641,11 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     subset_size : int
         Subset size (pixels) for blob / transition analysis. Default is 16.
     bounds : lists
-        List of of transition limits Deafault is [0.37, 0.63].
+        List of of transition limits Default is [0.37, 0.63].
         Example of multiple lists: [[0.33, 0.67], [0.20, 0.80]].
     bands : list of 3 ints
         List of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
-        Deafault is [5 ,3, 5].
+        Default is [5 ,3, 5].
     min_thr : float
         Threshold for identifying a 'good' transition (bottom < min_thr* top).
     transition_low_limit : float
@@ -4225,9 +4232,9 @@ def show_eval_box_tif_stack(tif_filename, **kwargs):
     stop_evaluation_box : list of 4 int
         see above
     box_linewidth : float
-        linewidth for the box outline. deafault is 1.0
+        linewidth for the box outline. Default is 1.0
     box_color : color
-        color for the box outline. deafault is yellow
+        color for the box outline. Default is yellow
     invert_data : Boolean
     '''
     tif_filename = os.path.normpath(tif_filename)
@@ -7161,7 +7168,7 @@ class FIBSEM_frame:
         ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
 
         Performs following:
-        1. For each of the selected ROI's, this method will perfrom the following:
+        1. For each of the selected Noise_ROIs, this method will perfrom the following:
             1a. Smooth the data by 2D convolution with a given kernel.
             1b. Determine "Noise" as difference between the original raw and smoothed data.        
             1c. Calculate the mean intensity value of the data and variance of the above "Noise"
@@ -7170,7 +7177,7 @@ class FIBSEM_frame:
             it will be determined from the header data:
                 for RawImageA it is self.Scaling[1,0]
                 for RawImageB it is self.Scaling[1,1]
-        4. The equation is determined for a line that passes through the point:
+        4. The liner equation is determined for a line that passes through the point:
                 Intensity=DarkCount and Noise Variance = 0
                 and is a best fit for the [Mean Intensity, Noise Variance] points
                 determined for each ROI (Step 1 above).
@@ -7198,8 +7205,6 @@ class FIBSEM_frame:
             The value of the Intensity Data at 0.
         kernel : 2D float array
             A kernel to perform 2D smoothing convolution. Default is normalized np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]), where st = 1/np.sqrt(2).
-        res_fname : str
-            Filename - used for plotting the data. If not explicitly defined will use the instance attribute self.fname.
         nbins_disp : int
             Number of histogram bins for building the PDF and CDF to determine the data range for data display. Default is 256.
         thresholds_disp : list [thr_min_disp, thr_max_disp]
@@ -7210,6 +7215,10 @@ class FIBSEM_frame:
             CDF threshold for building the data histogram in Step 5. Default is [2e-2, 2e-2].
         disp_res : boolean
             If True - plot/ display the results. Default is True.
+        save_res_png : boolean
+            Save the analysis output into a PNG file. Default is True.
+        res_fname : str
+            Filename - used for plotting the data. Deafult is attribute self.fname  + '_' + image_name + '_Noise_Analysis_ROIs.png'.
         Returns:
         ----------
         mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR
@@ -7221,6 +7230,7 @@ class FIBSEM_frame:
         res_fname_default = os.path.splitext(self.fname)[0] + '_' + image_name + '_Noise_Analysis_ROIs.png'
         res_fname = kwargs.get("res_fname", res_fname_default)
         disp_res = kwargs.get('disp_res', True)
+        save_res_png = kwargs.get('save_res_png', True)
 
         if image_name == 'RawImageA':
             ImgEM = self.RawImageA.astype(float)
@@ -7247,9 +7257,10 @@ class FIBSEM_frame:
             kwargs['kernel'] = kernel
             kwargs['DarkCount'] = DarkCount
             kwargs['img_label'] = image_name
-            kwargs['res_fname'] = res_fname
             kwargs['Notes'] = Notes
             kwargs['disp_res'] = disp_res
+            kwargs['save_res_png'] = save_res_png
+            kwargs['res_fname'] = res_fname
             mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR = Single_Image_Noise_ROIs(ImgEM, Noise_ROIs, Hist_ROI, **kwargs)
 
         else:
@@ -7396,64 +7407,63 @@ class FIBSEM_frame:
         Calculates SNR of a single image base on auto-correlation analysis of a single image, after [1].
         Calls function Single_Image_SNR(img, **kwargs)
         
-        Parameters
+        Parameters:
         ---------
         kwargs:
+        ---------
         image_name : str
-            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
+            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'.
         zero_mean: boolean
-            if True (default), auto-correlation is zero-mean
+            If True (default), auto-correlation is zero-mean.
         edge_fraction : float
-            fraction of the full autocetrrelation range used to calculate the "mean value" (default is 0.10)
-        extrapolate_signal : str
-            extrapolate to find signal autocorrelationb to 0-point (without noise). 
-            Options are:
-                    'nearest'  - nearest point (1 pixel away from center)
-                    'linear'   - linear interpolation of 2-points next to center
-                    'parabolic' - parabolic interpolation of 2 point left and 2 points right 
-            Default is 'parabolic'.
+            Fraction of the full auto-correlation range used to calculate the "mean value" (default is 0.10).
+            extrapolate_signal : str
+        Extrapolation method to find signal auto-correlation at 0-point (“Noise-free Autocorrelation”). 
+        Options are (default is 'parabolic'):
+            'nearest'  - nearest point (1 pixel away from center)
+            'linear'   - linear interpolation of 2-points next to center
+            'parabolic' - parabolic interpolation of 2 points left and 2 points right 
+            'gaussian'  - gaussian interpolation with number of points = aperture
+            'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
+        nlags : int
+            In case of 'LDR' (Levinson-Durbin recursion) nlags is the recursion order (a number of lags). Default is min(xsize/4, ysize/4).
+        aperture : int
+            Total number of points for gaussian interpolation. Default is 6.
         evaluation_box : list of 4 int
-            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
+            Evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
         disp_res : boolean
-            display results (plots) (default is True)
+            Display results (plots) (default is True).
         save_res_png : boolean
-            save the analysis output into a PNG file (default is True)
+            Save the analysis output into a PNG file (default is True).
         res_fname : string
-            filename for the sesult image ('SNR_result.png')
+            Filename for the result image. Default is self.fname + '_AutoCorr_Noise_Analysis_' + image_name + '.png'
         img_label : string
-            optional image label
+            Optional image label.
         dpi : int
-            dots-per-inch resolution for the output image
-            
+            Resolution (DPI) for the output PNG image.
+        verbose : boolean
+            Display intermediate results. Default is False.
         Returns:
+        ---------
             xSNR, ySNR : float, float
-                SNR determind using the method in [1] along X- and Y- directions.
-                If there is a direction with slow varying data - that direction provides more accurate SNR estimate
-                Y-streaks in typical FIB-SEM data provide slow varying Y-component becuase streaks
-                usually get increasingly worse with increasing Y. 
-                So for typical FIB-SEM data use ySNR
-        
-        [1] J. T. L. Thong et al, Single-image signal-tonoise ratio estimation. Scanning, 328–336 (2001).
+                SNR determined using the method in [1] along X- and Y- directions.
+                If there is a direction with slow varying data - that direction provides more accurate SNR estimate.
+                Y-streaks in typical FIB-SEM data provide slow varying Y-component because streaks usually get increasingly worse with increasing Y.
+                So for typical FIB-SEM data use ySNR or rSNR.   
+                [1] J. T. L. Thong et al, Single-image signal-tonoise ratio estimation. Scanning, 328–336 (2001).
         '''
         image_name = kwargs.get("image_name", 'RawImageA')
         zero_mean = kwargs.get('zero_mean', True)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         edge_fraction = kwargs.get("edge_fraction", 0.10)
         extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
+        aperture = kwargs.get('aperture', 6)
         disp_res = kwargs.get("disp_res", True)
         save_res_png = kwargs.get("save_res_png", True)
         default_res_name = os.path.splitext(self.fname)[0] + '_AutoCorr_Noise_Analysis_' + image_name + '.png'
         res_fname = kwargs.get("res_fname", default_res_name)
         dpi = kwargs.get("dpi", 300)
-
-        SNR_kwargs = {'edge_fraction' : edge_fraction,
-                        'zero_mean' : zero_mean,
-                        'extrapolate_signal' : extrapolate_signal,
-                        'disp_res' : disp_res,
-                        'save_res_png' : save_res_png,
-                        'res_fname' : res_fname,
-                        'img_label' : image_name,
-                        'dpi' : dpi}
+        verbose = kwargs.get('verbose', False)
 
         if image_name == 'RawImageA':
             img = self.RawImageA
@@ -7467,10 +7477,24 @@ class FIBSEM_frame:
             if not hasattr(self, 'ImageB'):
                 self.calculate_scaled_images()
             img = self.ImageB
+        ysz, xsz = img.shape
+        nlags = kwargs.get("nlags", np.min((ysz, xsz))//4)
+
+        SNR_kwargs = {'edge_fraction' : edge_fraction,
+                        'zero_mean' : zero_mean,
+                        'evaluation_box' : evaluation_box,
+                        'extrapolate_signal' : extrapolate_signal,
+                        'nlags' : nlags,
+                        'aperture' : aperture,
+                        'disp_res' : disp_res,
+                        'save_res_png' : save_res_png,
+                        'res_fname' : res_fname,
+                        'img_label' : image_name,
+                        'verbose' : verbose,
+                        'dpi' : dpi}
 
         xi = 0
         yi = 0
-        ysz, xsz = img.shape
         xa = xi + xsz
         ya = yi + ysz
         xi_eval = xi + evaluation_box[2]
@@ -7494,25 +7518,25 @@ class FIBSEM_frame:
         Show the box used for noise analysis.
         ©G.Shtengel, 04/2021. gleb.shtengel@gmail.com
 
-        kwargs
+        kwargs:
         ---------
         evaluation_box : list of 4 int
-            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
+            Evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
         image_name : str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         data_dir : str
-            data directory (path)
+            Data directory (path).
         Sample_ID : str
             Sample ID
         box_linewidth : float
-            linewidth for the box outline. deafault is 1.0
+            Linewidth for the box outline. Default is 1.0.
         box_color : color
-            color for the box outline. deafault is yellow
+            Color for the box outline. Default is yellow.
         invert_data : boolean
-            If True - the data is inverted
+            If True - the data is inverted.
         save_res_png  : boolean
-            Save PNG image of the frame overlaid with with evaluation box
+            Save PNG image of the frame overlaid with evaluation box.
         '''
         image_name = kwargs.get("image_name", 'RawImageA')
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0]) 
@@ -12458,9 +12482,9 @@ class FIBSEM_dataset:
         invert_data : boolean
             If True - the data is inverted
         box_linewidth : float
-            linewidth for the box outline. deafault is 1.0
+            linewidth for the box outline. Default is 1.0
         box_color : color
-            color for the box outline. deafault is yellow
+            color for the box outline. Default is yellow
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         pad_edges : boolean
@@ -13166,11 +13190,11 @@ class FIBSEM_dataset:
             subset size (pixels) for blob / transition analysis
             Default is 16.
         bounds : lists
-            List of of transition limits Deafault is [0.37, 0.63].
+            List of of transition limits Default is [0.37, 0.63].
             Example of multiple lists: [[0.33, 0.67], [0.20, 0.80]].
         bands : list of 3 ints
             list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
-            Deafault is [5 ,3, 5].
+            Default is [5 ,3, 5].
         min_thr : float
             threshold for identifying a 'good' transition (bottom < min_thr* top)
         transition_low_limit : float
