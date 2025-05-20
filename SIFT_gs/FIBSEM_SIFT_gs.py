@@ -1011,59 +1011,58 @@ def Single_Image_Noise_Statistics(img, **kwargs):
     
     Performs following:
     1. Smooth the image by 2D convolution with a given kernel.
-    2. Determine "Noise" as difference between the original raw and smoothed data.
-    3. Select subsets of otiginal, smoothed and noise images by selecting only elements where the filter_array (optional input) is True.
-        Use calculate_gradent_map to establish filter_array.
+    2. Determine "Noise Image" as difference between the original raw and smoothed data.
+    3. Select subsets of original, smoothed and noise images by selecting only elements where the filter_array (optional input 2D array) is True. Use calculate_gradent_map(img, ** kwargs) to define filter_array.
     4. Build a histogram of Smoothed Image (subset if filter_array was set).
-    5. For each histogram bin of the Smoothed Image (Step 4), calculate the mean value and variance for the same pixels in the original image.
-    6. Plot the dependence of the noise variance vs. image intensity.
-    7. One of the parameters is a DarkCount. If it is not explicitly defined as input parameter,
-        it will be set to 0.
-    8. Free Linear fit of the variance vs. image intensity data is determined. SNR0 is calculated as <S^2>/<S>.
-    9. Linear fit with forced zero Intercept (DarkCount) is of the variance vs. image intensity data is determined. SNR1 is calculated <S^2>/<S>.
+    5. For all pixels withing each histogram bin of the Smoothed Image from Step 4, calculate the mean value (mean of intensities of the select pixels of the Smoothed Image from Step 4) and variance (variance of intensities of the select pixels of the Noise Image from the Step 2).
+    6. Plot the dependence of the image variance vs. image intensity.
+    7. Perform free linear fit of the variance vs. intensity. SNR0 is calculated as <S^2>/<N^2>.
+    8. Perform linear fit with forced zero Intercept (DarkCount) of the variance vs. intensity. SNR1 is calculated <S^2>/<N^2>.
+
 
     Parameters
     ----------
-        img : 2d array
+    img : 2d array
 
-        kwargs:
-        evaluation_box : list of 4 int
-            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
-            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-        DarkCount : float
-            the value of the Intensity Data at 0.
-        filter_array : 2d boolean array
-            array of the same dimensions as img. Only the pixel with corresponding filter_array values of True will be considered in the noise analysis.
-        kernel : 2D float array
-            a kernel to perfrom 2D smoothing convolution.
-        nbins_disp : int
-            (default 256) number of histogram bins for building the PDF and CDF to determine the data range for data display.
-        thresholds_disp : list [thr_min_disp, thr_max_disp]
-            (default [1e-3, 1e-3]) CDF threshold for determining the min and max data values for display.
-        nbins_analysis : int
-            (default 256) number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5.
-        thresholds_analysis: list [thr_min_analysis, thr_max_analysis]
-            (default [2e-2, 2e-2]) CDF threshold for building the data histogram in Step 5.
-        disp_res : boolean
-            (default is False) - to plot/ display the results
-        disp_res_SNR0 : boolean
-            (default is True) - add SNR0 (free fit) results to Variance vs. Intensity plot.
-        disp_res_SNR1 : boolean
-            (default is True) - add SNR1 (use Dark Count from Scaling data) results to Variance vs. Intensity plot.
-        save_res_png : boolean
-            save the analysis output into a PNG file (default is True)
-        res_fname : string
-            filename for the result image ('Noise_Analysis.png')
-        img_label : string
-            optional image label
-        Notes : string
-            optional additional notes
-        dpi : int
+    kwargs:
+    evaluation_box : list of 4 int
+        evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image noise statistics.
+        if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+    DarkCount : float
+        The value of the Intensity Data at 0.
+    filter_array : 2d boolean array
+        Array of the same dimensions as img. Only the pixel with corresponding filter_array values of True will be considered in the noise analysis.
+    kernel : 2D float array
+        A kernel to perform 2D smoothing convolution. Default is normalized np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]), where st = 1/np.sqrt(2).
+    nbins_disp : int
+        Number of histogram bins for building the PDF and CDF to determine the data range for data display. Default is 256.
+    thresholds_disp : list [thr_min_disp, thr_max_disp]
+        CDF threshold for determining the min and max data values for display. Default id [1e-3, 1e-3].
+    nbins_analysis : int
+        Number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5. Default is 256.
+    thresholds_analysis: list [thr_min_analysis, thr_max_analysis]
+        CDF threshold for building the data histogram in Step 5. Default is [2e-2, 2e-2].
+    disp_res : boolean
+        If True - plot/ display the results. Default is True.
+    disp_res_SNR0 : boolean
+        Add SNR0 (free fit) results to Variance vs. Intensity plot. Default is True.
+    disp_res_SNR1 : boolean
+        Add SNR1 (use Dark Count from Scaling data) results to Variance vs. Intensity plot. Default is True.
+    save_res_png : boolean
+        Save the analysis output into a PNG file. Default is True.
+    res_fname : str
+        Filename - used for plotting the data. Default is'Noise_Analysis.png'
+    img_label : string
+        Optional image label
+    Notes : string
+        Optional additional notes
+    dpi : int
+        Resolution (DPI ) of the PNG image.
 
     Returns:
     mean_vals, var_vals, I0, SNR0, SNR1, popt, result
         mean_vals and var_vals are the Mean Intensity and Noise Variance values for Step5, I0 is zero intercept (should be close to DarkCount)
-        SNR0 and SNR1 are SNR's (Step 8 and 9 respectively)
+        SNR0 and SNR1 are SNR's (Step 7 and 8 respectively)
     '''
     st = 1.0/np.sqrt(2.0)
     def_kernel = np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]).astype(float)
@@ -7019,7 +7018,7 @@ class FIBSEM_frame:
     
     def save_snapshot(self, **kwargs):
         '''
-        Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
+        Build an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
 
         kwargs:
          ----------
@@ -7038,7 +7037,7 @@ class FIBSEM_frame:
         dpi : int
             DPI. Default is 300.
         snapshot_name : string
-            The name of the image to perform this operations (default is frame_name + '_snapshot.png').
+            The name of the image to perform these operations (default is frame_name + '_snapshot.png').
 
         '''
         thr_min = kwargs.get('thr_min', 1.0e-3)
@@ -7155,9 +7154,12 @@ class FIBSEM_frame:
     def analyze_noise_ROIs(self, Noise_ROIs, Hist_ROI, **kwargs):
         '''
         Analyses the noise statistics in the selected ROI's of the EM data.
+        (Calls Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):).
+        This function is somewhat obsolete. When possible – use a method analyze_noise_statistics(**kwargs):,
+        which calls Single_Image_Noise_Statistics(img, **kwargs):.
+        That is a more powerful and accurate way of analysing the noise distribution.
         ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
-        
-        Calls Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs)
+
         Performs following:
         1. For each of the selected ROI's, this method will perfrom the following:
             1a. Smooth the data by 2D convolution with a given kernel.
@@ -7182,36 +7184,34 @@ class FIBSEM_frame:
                 threshold parameters, and Noise Variance is taken at the intensity
                 in the middle of the range (Min Intensity + Max Intensity)/2.0
 
-        Parameters
+        Parameters:
         ----------
         Noise_ROIs : list of lists: [[left, right, top, bottom]]
-            list of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the noise.
+            List of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the noise.
         Hist_ROI : list [left, right, top, bottom]
-            coordinates (indices) of the boundaries of the image subset to evaluate the real data histogram.
-
+            Coordinates (indices) of the boundaries of the image subset to evaluate the real data histogram.
         kwargs:
+        ----------
         image_name : string
-            the name of the image to perform this operations (defaulut is 'RawImageA').
+            The name of the image to perform this operations (default is 'RawImageA').
         DarkCount : float
-            the value of the Intensity Data at 0.
+            The value of the Intensity Data at 0.
         kernel : 2D float array
-            a kernel to perfrom 2D smoothing convolution.
+            A kernel to perform 2D smoothing convolution. Default is normalized np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]), where st = 1/np.sqrt(2).
         res_fname : str
-            filename - used for plotting the data. If not explicitly defined will use the instance attribute self.fname
+            Filename - used for plotting the data. If not explicitly defined will use the instance attribute self.fname.
         nbins_disp : int
-            (default 256) number of histogram bins for building the PDF and CDF to determine the data range for data display.
+            Number of histogram bins for building the PDF and CDF to determine the data range for data display. Default is 256.
         thresholds_disp : list [thr_min_disp, thr_max_disp]
-            (default [1e-3, 1e-3]) CDF threshold for determining the min and max data values for display.
+            CDF threshold for determining the min and max data values for display. Default id [1e-3, 1e-3].
         nbins_analysis : int
-            (default 256) number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5.
+            Number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5. Default is 256.
         thresholds_analysis: list [thr_min_analysis, thr_max_analysis]
-            (default [2e-2, 2e-2]) CDF threshold for building the data histogram in Step 5.
-        nbins_analysis : int
-             (default 256) number of histogram bins for building the data histogram in Step 5.
+            CDF threshold for building the data histogram in Step 5. Default is [2e-2, 2e-2].
         disp_res : boolean
-            (default is False) - to plot/ display the results
-
+            If True - plot/ display the results. Default is True.
         Returns:
+        ----------
         mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR
             mean_vals and var_vals are the Mean Intensity and Noise Variance values for the Noise_ROIs (Step 1)
             NF_slope is the slope of the linear fit curve (Step 4)
@@ -7220,6 +7220,7 @@ class FIBSEM_frame:
         image_name = kwargs.get("image_name", 'RawImageA')
         res_fname_default = os.path.splitext(self.fname)[0] + '_' + image_name + '_Noise_Analysis_ROIs.png'
         res_fname = kwargs.get("res_fname", res_fname_default)
+        disp_res = kwargs.get('disp_res', True)
 
         if image_name == 'RawImageA':
             ImgEM = self.RawImageA.astype(float)
@@ -7248,6 +7249,7 @@ class FIBSEM_frame:
             kwargs['img_label'] = image_name
             kwargs['res_fname'] = res_fname
             kwargs['Notes'] = Notes
+            kwargs['disp_res'] = disp_res
             mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR = Single_Image_Noise_ROIs(ImgEM, Noise_ROIs, Hist_ROI, **kwargs)
 
         else:
@@ -7269,61 +7271,59 @@ class FIBSEM_frame:
         Calls Single_Image_Noise_Statistics(img, **kwargs)
         Performs following:
         1. Smooth the image by 2D convolution with a given kernel.
-        2. Determine "Noise" as difference between the original raw and smoothed data.
-        3. Select subsets of otiginal, smoothed and noise images by selecting only elements where the filter_array (optional input) is True
+        2. Determine "Noise Image" as difference between the original raw and smoothed data.
+        3. Select subsets of original, smoothed and noise images by selecting only elements where the filter_array (optional input 2D array) is True. Use calculate_gradent_map(img, ** kwargs) to define filter_array.
         4. Build a histogram of Smoothed Image (subset if filter_array was set).
-        5. For each histogram bin of the Smoothed Image (Step 4), calculate the mean value and variance for the same pixels in the original image.
-        6. Plot the dependence of the noise variance vs. image intensity.
-        7. One of the parameters is a DarkCount. If it is not explicitly defined as input parameter,
-            it will be set to 0.
-        8. Free Linear fit of the variance vs. image intensity data is determined. SNR0 is calculated as <S^2>/<S>.
-        9. Linear fit with forced zero Intercept (DarkCount) is of the variance vs. image intensity data is determined. SNR1 is calculated <S^2>/<S>.
+        5. For all pixels withing each histogram bin of the Smoothed Image from Step 4, calculate the mean value (mean of intensities of the select pixels of the Smoothed Image from Step 4) and variance (variance of intensities of the select pixels of the Noise Image from the Step 2).
+        6. Plot the dependence of the image variance vs. image intensity.
+        7. Perform free linear fit of the variance vs. intensity. SNR0 is calculated as <S^2>/<N^2>.
+        8. Perform linear fit with forced zero Intercept (DarkCount) of the variance vs. intensity. SNR1 is calculated <S^2>/<N^2>.
 
         Parameters
         ----------
-            kwargs:
-            image_name : str
-                Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
-            evaluation_box : list of 4 int
-                evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
-                if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
-            DarkCount : float
-                the value of the Intensity Data at 0.
-            filter_array : 2d boolean array
-                array of the same dimensions as img. Only the pixel with corresponding filter_array values of True will be considered in the noise analysis.
-            kernel : 2D float array
-                a kernel to perfrom 2D smoothing convolution.
-            nbins_disp : int
-                (default 256) number of histogram bins for building the PDF and CDF to determine the data range for data display.
-            thresholds_disp : list [thr_min_disp, thr_max_disp]
-                (default [1e-3, 1e-3]) CDF threshold for determining the min and max data values for display.
-            nbins_analysis : int
-                (default 256) number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5.
-            thresholds_analysis: list [thr_min_analysis, thr_max_analysis]
-                (default [2e-2, 2e-2]) CDF threshold for building the data histogram in Step 5.
-            nbins_analysis : int
-                 (default 256) number of histogram bins for building the data histogram in Step 5.
-            disp_res : boolean
-                (default is False) - to plot/ display the results
-            disp_res_SNR0 : boolean
-                (default is True) - add SNR0 (free fit) results to Variance vs. Intensity plot.
-            disp_res_SNR1 : boolean
-                (default is True) - add SNR1 (use Dark Count from Scaling data) results to Variance vs. Intensity plot.
-            save_res_png : boolean
-                save the analysis output into a PNG file (default is True)
-            res_fname : string
-                filename for the result image ('Noise_Analysis.png')
-            img_label : string
-                optional image label
-            Notes : string
-                optional additional notes
-            dpi : int
+        kwargs:
+        ----------
+        image_name : string
+            The name of the image to perform these operations. Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'.
+        evaluation_box : list of 4 int
+            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image noise statistics.
+            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+        DarkCount : float
+            The value of the Intensity Data at 0.
+        filter_array : 2d boolean array
+            Array of the same dimensions as image. Only the pixel with corresponding filter_array values of True will be considered in the noise analysis.
+        kernel : 2D float array
+            A kernel to perform 2D smoothing convolution. Default is normalized np.array([[st, 1.0, st],[1.0,1.0,1.0], [st, 1.0, st]]), where st = 1/np.sqrt(2).
+        nbins_disp : int
+            Number of histogram bins for building the PDF and CDF to determine the data range for data display. Default is 256.
+        thresholds_disp : list [thr_min_disp, thr_max_disp]
+            CDF threshold for determining the min and max data values for display. Default id [1e-3, 1e-3].
+        nbins_analysis : int
+            Number of histogram bins for building the PDF and CDF to determine the data range for building the data histogram in Step 5. Default is 256.
+        thresholds_analysis: list [thr_min_analysis, thr_max_analysis]
+            CDF threshold for building the data histogram in Step 5. Default is [2e-2, 2e-2].
+        disp_res : boolean
+            If True - plot/ display the results. Default is True.
+        disp_res_SNR0 : boolean
+            Add SNR0 (free fit) results to Variance vs. Intensity plot. Default is True.
+        disp_res_SNR1 : boolean
+            Add SNR1 (use Dark Count from Scaling data) results to Variance vs. Intensity plot. Default is True.
+        save_res_png : boolean
+            Save the analysis output into a PNG file. Default is True.
+        res_fname : str
+            Filename - used for plotting the data. If not explicitly defined will use the instance attribute self.fname + '_Noise_Analysis_' + image_name + '.png'
+        img_label : string
+            Optional image label. Defaults is self.Sample_ID.
+        Notes : string
+            Optional additional notes. Defaults is self.Notes.
+        dpi : int
+            Resolution (DPI ) of the PNG image.
 
         Returns:
         mean_vals, var_vals, I0, SNR0, SNR1, popt, result
             mean_vals and var_vals are the Mean Intensity and Noise Variance values for Step 5
             I0 is zero intercept (should be close to DarkCount),
-            SNR0, SNR1 are Peak and Dynamic SNR's (Step 8 and 9)
+            SNR0, SNR1 are Peak and Dynamic SNR's (Step 7 and 8)
         '''
         image_name = kwargs.get("image_name", 'RawImageA')
         res_fname_default = os.path.splitext(self.fname)[0] + '_Noise_Analysis_' + image_name + '.png'
