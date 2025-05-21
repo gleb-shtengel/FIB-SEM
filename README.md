@@ -53,6 +53,7 @@ Depending on your distribution, you may need to install these as well :
 -   pickle
 -   webbrowser
 -   IPython
+-   ClusterWrap (If you want to use Janelia LSF cluster as a DASK client)
 
 
 ## General Help Functions
@@ -68,6 +69,8 @@ Depending on your distribution, you may need to install these as well :
         Builds a de-streaking kernel to zero FFT data within a select range of angles.
     build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
         Builds a de-streaking kernel to zero FFT data within a select ranges of x and y.
+    build_kernel_FFT_destreaker_autodetect(data, **kwargs):
+        Builds a de-streaking kernel to zero FFT data within a select range of angles by comparing the absolute value of FFT to radially averaged FFT profile. 
     smooth(x, window_len=11, window='hanning')
         smooth the data using a window with requested size.
     add_scale_bar(ax, **kwargs)
@@ -85,13 +88,14 @@ Depending on your distribution, you may need to install these as well :
         Analyses the noise statistics of the EM data image.
     Perform_2D_fit(img, estimator, **kwargs)
         Bin the image and then perform 2D polynomial fit on the binned image.
+    calculate_gradent_map(img, ** kwargs):
+        Computes 2D Gradient of the image.
+
 
 
 ## Two-Frame Image Processing Functions
     mutual_information_2d(x, y, sigma=1, bin=256, normalized=False)
         Computes (normalized) mutual information between two 1D variate from a joint histogram.
-    mutual_information_2d_cp(x, y, sigma=1, bin=256, normalized=False)
-        Computes (normalized) mutual information between two 1D variate from a joint histogram using CUPY package.
     Two_Image_NCC_SNR(img1, img2, **kwargs)
         Estimate normalized cross-correlation and SNR of two images. After:
         [1] J. Frank, L. AI-Ali, Signal-to-noise ratio of electron micrographs obtained by cross correlation. Nature 256, 4 (1975).
@@ -115,6 +119,12 @@ Depending on your distribution, you may need to install these as well :
         Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it.
     smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max, **kwargs)
         Read MRC stack, smooth the data by performing 2D-convolution with smooth_kernel, and save the data.
+    merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
+        Bins and crops a stack tiff files (frames) along X-, Y-, or Z-directions and saves it into MRC or HDF5 format.
+    mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
+        Estimate transitions in the images inside mrc_stack, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs).
+    mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
+        Generates a figure with blob examples based on xlsx file created by mrc_stack_estimate_resolution_blobs_2D.
 
 ## TIF stack evaluation Functions
     analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs)
@@ -135,8 +145,12 @@ Depending on your distribution, you may need to install these as well :
         Reads (SIFT processing) kwargs from XLSX file and returns them as dictionary.
     generate_report_mill_rate_xlsx(Mill_Rate_Data_xlsx, **kwargs)
         Generate Report Plot for mill rate evaluation from XLSX spreadsheet file.
-    generate_report_FOV_center_shift_xlsx(Mill_Rate_Data_xlsx, **kwargs)
+    generate_report_ScanRate_EHT_xlsx(ScanRate_EHT_Data_xlsx, **kwargs):
+        Generate Report Plot for Scan Rate and EHT from XLSX spreadsheet file.
+    generate_report_FOV_center_shift_xlsx(FOV_center_shift_xlsx, **kwargs):
         Generate Report Plot for FOV center shift from XLSX spreadsheet file.
+    generate_report_data_minmax_xlsx(minmax_xlsx_file, **kwargs):
+        Generate Report Plot for data Min-Max from XLSX spreadsheet file.
     generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, *kwargs)
         Generate Report Plot for Transformation Matrix from XLSX spreadsheet file.
     generate_report_from_xls_registration_summary(file_xlsx, **kwargs)
@@ -179,7 +193,7 @@ Depending on your distribution, you may need to install these as well :
     Methods
     -------
     print_header()
-        Prints a formatted content of the file header
+        Prints a formatted content of the file header.
     display_images()
         Display auto-scaled detector images without saving the figure into the file.
     save_images_jpeg(**kwargs)
@@ -189,23 +203,23 @@ Depending on your distribution, you may need to install these as well :
     get_image_min_max(image_name = 'ImageA', thr_min = 1.0e-4, thr_max = 1.0e-3, nbins=256, disp_res = False)
         Calculates the data range of the EM data.
     RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
-        Convert the Image A into 8-bit array
+        Convert the Image A into 8-bit array.
     RawImageB_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
-        Convert the Image B into 8-bit array
+            Convert the Image B into 8-bit array.
     save_snapshot(**kwargs):
         Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
-    analyze_noise_ROIs(**kwargs):
-        Analyses the noise statistics in the selected ROI's of the EM data.
+    analyze_noise_ROIs(Noise_ROIs, Hist_ROI ,**kwargs):
+        Analyses the noise statistics in the selected ROI's of the EM data. (Calls Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):). This function is somewhat obsolete. When possible – use a method analyze_noise_statistics(**kwargs):, which calls Single_Image_Noise_Statistics(img, **kwargs):. That is a more powerful and accurate way of analysing the noise distribution.
     analyze_noise_statistics(**kwargs):
-        Analyses the noise statistics of the EM data image.
-    analyze_SNR_autocorr(image_name = 'RawImageA', **kwargs):
-        Estimates SNR using auto-correlation analysis of a single image.
+        Analyses the noise statistics of the EM data image. (Calls Single_Image_Noise_Statistics(img, **kwargs):).
+    analyze_SNR_autocorr(**kwargs):
+        Estimates SNR using auto-correlation analysis of a single image. (Calls Single_Image_SNR(img, **kwargs):).
     show_eval_box(**kwargs):
-        Show the box used for evaluating the noise
-    determine_field_fattening_parameters(image_name = 'RawImageA', **kwargs):
-        Performs 2D parabolic fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
-    flatten_image(image_name = 'RawImageA', **kwargs):
-        Flattens the image
+        Show the box used for evaluating the noise.
+    determine_field_fattening_parameters(**kwargs):
+        Perfrom 2D polynomial fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters.
+    flatten_image(**kwargs):
+        Flatten the image(s). Image flattening parameters must be pre-determined (determine_field_fattening_parameters).
 
 
 ## class FIBSEM_dataset: 

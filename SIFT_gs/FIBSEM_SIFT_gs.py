@@ -1313,10 +1313,10 @@ def Perform_2D_fit(img, estimator, **kwargs):
     Bin the image and then perform 2D polynomial fit on the binned image.
     ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
     
-    Parameters
+    Parameters:
     ----------
     img : 2D array
-        original image
+        Original image.
     estimator : RANSACRegressor(),
                 LinearRegression(),
                 TheilSenRegressor(),
@@ -1324,31 +1324,37 @@ def Perform_2D_fit(img, estimator, **kwargs):
                 RidgeCV(),
     			LassoCV()
     kwargs:
+    ----------
     image_name : str
-        Image name (for display purposes)
+        Image name (for display purposes).
     degree : int 
         The maximal degree of the polynomial features for sklearn.preprocessing.PolynomialFeatures. Default is 2.
     bins : int
-        binsize for image binning. If not provided, bins=10
+        Binning size (in pixel units) for image binning. Default is 10.
     Analysis_ROIs : list of lists: [[left, right, top, bottom]]
-        list of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the parabolic fit.
+        List of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the parabolic fit.
     calc_corr : boolean
-        If True - the full image correction is calculated.
+        If True - the full image correction is calculated. Default is False.
     ignore_Y  : boolean
-        If True - the polynomial fit to only X is perfromed.
+        If True - the polynomial fit to only X is performed. Default is False.
     linear_Y  : boolean
-        If True - the only linear terms in Y are allowed. This kwarg is ignored if ignore_Y is True. 
-    disp_res : boolean
-        (default is False) - to plot/ display the results.
-    save_res_png : boolean
-        save the analysis output into a PNG file (default is False).
-    res_fname : string
-        filename for the result image ('Image_Flattening.png')
+        If True - the polynomial fit to only X is perfromed, only linear variation along Y is allowed.
     Xsect : int
-        X - coordinate for Y-crossection
+        X - coordinate for Y-cross-section.
     Ysect : int
-        Y - coordinate for X-crossection
+        Y - coordinate for X-cross-section.
+    disp_res : boolean
+        Plot/ display the results. Defaults is True.
+    save_res_png : boolean
+        Save the analysis output into a PNG file. Default is False.
+    save_correction_binary : boolean
+        Save the image_name and img_correction_array data into a binary file. Default is False.
+    res_fname : string
+        Filename for the result image. Default is 'Image_Flattening.png'.
+    label : string
+        Optional image label.
     dpi : int
+        Resolution (DPI) for the output PNG image.
 
     Returns:
     intercept, coefs, mse, img_correction_array
@@ -3153,6 +3159,10 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     '''
     Read MRC stack, destreak the data by performing FFT, multiplying it by kernel, and performing inverse FFT, and save it into MRC or H5 stack.
     ©G.Shtengel, 10/2023. gleb.shtengel@gmail.com
+    Use one of the following to calculate the de-streaking kernel:
+        build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
+        build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
+        build_kernel_FFT_destreaker_autodetect(data, **kwargs):
 
     Parameters:
     ---------
@@ -6116,31 +6126,31 @@ class FIBSEM_frame:
         Calculates the data range of the EM data.
 
     RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
-        Convert the Image A into 8-bit array
+        Convert the Image A into 8-bit array.
 
     RawImageB_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
-            Convert the Image B into 8-bit array
+            Convert the Image B into 8-bit array.
 
-    save_snapshot(display = True, dpi=300, thr_min = 1.0e-3, thr_max = 1.0e-3, nbins=256, **kwargs):
+    save_snapshot(**kwargs):
         Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
 
-    analyze_noise_ROIs(**kwargs):
-        Analyses the noise statistics in the selected ROI's of the EM data. (Calls Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):)
+    analyze_noise_ROIs(Noise_ROIs, Hist_ROI ,**kwargs):
+        Analyses the noise statistics in the selected ROI's of the EM data. (Calls Single_Image_Noise_ROIs(img, Noise_ROIs, Hist_ROI, **kwargs):). This function is somewhat obsolete. When possible – use a method analyze_noise_statistics(**kwargs):, which calls Single_Image_Noise_Statistics(img, **kwargs):. That is a more powerful and accurate way of analysing the noise distribution.
 
     analyze_noise_statistics(**kwargs):
-        Analyses the noise statistics of the EM data image. (Calls Single_Image_Noise_Statistics(img, **kwargs):)
+        Analyses the noise statistics of the EM data image. (Calls Single_Image_Noise_Statistics(img, **kwargs):).
 
     analyze_SNR_autocorr(**kwargs):
-        Estimates SNR using auto-correlation analysis of a single image. (Calls Single_Image_SNR(img, **kwargs):)
+        Estimates SNR using auto-correlation analysis of a single image. (Calls Single_Image_SNR(img, **kwargs):).
 
     show_eval_box(**kwargs):
-        Show the box used for evaluating the noise
+        Show the box used for evaluating the noise.
 
     determine_field_fattening_parameters(**kwargs):
-        Perfrom 2D polynomial fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
+        Perfrom 2D polynomial fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters.
 
     flatten_image(**kwargs):
-        Flatten the image
+        Flatten the image(s). Image flattening parameters must be pre-determined (determine_field_fattening_parameters).
     """
 
     def __init__(self, fname, **kwargs):
@@ -7605,7 +7615,9 @@ class FIBSEM_frame:
         estimator : RANSACRegressor(),
                     LinearRegression(),
                     TheilSenRegressor(),
-                    HuberRegressor()
+                    HuberRegressor(),
+                    RidgeCV(),
+                    LassoCV()
         bins : int
             Binning size (in pixel units) for image binning. Default is 10.
         Analysis_ROIs : list of lists: [[left, right, top, bottom]]

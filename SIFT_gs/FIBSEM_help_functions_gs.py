@@ -1036,11 +1036,14 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
     '''
     Builds a de-streaking kernel to zero FFT data within a select range of angles.
     ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
+    The initial kernel array (Unity array of the same size as the Input FFT Data) is created, and then it is zeroed for pixels inside the wedges defined by: astart<angles< astop, rstart <radius< rstop, and angular symmetry defined by the parameter symm.
 
     Parameters:
+    ----------
     data : 2D array
-
-    kwargs
+        Input FFT data.
+    kwargs:
+    ----------
     astart : float
         Start angle for radial segment. Default is -1.0.
     astop : float
@@ -1050,9 +1053,9 @@ def build_kernel_FFT_zero_destreaker_radii_angles(data, **kwargs):
     rstop : float
         High bound for spatial frequencies in FFT space.
     symm : int
-        Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 2.
+        Symmetry factor (how many times Start and Stop angle intervals are repeated within 360 deg). Default is 2.
 
-    Returns
+    Returns:
         rescaler_kernel : float array
     '''
     astart = kwargs.get('astart', -1.0)
@@ -1089,24 +1092,26 @@ def build_kernel_FFT_zero_destreaker_XY(data, **kwargs):
     '''
     Builds a de-streaking kernel to zero FFT data within a select ranges of x and y.
     ©G.Shtengel 11/2023 gleb.shtengel@gmail.com
+    The initial kernel array (Unity array of the same size as the Input FFT Data) is created, and then it is zeroed for pixels inside the rectangles defined by the parameters xstart, xstop, dy, y_offset, and angular symmetry defined by the parameter symm.
 
     Parameters:
+    ----------
     data : 2D array
-
-    kwargs
-    
+        Input FFT data.
+    kwargs:
+    ----------    
     xstart : float
-        Low bound on X- spatial frequencies in FFT space
+        Low bound on X- spatial frequencies in FFT space.
     xstop : float
-        High bound on X- spatial frequencies in FFT space
+        High bound on X- spatial frequencies in FFT space.
     dy : float
-        Width of Y- spatial frequency band in FFT space
+        Width of Y- spatial frequency band in FFT space.
     y_offset : float
-        vertical offset of the band in Y- spatial frequency FFT space. offset applied in a symmetric fashion - it is of opposite sign in the negative x -space.
+        Vertical offset of the band in Y- spatial frequency FFT space. offset applied in a symmetric fashion - it is of opposite sign in the negative x -space.
     symm : int
         Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 4.
 
-    Returns
+    Returns:
         rescaler_kernel : float array
     '''
     xstart = kwargs.get('xstart', 0.1)
@@ -1132,23 +1137,33 @@ def build_kernel_FFT_destreaker_autodetect(data, **kwargs):
     '''
     Builds a de-streaking kernel to zero FFT data within a select range of angles.
     ©G.Shtengel 10/2023 gleb.shtengel@gmail.com
+    Performs the following steps:
+    1.  The initial kernel array (Unity array of the same size as the Input FFT Data) is created.
+    2.  Radially averaged profile of the Input FFT Data is calculated for the angular segments defined by astart_reference, astop_reference, and symm_reference.
+    3.  Reference 2D array of the same shape as Input FFT Data is created. It’s values are calculated by interpolating the Radial profile from Step 2 for the radial coordinates of the pixels.
+    4.  The absolute value of the Input FFT Data is Gaussian smoothed (with sigma=smooth_sigma) and then divided with Reference calculated in Step 3.
+    5.  The 2D array calculated in the Step 4 is compared to threshold (thr_reference). For all pixels where this array is above thr_reference, and pixel coordinates are within “allowed” wedges determined by the parameters astart_limit, astop_limit, rstart_limit, rstop_limit, and symm_limit, the kernel array is either zeroed (if rescale=False), or re-scaled (if rescale=True).
 
     Parameters:
+    ----------
     data : 2D array
-
-    kwargs
+        Input FFT data
+    kwargs:
+    ----------
     astart_reference : float
         Start angle for radial segment for analysis. Default is 2.0.
     astop_reference : float
         Stop angle for radial segment for analysis. Default is 88.0.
-    thr_reference: float
-        Threshold for referencing. Default is 1.1
     symm_reference : int
         Symmetry factor (how many times Start and stop angle intervals are repeated within 360 deg). Default is 4.
+    smooth_sigma : float
+        Sigma for Gaussian smoothing of the data before thresholding. Default is 4.0.
+    thr_reference: float
+        Threshold for referencing. Default is 2.5
     astart_limit : float
-        Start angle for radial segment for analysis. Default is -5.0. Only perfrom autodetection in this range
+        Start angle for radial segment for analysis. Default is -5.0. Only perfrom autodetection in this range.
     astop_limit : float
-        Stop angle for radial segment for analysis. Default is 5.0. Only perfrom autodetection in this range
+        Stop angle for radial segment for analysis. Default is 5.0. Only perfrom autodetection in this range.
     rstart_limit : float
         Low bound for spatial frequencies in FFT space. Default is 0.01. Only perfrom autodetection in this range.
     rstop_limit : float
@@ -1156,9 +1171,9 @@ def build_kernel_FFT_destreaker_autodetect(data, **kwargs):
     symm_limit : int
          Symmetry factor for autodetection limit. Default is 2.
     rescale : boolean
-        If False, rescaler is 0 in the "suspect areas". If True, they are scaeled down according to the FFT mag.
+        If False (default), rescaler is 0 in the "suspect areas". If True, they are scaeled down according to the FFT mag.
 
-    Returns
+    Returns:
         rescaler_kernel : float array
     '''
     astart_reference = kwargs.get('astart_reference', 2.0)
@@ -1168,8 +1183,8 @@ def build_kernel_FFT_destreaker_autodetect(data, **kwargs):
     rstart_limit = kwargs.get('rstart_limit', 0.01)
     rstop_limit = kwargs.get('rstop_limit', 0.50)
     symm_reference = kwargs.get('symm_reference', 4)
-    thr_reference = kwargs.get('thr_reference', 2.0)
-    smooth_sigma = kwargs.get('smooth_sigma', 2.0)
+    thr_reference = kwargs.get('thr_reference', 2.5)
+    smooth_sigma = kwargs.get('smooth_sigma', 4.0)
     symm_limit = kwargs.get('symm_limit', 2)
     rescale = kwargs.get('rescale', False)
     
