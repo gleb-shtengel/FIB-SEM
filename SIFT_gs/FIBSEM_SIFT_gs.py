@@ -7688,8 +7688,7 @@ class FIBSEM_frame:
                         'Analysis_ROIs' : Analysis_ROIs,
                         'save_res_png' : save_res_png,
                         'res_fname' : res_fname.replace('.png', '_' + image_name + '.png')
-                        'dpi' : dpi,
-                        }
+                        'dpi' : dpi}
             try:
                 Fit_kwargs['degree'] = degrees[j]
             except:
