@@ -7594,9 +7594,10 @@ class FIBSEM_frame:
 
     def determine_field_fattening_parameters(self, **kwargs):
         '''
-        Perfrom 2D polynomial fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters
+        Perfrom 2D polynomial fit (calls Perform_2D_fit(Img, estimator, **kwargs)) and determine the field-flattening parameters.
+        ©G.Shtengel, 04/2023. gleb.shtengel@gmail.com
         
-        Parameters
+        Parameters:
         ----------
         kwargs:
         image_names : list of str
@@ -7606,33 +7607,34 @@ class FIBSEM_frame:
                     TheilSenRegressor(),
                     HuberRegressor()
         bins : int
-            binsize for image binning. If not provided, bins=10
+            Binning size (in pixel units) for image binning. Default is 10.
         Analysis_ROIs : list of lists: [[left, right, top, bottom]]
-            list of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the parabolic fit.
+            List of coordinates (indices) for each of the ROI's - the boundaries of the image subset to evaluate the parabolic fit.
         calc_corr : boolean
-            If True - the full image correction is calculated
-        degree : int 
+            If True - the full image correction is calculated. Default is False.
+        degrees : [int] 
             The maximal degree of the polynomial features for sklearn.preprocessing.PolynomialFeatures. 
             should be a list of the same length as image_names. If a single value, then it is applied to all images. Default is 2.
         ignore_Y  : boolean
-            If True - the polynomial fit to only X is perfromed
+            If True - the polynomial fit to only X is performed. Default is False.
         liear_Y  : boolean
-            If True - the polynomial fit to only X is perfromed, only linear variation along Y is allowed
+            If True - the polynomial fit to only X is perfromed, only linear variation along Y is allowed.
         Xsect : int
-            X - coordinate for Y-crossection
+            X - coordinate for Y-cross-section.
         Ysect : int
-            Y - coordinate for X-crossection
+            Y - coordinate for X-cross-section.
         disp_res : boolean
-            (default is False) - to plot/ display the results
+            Plot/ display the results. Defaults is True.
         save_res_png : boolean
-            save the analysis output into a PNG file (default is False)
-        save_correction_binary = boolean
-            save the mage)name and img_correction_array data into a binary file
+            Save the analysis output into a PNG file. Default is False.
+        save_correction_binary : boolean
+            Save the image_name and img_correction_array data into a binary file. Default is False.
         res_fname : string
-            filename for the result image ('**_Image_Flattening.png'). The binary image is derived from the same root, e.g. '**_Image_Flattening.bin'
+            Filename for the result image ('**_Image_Flattening.png'). Default is derived from the same root, e.g. '**_Image_Flattening.bin'.
         label : string
-            optional image label
+            Optional image label.
         dpi : int
+            Resolution (DPI) for the output PNG image.
 
         Returns:
         img_correction_coeffs, img_correction_arrays
@@ -7643,6 +7645,7 @@ class FIBSEM_frame:
             del kwargs["estimator"]
         calc_corr = kwargs.get("calc_corr", False)
         ignore_Y = kwargs.get("ignore_Y", False)
+        liear_Y = kwargs.get('liear_Y', False)
         lbl = kwargs.get("label", '')
         disp_res = kwargs.get("disp_res", True)
         bins = kwargs.get("bins", 10) #bins = 10
@@ -7673,12 +7676,26 @@ class FIBSEM_frame:
             ysz, xsz = img.shape
             Xsect = kwargs.get("Xsect", xsz//2)
             Ysect = kwargs.get("Ysect", ysz//2)
-            kwargs['res_fname'] = res_fname.replace('.png', '_' + image_name + '.png')
+
+            Fit_kwargs = {'image_name' : image_name,
+                        'calc_corr' : calc_corr,
+                        'ignore_Y' : ignore_Y,
+                        'linear_Y' : linear_Y,
+                        'Xsect' : Xsect,
+                        'Ysect' : Ysect,
+                        'disp_res' : disp_res,
+                        'bins' : bins,
+                        'Analysis_ROIs' : Analysis_ROIs,
+                        'save_res_png' : save_res_png,
+                        'res_fname' : res_fname.replace('.png', '_' + image_name + '.png')
+                        'dpi' : dpi,
+                        }
             try:
-                kwargs['degree']=degrees[j]
+                Fit_kwargs['degree'] = degrees[j]
             except:
+                Fit_kwargs['degree'] = 2
                 pass
-            intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, image_name=image_name, **kwargs)
+            intercept, coefs, mse, img_correction_array = Perform_2D_fit(img, estimator, **Fit_kwargs)
             img_correction_arrays.append(img_correction_array)
             img_correction_coeffs.append(coefs)
             img_correction_intercepts.append(intercept)
@@ -7700,17 +7717,18 @@ class FIBSEM_frame:
     def flatten_image(self, **kwargs):
         '''
         Flatten the image(s). Image flattening parameters must be determined (determine_field_fattening_parameters)
-
-        Parameters
+        ©G.Shtengel, 04/2023. gleb.shtengel@gmail.com
+        Parameters:
         ----------
         kwargs:
+        ----------
         image_correction_file : str
-            full path to a binary filename that contains source names (image_correction_sources) and correction arrays (img_correction_arrays)
-            if image_correction_file exists, the data is loaded from it.
+            Full path to a binary filename that contains source names (image_correction_sources) and correction arrays (img_correction_arrays).
+            If image_correction_file exists, the data is loaded from it.
         image_correction_sources : list of str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         img_correction_arrays : list of 2D arrays
-            arrays containing field flatteting info
+            Arrays containing field flattening info.
 
         Returns:
         flattened_images : list of 2D arrays
