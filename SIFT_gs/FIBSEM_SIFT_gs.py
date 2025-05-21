@@ -7617,7 +7617,7 @@ class FIBSEM_frame:
             should be a list of the same length as image_names. If a single value, then it is applied to all images. Default is 2.
         ignore_Y  : boolean
             If True - the polynomial fit to only X is performed. Default is False.
-        liear_Y  : boolean
+        linear_Y  : boolean
             If True - the polynomial fit to only X is perfromed, only linear variation along Y is allowed.
         Xsect : int
             X - coordinate for Y-cross-section.
@@ -7645,7 +7645,7 @@ class FIBSEM_frame:
             del kwargs["estimator"]
         calc_corr = kwargs.get("calc_corr", False)
         ignore_Y = kwargs.get("ignore_Y", False)
-        liear_Y = kwargs.get('liear_Y', False)
+        linear_Y = kwargs.get('linear_Y', False)
         lbl = kwargs.get("label", '')
         disp_res = kwargs.get("disp_res", True)
         bins = kwargs.get("bins", 10) #bins = 10
