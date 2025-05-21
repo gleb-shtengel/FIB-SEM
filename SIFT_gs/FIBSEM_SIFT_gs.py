@@ -5056,7 +5056,6 @@ def generate_report_transf_matrix_from_xlsx(transf_matrix_xlsx_file, **kwargs):
     max_iter = saved_kwargs.get("max_iter", 1000)
     BFMatcher = saved_kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = saved_kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    #kp_max_num = saved_kwargs.get("kp_max_num", -1)
     save_res_png  = saved_kwargs.get("save_res_png", True)
 
     preserve_scales = saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -5320,7 +5319,6 @@ def generate_report_transf_matrix_details(transf_matrix_bin_file, *kwarrgs):
     max_iter = saved_kwargs.get("max_iter", 1000)
     BFMatcher = saved_kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = saved_kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    #kp_max_num = saved_kwargs.get("kp_max_num", -1)
     save_res_png  = saved_kwargs.get("save_res_png", True)
 
     preserve_scales =  saved_kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -6109,7 +6107,7 @@ class FIBSEM_frame:
         pixel size in nm. Default is 8.0
 
     Methods
-    -------
+    ----------
     print_header()
         Prints a formatted content of the file header.
 
@@ -6157,15 +6155,20 @@ class FIBSEM_frame:
         '''
         Initialize FIBSEM_frame object.
         Parameters:
-        Filename : string
-            Filename of the file containing the FIBSEM frame
+        ----------
+        fname : string
+            Filename (full path) of the file containing the FIBSEM frame
 
         kwargs:
+        ----------
         ftype : int
             0 - Shan Xu's binary format (default).  1 - tif files
+        memory_profiling : boolean
+            Perform memory profiling during the data load and output it. Default is False.
         calculate_scaled_images : boolean
-            Calculate Scaled Images from raw images using scalinfg data. Defauult is False
+            Calculate Scaled Images from raw images using scaling data. Default is False.
         use_dask_arrays : boolean
+            Load the data as DASK array
 
         '''
         memory_profiling = kwargs.get('memory_profiling', False)
@@ -7228,7 +7231,7 @@ class FIBSEM_frame:
         save_res_png : boolean
             Save the analysis output into a PNG file. Default is True.
         res_fname : str
-            Filename - used for plotting the data. Deafult is attribute self.fname  + '_' + image_name + '_Noise_Analysis_ROIs.png'.
+            Filename - used for plotting the data. Default is attribute self.fname  + '_' + image_name + '_Noise_Analysis_ROIs.png'.
         Returns:
         ----------
         mean_vals, var_vals, NF_slope, PSNR, MSNR, DSNR
@@ -8181,28 +8184,22 @@ def extract_keypoints_descr_files(params):
             number of histogram bins for building the PDF and CDF
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for key-point extraction.
-        kp_max_num : int
-            Max number of key-points to be matched.
-            Key-points in every frame are indexed (in descending order)
-            by the strength of the response. Only kp_max_num is kept for
-            further processing.
-            Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
         verbose : boolean
             If True, intermediate printouts are enabled. Default is False
         SIFT_nfeatures : int
-            SIFT libary default is 0. The number of best features to retain.
+            SIFT library default is 0. The number of best features to retain.
             The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
         SIFT_nOctaveLayers : int
-            SIFT libary default  is 3. The number of layers in each octave.
+            SIFT library default  is 3. The number of layers in each octave.
             3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
         SIFT_contrastThreshold : double
-            SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+            SIFT library default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
             The larger the threshold, the less features are produced by the detector.
             The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
             When nOctaveLayers is set to default and if you want to use the value used in
             D. Lowe paper (0.03), set this argument to 0.09.
         SIFT_edgeThreshold : double
-            SIFT libary default  is 10. The threshold used to filter out edge-like features.
+            SIFT library default  is 10. The threshold used to filter out edge-like features.
             Note that the its meaning is different from the contrastThreshold,
             i.e. the larger the edgeThreshold, the less features are filtered out
             (more features are retained).
@@ -8210,7 +8207,7 @@ def extract_keypoints_descr_files(params):
             SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
             If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
         use_existing_data : boolean
-            Deafult is False. If True and this had already been performed, use existing results.
+            Default is False. If True and this had already been performed, use existing results.
 
     Returns:
         fnm : str
@@ -8222,7 +8219,6 @@ def extract_keypoints_descr_files(params):
     thr_min = kwargs.get("thr_min", 1e-3)
     thr_max = kwargs.get("thr_max", 1e-3)
     nbins = kwargs.get("nbins", 256)
-    #kp_max_num = kwargs.get("kp_max_num", 10000)
     evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
     use_existing_data = kwargs.get('use_existing_data', False)
     fnm = os.path.splitext(fl)[0] + '_kpdes.bin'
@@ -8253,10 +8249,6 @@ def extract_keypoints_descr_files(params):
             ya_eval = -1
 
         kps, dess = sift.detectAndCompute(img[yi_eval:ya_eval, xi_eval:xa_eval], None)
-        #if kp_max_num != -1 and (len(kps) > kp_max_num):
-        #    kp_ind = np.argsort([-kp.response for kp in kps])[0:kp_max_num]
-        #    kps = np.array(kps)[kp_ind]
-        #    dess = np.array(dess)[kp_ind]
         if xi_eval >0 or yi_eval>0:   # add shifts to ke-pint coordinates to convert them to full image coordinated
             for kp in kps:
                 kp.pt = kp.pt + np.array((xi_eval, yi_eval))
@@ -8427,7 +8419,7 @@ def determine_transformations_files(params_dsf):
     fnm_2 - keypoints for the first image (destination)
     and kwargs must include:
     use_existing_data : boolean
-        Deafult is False. If True and this had already been performed, use existing results.
+        Default is False. If True and this had already been performed, use existing results.
     TransformType - transformation type to be used (ShiftTransform, XScaleShiftTransform, ScaleShiftTransform, AffineTransform, RegularizedAffineTransform)
     BF_Matcher -  if True - use BF matcher, otherwise use FLANN matcher for keypoint matching
     solver - a string indicating which solver to use:
@@ -8466,7 +8458,6 @@ def determine_transformations_files(params_dsf):
     kwargs['remove_per_iter'] = remove_per_iter
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)    # threshold for Lowe's Ratio Test
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
     start = kwargs.get('start', 'edges')
@@ -8605,7 +8596,6 @@ def build_filename(fname, **kwargs):
     solver = kwargs.get("solver", 'RANSAC')
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
-    #kp_max_num = kwargs.get("kp_max_num", -1)
     save_res_png  = kwargs.get("save_res_png", True)
     zbin_factor =  kwargs.get("zbin_factor", 1)             # binning factor in z-direction (milling direction). Default is 1
     preserve_scales =  kwargs.get("preserve_scales", True)  # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -8712,7 +8702,6 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
     max_iter = kwargs.get("max_iter", 1000)
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-    #kp_max_num = kwargs.get("kp_max_num", -1)
     save_res_png  = kwargs.get("save_res_png", True)
     verbose = kwargs.get('verbose', False)
 
@@ -8983,19 +8972,19 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
         if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
     
     SIFT_nfeatures : int
-        SIFT libary default is 0. The number of best features to retain.
+        SIFT library default is 0. The number of best features to retain.
         The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
     SIFT_nOctaveLayers : int
-        SIFT libary default  is 3. The number of layers in each octave.
+        SIFT library default  is 3. The number of layers in each octave.
         3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
     SIFT_contrastThreshold : double
-        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        SIFT library default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
         The larger the threshold, the less features are produced by the detector.
         The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
         When nOctaveLayers is set to default and if you want to use the value used in
         D. Lowe paper (0.03), set this argument to 0.09.
     SIFT_edgeThreshold : double
-        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        SIFT library default  is 10. The threshold used to filter out edge-like features.
         Note that the its meaning is different from the contrastThreshold,
         i.e. the larger the edgeThreshold, the less features are filtered out
         (more features are retained).
@@ -9025,7 +9014,6 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     solver = kwargs.get("solver", 'RANSAC')
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
-    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
@@ -9172,25 +9160,20 @@ def SIFT_evaluation_dataset(fs, **kwargs):
         If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches : boolean
         If True, matches will be saved into individual files
-    kp_max_num : int
-        Max number of key-points to be matched.
-        Key-points in every frame are indexed (in descending order) by the strength of the response.
-        Only kp_max_num is kept for further processing.
-        Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
     SIFT_nfeatures : int
-        SIFT libary default is 0. The number of best features to retain.
+        SIFT library default is 0. The number of best features to retain.
         The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
     SIFT_nOctaveLayers : int
-        SIFT libary default  is 3. The number of layers in each octave.
+        SIFT library default  is 3. The number of layers in each octave.
         3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
     SIFT_contrastThreshold : double
-        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        SIFT library default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
         The larger the threshold, the less features are produced by the detector.
         The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
         When nOctaveLayers is set to default and if you want to use the value used in
         D. Lowe paper (0.03), set this argument to 0.09.
     SIFT_edgeThreshold : double
-        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        SIFT library default  is 10. The threshold used to filter out edge-like features.
         Note that the its meaning is different from the contrastThreshold,
         i.e. the larger the edgeThreshold, the less features are filtered out
         (more features are retained).
@@ -9204,9 +9187,9 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     estimation : string
         'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
     memory_profiling : boolean
-        If True will perfrom memory profiling. Default is False
+        If True will perfrom memory profiling. Default is False.
     use_existing_data : boolean
-        Deafult is False. If True and this had already been performed, use existing results
+        Default is False. If True and this had already been performed, use existing results
     Returns:
     dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
     '''
@@ -9239,7 +9222,6 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
     drmax = kwargs.get("drmax", 2.0)
     max_iter = kwargs.get("max_iter", 1000)
-    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
@@ -9583,25 +9565,20 @@ def check_registration(img0, img1, **kwargs):
         If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches : boolean
         If True, matches will be saved into individual files
-    kp_max_num : int
-        Max number of key-points to be matched.
-        Key-points in every frame are indexed (in descending order) by the strength of the response.
-        Only kp_max_num is kept for further processing.
-        Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
     SIFT_nfeatures : int
-        SIFT libary default is 0. The number of best features to retain.
+        SIFT library default is 0. The number of best features to retain.
         The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
     SIFT_nOctaveLayers : int
-        SIFT libary default  is 3. The number of layers in each octave.
+        SIFT library default  is 3. The number of layers in each octave.
         3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
     SIFT_contrastThreshold : double
-        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        SIFT library default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
         The larger the threshold, the less features are produced by the detector.
         The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
         When nOctaveLayers is set to default and if you want to use the value used in
         D. Lowe paper (0.03), set this argument to 0.09.
     SIFT_edgeThreshold : double
-        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        SIFT library default  is 10. The threshold used to filter out edge-like features.
         Note that the its meaning is different from the contrastThreshold,
         i.e. the larger the edgeThreshold, the less features are filtered out
         (more features are retained).
@@ -9634,7 +9611,6 @@ def check_registration(img0, img1, **kwargs):
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
     drmax = kwargs.get("drmax", 1.5)
     max_iter = kwargs.get("max_iter", 2500)
-    #kp_max_num = kwargs.get("kp_max_num", -1)
     Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     save_res_png  = kwargs.get("save_res_png", True)
     save_filename = kwargs.get('save_filename', 'check_registration_output.png')
@@ -10016,7 +9992,7 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     ftype : int
         File Type. 0 for Shan's .dat files, 1 for tif files
     dtp : data type
-        Python data type for saving. Deafult is int16, the other option currently is uint8.
+        Python data type for saving. Default is int16, the other option currently is uint8.
     verbose : boolean 
 
     Returns
@@ -10329,7 +10305,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
             'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
     deformation_fields : float array
     dtp  : dtype
-        Python data type for saving. Deafult is int16.
+        Python data type for saving. Default is int16.
     fill_value : float
         Fill value for padding. Default is zero.
     disp_res : boolean
@@ -10368,7 +10344,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     invert_data =  kwargs.get("invert_data", False)
     perform_deformation = kwargs.get("perform_deformation", False)
     deformation_type = kwargs.get("deformation_type", 'post_1DY')
-    dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16.
+    dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Default is int16.
     disp_res = kwargs.get("disp_res", False)
     nfrs = len(frame_inds)                                                   # number of source images(frames) before z-binning
     end_frame = ((frame_inds[0]+len(frame_inds)-1)//zbin_factor+1)*zbin_factor
@@ -10467,7 +10443,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
         voxel_size : rec array of 3 elemets
             voxel size in nm
         dtp  : dtype
-            Python data type for saving. Deafult is int16, the other option currently is uint8.
+            Python data type for saving. Default is int16, the other option currently is uint8.
         disp_res : boolean
             Display messages and intermediate results
         chunked_mrc_write : boolean
@@ -10845,25 +10821,20 @@ class FIBSEM_dataset:
         If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
     save_matches : boolean
         If True, matches will be saved into individual files
-    kp_max_num : int
-        Max number of key-points to be matched.
-        Key-points in every frame are indexed (in descending order) by the strength of the response.
-        Only kp_max_num is kept for further processing.
-        Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
     SIFT_nfeatures : int
-        SIFT libary default is 0. The number of best features to retain.
+        SIFT library default is 0. The number of best features to retain.
         The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
     SIFT_nOctaveLayers : int
-        SIFT libary default  is 3. The number of layers in each octave.
+        SIFT library default  is 3. The number of layers in each octave.
         3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
     SIFT_contrastThreshold : double
-        SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+        SIFT library default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
         The larger the threshold, the less features are produced by the detector.
         The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
         When nOctaveLayers is set to default and if you want to use the value used in
         D. Lowe paper (0.03), set this argument to 0.09.
     SIFT_edgeThreshold : double
-        SIFT libary default  is 10. The threshold used to filter out edge-like features.
+        SIFT library default  is 10. The threshold used to filter out edge-like features.
         Note that the its meaning is different from the contrastThreshold,
         i.e. the larger the edgeThreshold, the less features are filtered out
         (more features are retained).
@@ -10873,7 +10844,7 @@ class FIBSEM_dataset:
     save_res_png  : boolean
         Save PNG images of the intermediate processing statistics and final registration quality check
     dtp : Data Type
-        Python data type for saving. Deafult is np.int16, the other option currently is np.uint8.
+        Python data type for saving. Default is np.int16, the other option currently is np.uint8.
     zbin_factor : int
         binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
     flipY : boolean
@@ -10969,36 +10940,63 @@ class FIBSEM_dataset:
         """
         Initializes an instance of  FIBSEM_dataset object. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
 
-        Parameters
+        Parameters:
         ----------
         fls : array of str
-            filenames for the individual data frames in the set
-        data_dir : str
-            data directory (path)
+            Filenames for the individual data frames in the set
 
-        kwargs
+        kwargs:
         ---------
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
-        use_DASK : boolean
-            use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
-        DASK_client_retries : int (default to 3)
-            Number of allowed automatic retries if a task fails
+            File type (0 - Shan Xu's .dat, 1 - tif).
+        data_dir : str
+            Data directory (path).
+        DASK_client_retries : int
+            Number of allowed automatic retries if a task fails. Default is 3.
         Sample_ID : str
-                Sample ID
+            Sample ID.
         PixelSize : float
-            pixel size in nm. Default is 8.0
+            Pixel size in nm. Default is determined from the frame metadata. If that is not available, default is 8.0.
         Scaling : 2D array of floats
-            scaling parameters allowing to convert I16 data into actual electron counts 
+            Scaling parameters allowing to convert I16 data into actual electron counts.
         thr_min : float
-            CDF threshold for determining the minimum data value
+            CDF threshold for determining the minimum data value. Default is 1e-3.
         thr_max : float
-            CDF threshold for determining the maximum data value
+            CDF threshold for determining the maximum data value. Default is 1e-3.
         nbins : int
-            number of histogram bins for building the PDF and CDF
+            Number of histogram bins for building the PDF and CDF. Default is 256.
         sliding_minmax : boolean
-            if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
-            if False - same data_min_glob and data_max_glob will be used for all files
+            If True - data min and max will be taken from data_min_sliding and data_max_sliding arrays. Default is True.
+            If False - same data_min_glob and data_max_glob will be used for all files.
+        fit_params : list
+            Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
+            Default is ['SG', len(fls)//100+1, 3].
+            Other options are:
+                ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
+                ['PF', 2]  - use polynomial fit (in this case of order 2)
+        SIFT_nfeatures : int
+            The number of best features to retain. SIFT library default is 0 (all features retained).
+            The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+        SIFT_nOctaveLayers : int
+            The number of layers in each octave. SIFT library default is 3.
+            3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+        SIFT_contrastThreshold : double
+            The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions. SIFT library default is 0.04.
+            The larger the threshold, the less features are produced by the detector.
+            The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+            When nOctaveLayers is set to default and if you want to use the value used in
+            D. Lowe paper (0.03), set this argument to 0.09.
+        SIFT_edgeThreshold : double
+            The threshold used to filter out edge-like features. SIFT library default is 10.
+            Note that its meaning is different from the contrastThreshold,
+            i.e. the larger the edgeThreshold, the less features are filtered out (more features are retained).
+        SIFT_sigma : double
+            The sigma of the Gaussian applied to the input image at the octave #0. SIFT library default is 1.6.
+            If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
+        BFMatcher : boolean
+            If True, the BF Matcher is used for Key-Point matching, otherwise FLANN will be used. Default is False.
+        save_matches : boolean
+            If True, matches will be saved into individual files. Default is True.
         TransformType : object reference
             Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
             Choose from the following options:
@@ -11008,60 +11006,20 @@ class FIBSEM_dataset:
                 AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
                 RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
         l2_matrix : 2D float array
-            matrix of regularization (shrinkage) parameters
+            Matrix of regularization (shrinkage) parameters.
         targ_vector = 1D float array
-            target vector for regularization
+            Target vector for regularization.
         solver : str
-            Solver used for SIFT ('RANSAC' or 'LinReg')
+            Solver used for SIFT ('RANSAC' or 'LinReg'). Default is 'RANSAC'.
         RANSAC_initial_fraction : float
             Fraction of data points for initial RANSAC iteration step. Default is 0.005.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
-            In the case of 'LinReg' - outlier threshold for iterative regression
+            In the case of 'LinReg' - outlier threshold for iterative regression.
         max_iter : int
-            Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-        BFMatcher : boolean
-            If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-        save_matches : boolean
-            If True, matches will be saved into individual files
-        kp_max_num : int
-            Max number of key-points to be matched.
-            Key-points in every frame are indexed (in descending order) by the strength of the response.
-            Only kp_max_num is kept for further processing.
-            Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
-        SIFT_nfeatures : int
-            SIFT libary default is 0. The number of best features to retain.
-            The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
-        SIFT_nOctaveLayers : int
-            SIFT libary default  is 3. The number of layers in each octave.
-            3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
-        SIFT_contrastThreshold : double
-            SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
-            The larger the threshold, the less features are produced by the detector.
-            The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
-            When nOctaveLayers is set to default and if you want to use the value used in
-            D. Lowe paper (0.03), set this argument to 0.09.
-        SIFT_edgeThreshold : double
-            SIFT libary default  is 10. The threshold used to filter out edge-like features.
-            Note that the its meaning is different from the contrastThreshold,
-            i.e. the larger the edgeThreshold, the less features are filtered out
-            (more features are retained).
-        SIFT_sigma : double
-            SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
-            If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
-        save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check
-        dtp : Data Type
-            Python data type for saving. Deafult is np.int16, the other option currently is np.uint8.
+            Max number of iterations in the iterative procedure above (RANSAC or LinReg).
         zbin_factor : int
-            binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
-        preserve_scales : boolean
-            If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
-        fit_params : list
-            Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
-            Other options are:
-                ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
-                ['PF', 2]  - use polynomial fit (in this case of order 2)
+            Binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         int_order : int
             The order of interpolation (when transforming the data).
                 The order has to be in the range 0-5:
@@ -11071,17 +11029,24 @@ class FIBSEM_dataset:
                     3: Bi-cubic
                     4: Bi-quartic
                     5: Bi-quintic
+        dtp : Data Type
+            Python data type for saving. Default is np.int16.
+        preserve_scales : boolean
+            If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params above.
         subtract_linear_fit : [boolean, boolean]
-            List of two Boolean values for two directions: X- and Y-.
+            List of two Boolean values for two directions: X- and Y-. Default is [True, True].
             If True, the linear slopes along X- and Y- directions (respectively)
             will be subtracted from the cumulative shifts.
             This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
+        subtract_FOVtrend_from_fit : [boolean, boolean]
+            If True, FOV trends (image shifts performed during imaging) will be subtracted first, so they do not bias the linear trends in the line above.
+            Default is [True, True].
         pad_edges : boolean
             If True, the data will be padded before transformation to avoid clipping.
         perform_deformation : boolean
-            If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
+            If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below.
         deformation_type : str
-            Options are:
+            Type of Deformation. Options are:
                 'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
                 'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
                 'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
@@ -11091,7 +11056,9 @@ class FIBSEM_dataset:
         deformation_sigma :  list of 1 or two floats.
             Gaussian width of smoothing (units of pixels). Default is 50.
         disp_res : boolean
-            If False, the intermediate printouts will be suppressed
+            If False, the intermediate printouts will be suppressed. Default is True.
+        save_res_png  : boolean
+            Save PNG images of the intermediate processing statistics and final registration quality check. Default is True.
         """
 
         disp_res = kwargs.get('disp_res', True)
@@ -11123,16 +11090,22 @@ class FIBSEM_dataset:
             ImgB_fraction = 0.0
         self.Sample_ID = kwargs.get("Sample_ID", '')
         self.EightBit = kwargs.get("EightBit", 1)
-        self.use_DASK = kwargs.get("use_DASK", True)
         self.DASK_client_retries = kwargs.get("DASK_client_retries", 3)
         self.thr_min = kwargs.get("thr_min", 1e-3)
         self.thr_max = kwargs.get("thr_max", 1e-3)
         self.nbins = kwargs.get("nbins", 256)
         self.sliding_minmax = kwargs.get("sliding_minmax", True)
+        self.SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
+        self.SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", 3)
+        self.SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
+        self.SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
+        self.SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
+        self.BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+        self.save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
         self.TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
         self.tr_matr_cum_residual = [np.eye(3,3) for i in np.arange(self.nfrs)]  # placeholder - identity transformation matrix
         l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
-        l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
+        l2_matrix_default = np.eye(6)*l2_param_default             # initially set equal shrinkage on all coefficients
         l2_matrix_default[2,2] = 0                                 # turn OFF the regularization on shifts
         l2_matrix_default[5,5] = 0                                 # turn OFF the regularization on shifts
         self.l2_matrix = kwargs.get("l2_matrix", l2_matrix_default)
@@ -11141,21 +11114,14 @@ class FIBSEM_dataset:
         self.RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
         self.drmax = kwargs.get("drmax", 2.0)
         self.max_iter = kwargs.get("max_iter", 1000)
-        self.BFMatcher = kwargs.get("BFMatcher", False)           # If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-        self.save_matches = kwargs.get("save_matches", True)      # If True, matches will be saved into individual files
-        #self.kp_max_num = kwargs.get("kp_max_num", -1)
-        self.SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
-        self.SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", 3)
-        self.SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.04)
-        self.SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10)
-        self.SIFT_sigma = kwargs.get("SIFT_sigma", 1.6)
+
         self.save_res_png  = kwargs.get("save_res_png", True)
         self.zbin_factor =  kwargs.get("zbin_factor", 1)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         self.eval_metrics = kwargs.get('eval_metrics', ['NSAD', 'NCC', 'NMI', 'FSC'])
         self.fnm_types = kwargs.get("fnm_types", ['mrc'])
         self.flipY = kwargs.get("flipY", False)                     # If True, the registered data will be flipped along Y axis
         self.preserve_scales =  kwargs.get("preserve_scales", True) # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
-        self.fit_params =  kwargs.get("fit_params", False)          # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
+        self.fit_params =  kwargs.get("fit_params", ['SG', len(fls)//100+1, 3])          # perform the above adjustment using  Savitzky-Golay (SG) fith with parameters
                                                                     # window size 701, polynomial order 3
         self.int_order = kwargs.get("int_order", False)             #     The order of interpolation. The order has to be in the range 0-5:
                                                                     #    - 0: Nearest-neighbor
@@ -11259,25 +11225,20 @@ class FIBSEM_dataset:
             If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
         save_matches : boolean
             If True, matches will be saved into individual files
-        kp_max_num : int
-            Max number of key-points to be matched.
-            Key-points in every frame are indexed (in descending order) by the strength of the response.
-            Only kp_max_num is kept for further processing.
-            Set this value to -1 if you want to keep ALL keypoints (may take forever to process!)
         SIFT_nfeatures : int
-            SIFT libary default is 0. The number of best features to retain.
+            SIFT library default is 0. The number of best features to retain.
             The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
         SIFT_nOctaveLayers : int
-            SIFT libary default  is 3. The number of layers in each octave.
+            SIFT library default  is 3. The number of layers in each octave.
             3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
         SIFT_contrastThreshold : double
-            SIFT libary default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
+            SIFT library default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
             The larger the threshold, the less features are produced by the detector.
             The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
             When nOctaveLayers is set to default and if you want to use the value used in
             D. Lowe paper (0.03), set this argument to 0.09.
         SIFT_edgeThreshold : double
-            SIFT libary default  is 10. The threshold used to filter out edge-like features.
+            SIFT library default  is 10. The threshold used to filter out edge-like features.
             Note that the its meaning is different from the contrastThreshold,
             i.e. the larger the edgeThreshold, the less features are filtered out
             (more features are retained).
@@ -11319,7 +11280,6 @@ class FIBSEM_dataset:
         RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", self.RANSAC_initial_fraction)
         drmax = kwargs.get("drmax", self.drmax)
         max_iter = kwargs.get("max_iter", self.max_iter)
-        #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
         SIFT_nfeatures = kwargs.get("SIFT_nfeatures", self.SIFT_nfeatures)
         SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", self.SIFT_nOctaveLayers)
         SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
@@ -11355,7 +11315,6 @@ class FIBSEM_dataset:
                                 'RANSAC_initial_fraction' : RANSAC_initial_fraction,
                                 'drmax' : drmax,
                                 'max_iter' : max_iter,
-                                #'kp_max_num' : kp_max_num,
                                 'SIFT_Transform' : TransformType,
                                 'SIFT_nfeatures' : SIFT_nfeatures,
                                 'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
@@ -11591,13 +11550,8 @@ class FIBSEM_dataset:
                 max data values (one per file) for I8 conversion
             data_minmax_glob : 2D float array
                 min and max data values without sliding averaging
-        kp_max_num : int
-            Max number of key-points to be matched.
-            Key-points in every frame are indexed (in descending order) by the strength of the response.
-            Only kp_max_num is kept for further processing.
-            Set this value to -1 if you want to keep ALL keypoints (may take long time to process)
         use_existing_data : boolean
-            Deafult is False. If True and this had already been performed, use existing results.
+            Default is False. If True and this had already been performed, use existing results.
     
         Returns:
         fnms : array of str
@@ -11621,8 +11575,6 @@ class FIBSEM_dataset:
             nbins = kwargs.get("nbins", self.nbins)
             sliding_minmax = kwargs.get("sliding_minmax", self.sliding_minmax)
             data_minmax = kwargs.get("data_minmax", self.data_minmax)
-            #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
-
             SIFT_nfeatures = kwargs.get("SIFT_nfeatures", self.SIFT_nfeatures)
             SIFT_nOctaveLayers = kwargs.get("SIFT_nOctaveLayers", self.SIFT_nOctaveLayers)
             SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
@@ -11635,7 +11587,6 @@ class FIBSEM_dataset:
                         'thr_min' : thr_min,
                         'thr_max' : thr_max,
                         'nbins' : nbins,
-                        #'kp_max_num' : kp_max_num,
                         'SIFT_nfeatures' : SIFT_nfeatures,
                         'SIFT_nOctaveLayers' : SIFT_nOctaveLayers,
                         'SIFT_contrastThreshold' : SIFT_contrastThreshold,
@@ -11706,7 +11657,7 @@ class FIBSEM_dataset:
         estimation : string
             'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
         use_existing_data : boolean
-            Deafult is False. If True and this had already been performed, use existing results
+            Default is False. If True and this had already been performed, use existing results
     
         Returns:
         results_s4 : array of lists containing the results:
@@ -11738,7 +11689,6 @@ class FIBSEM_dataset:
             RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", self.RANSAC_initial_fraction)
             drmax = kwargs.get("drmax", self.drmax)
             max_iter = kwargs.get("max_iter", self.max_iter)
-            #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
             Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
             BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
             save_matches = kwargs.get("save_matches", self.save_matches)
@@ -11756,7 +11706,6 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'save_matches' : save_matches,
-                            #'kp_max_num' : kp_max_num,
                             'Lowe_Ratio_Threshold' : Lowe_Ratio_Threshold,
                             'start' : start,
                             'estimation' : estimation,
@@ -11864,7 +11813,6 @@ class FIBSEM_dataset:
             max_iter = kwargs.get("max_iter", self.max_iter)
             BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
             save_matches = kwargs.get("save_matches", self.save_matches)
-            #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
             save_res_png  = kwargs.get("save_res_png", self.save_res_png )
             preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
             fit_params =  kwargs.get("fit_params", self.fit_params)
@@ -11891,7 +11839,6 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'save_matches' : save_matches,
-                            #'kp_max_num' : kp_max_num,
                             'save_res_png ' : save_res_png ,
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
@@ -12082,7 +12029,6 @@ class FIBSEM_dataset:
         max_iter = kwargs.get("max_iter", self.max_iter)
         BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         save_matches = kwargs.get("save_matches", self.save_matches)
-        #kp_max_num = kwargs.get("kp_max_num", self.kp_max_num)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         preserve_scales =  kwargs.get("preserve_scales", self.preserve_scales)
         fit_params =  kwargs.get("fit_params", self.fit_params)
@@ -12115,7 +12061,6 @@ class FIBSEM_dataset:
                             'max_iter' : max_iter,
                             'BFMatcher' : BFMatcher,
                             'save_matches' : save_matches,
-                            #'kp_max_num' : kp_max_num,
                             'save_res_png ' : save_res_png ,
                             'preserve_scales' : preserve_scales,
                             'fit_params' : fit_params,
@@ -12214,7 +12159,7 @@ class FIBSEM_dataset:
         save_sample_frames_png : boolean
             If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
         dtp  : dtype
-            Python data type for saving. Deafult is int16, the other option currently is np.uint8.
+            Python data type for saving. Default is int16, the other option currently is np.uint8.
         fill_value : float
             Fill value for padding. Default is zero.
         remove_intermediate_frames : boolean
@@ -12339,7 +12284,7 @@ class FIBSEM_dataset:
         start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
         stop_evaluation_box = kwargs.get("stop_evaluation_box", [0, 0, 0, 0])
         disp_res  = kwargs.get("disp_res", True )
-        dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Deafult is int16, the other option currently is np.uint8.
+        dtp = kwargs.get("dtp", np.int16)  # Python data type for saving. Default is int16, the other option currently is np.uint8.
         fill_value = kwargs.get('fill_value', 0.0) + offset
         remove_intermediate_frames = kwargs.get('remove_intermediate_frames', True)
         chunked_mrc_write = kwargs.get('chunked_mrc_write', False)
@@ -13449,7 +13394,7 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     save_png : boolean
         Save the image into PNG file. Default is False.
     save_fname : string
-        File name for to save the image. Deafult is created by replace('.xlsx', '_2D_blob_analysis_results.png').
+        File name for to save the image. Default is created by replace('.xlsx', '_2D_blob_analysis_results.png').
     nbins : int
         Number of bins for histogram. Default is 64.
     verbose : boolean
