@@ -106,7 +106,7 @@ Depending on your distribution, you may need to install these as well :
         [1] M. van Heela, and M. Schatzb, "Fourier shell correlation threshold criteria," Journal of Structural Biology 151, 250-262 (2005)
 
 
-## MRC stack evaluation Functions
+## MRC stack Functions
     analyze_mrc_stack_registration(mrc_filename, **kwargs)
         Read MRC stack and analyze registration - calculate NSAD, NCC, and MI.
     show_eval_box_mrc_stack(mrc_filename, **kwargs)
@@ -126,7 +126,7 @@ Depending on your distribution, you may need to install these as well :
     mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
         Generates a figure with blob examples based on xlsx file created by mrc_stack_estimate_resolution_blobs_2D.
 
-## TIF stack evaluation Functions
+## TIF stack Functions
     analyze_tif_stack_registration(tif_filename, DASK_client, **kwargs)
         Read TIF stack and analyze registration - calculate NSAD, NCC, and MI.
     show_eval_box_tif_stack(tif_filename, **kwargs)

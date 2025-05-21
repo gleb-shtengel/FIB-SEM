@@ -2918,7 +2918,7 @@ def bin_crop_tiff_files(params):
 
 def merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
     '''
-    Bins and crops a stack tiff files (frames) along X-, Y-, or Z-directions and saves it into MRC or HDF5 format. ©G.Shtengel 05/2025 gleb.shtengel@gmail.com
+    Bins and crops a stack tiff files (frames) along X-, Y-, or Z-directions and saves them into MRC or HDF5 file. ©G.Shtengel 05/2025 gleb.shtengel@gmail.com
 
     Parameters:
         fls_tiff : list of str
