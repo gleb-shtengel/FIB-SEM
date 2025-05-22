@@ -11348,7 +11348,7 @@ class FIBSEM_dataset:
 
     def convert_raw_data_to_tif_files(self, **kwargs):
         '''
-        Convert binary ".dat" files into ".tif" files.
+        Convert binary ".dat" files into ".tif" files. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
         
         kwargs:
         ---------
@@ -11388,9 +11388,10 @@ class FIBSEM_dataset:
 
     def evaluate_FIBSEM_statistics(self, **kwargs):
         '''
-        Evaluates parameters of FIBSEM data set (Min/Max, Working Distance (WD), Milling Y Voltage (MV), FOV center positions).
+        Evaluates parameters of FIBSEM data set (Min/Max, Working Distance (WD), Milling Y Voltage (MV), FOV center positions). ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
         
         kwargs:
+        ---------
         DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
         DASK_client_retries : int (default to 3)
             Number of allowed automatic retries if a task fails. Default is object attribute.
@@ -11531,45 +11532,66 @@ class FIBSEM_dataset:
 
     def extract_keypoints(self, **kwargs):
         '''
-        Extract Key-Points and Descriptors
+        Extract Key-Points and Descriptors. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
         
-        kwargs
+        kwargs:
         ---------
-        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
-        DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails
+        DASK_client : DASK client. DASK client. If empty string '' (Default), local computations are performed.
+        DASK_client_retries : int (default to 3)
+            Number of allowed automatic retries if a task fails. Default is object attribute.
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         EightBit : int
-            0 - 16-bit data, 1: 8-bit data
+            0 - 16-bit data, 1: 8-bit data. Default is object attribute.
+        data_dir : str
+            Data directory (path). Default is object attribute.
         fnm_reg : str
             filename for the final registed dataset
         thr_min : float
-            CDF threshold for determining the minimum data value
+            CDF threshold for determining the minimum data value. Default is object attribute.
         thr_max : float
-            CDF threshold for determining the maximum data value
+            CDF threshold for determining the maximum data value. Default is object attribute.
         nbins : int
-            number of histogram bins for building the PDF and CDF
+            Number of histogram bins for building the PDF and CDF. Default is object attribute.
         sliding_minmax : boolean
-            if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
-            if False - same data_min_glob and data_max_glob will be used for all files
+            If True - data min and max will be taken from data_min_sliding and data_max_sliding arrays. Default is object attribute.
+            If False - same data_min_glob and data_max_glob will be used for all files.
         data_minmax : list of 5 parameters
             minmax_xlsx : str
-                path to Excel file with Min/Max data
+                path to Excel file with Min/Max data.
             data_min_glob : float   
-                min data value for I8 conversion (open CV SIFT requires I8)
+                min data value for I8 conversion (open CV SIFT requires I8).
             data_min_sliding : float array
-                min data values (one per file) for I8 conversion
+                min data values (one per file) for I8 conversion.
             data_max_sliding : float array
-                max data values (one per file) for I8 conversion
+                max data values (one per file) for I8 conversion.
             data_minmax_glob : 2D float array
-                min and max data values without sliding averaging
+                min and max data values without sliding averaging.
+        SIFT_nfeatures : int
+            The number of best features to retain. Default is object attribute. SIFT library default is 0 (all features retained).
+            The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+        SIFT_nOctaveLayers : int
+            The number of layers in each octave. Default is object attribute. SIFT library default is 3.
+            3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+        SIFT_contrastThreshold : double
+            The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions. Default is object attribute. SIFT library default is 0.04.
+            The larger the threshold, the less features are produced by the detector.
+            The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+            When nOctaveLayers is set to default and if you want to use the value used in
+            D. Lowe paper (0.03), set this argument to 0.09.
+        SIFT_edgeThreshold : double
+            The threshold used to filter out edge-like features. Default is object attribute. SIFT library default is 10.
+            Note that its meaning is different from the contrastThreshold,
+            i.e. the larger the edgeThreshold, the less features are filtered out (more features are retained).
+        SIFT_sigma : double
+            The sigma of the Gaussian applied to the input image at the octave #0. Default is object attribute. SIFT library default is 1.6.
+            If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
         use_existing_data : boolean
             Default is False. If True and this had already been performed, use existing results.
     
         Returns:
         fnms : array of str
-            filenames for binary files kontaining Key-Point and Descriptors for each frame
+            Filenames for binary files containing Key-Points and Descriptors for each frame.
         '''
         if len(self.fls) == 0:
             print('Data set not defined, perform initialization first')
@@ -11628,7 +11650,7 @@ class FIBSEM_dataset:
 
     def determine_transformations(self, **kwargs):
         '''
-        Determine transformation matrices for sequential frame pairs
+        Determine transformation matrices for sequential frame pairs. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
         
         kwargs
         ---------
