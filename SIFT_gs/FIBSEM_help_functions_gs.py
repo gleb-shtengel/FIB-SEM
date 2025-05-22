@@ -554,9 +554,9 @@ def find_FWHM(x, y, **kwargs):
     kwargs:
     ---------
     start : string
-        'edges' (default) or 'center'. start of search.
+        Start of search for determining FWHM of the error distributions. Options are 'edges' (default) or 'center'.
     estimation : string
-        'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
+        Returns a width of interval determined using search direction from above or total number of bins above half max. Options are 'interval' (default) or 'count'.
     max_aver_aperture : int
         Aperture for averaging the Max signal
     verbose : boolean

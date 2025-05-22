@@ -7998,15 +7998,14 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
             min data values (one per file) for I8 conversion
         data_max_sliding : float array
             max data values (one per file) for I8 conversion
-        
         mill_rate_WD : float array
             Milling rate calculated based on Working Distance (WD)
         mill_rate_MV : float array
             Milling rate calculated based on Milling Y Voltage (MV)
         center_x : float array
-            FOV Center X-coordinate extrated from the header data
+            FOV Center X-coordinate extracted from the header data
         center_y : float array
-            FOV Center Y-coordinate extrated from the header data
+            FOV Center Y-coordinate extracted from the header data
         ScanRate : float array
             SEM Scan Rate (Hz)
         EHT : float array
@@ -8316,7 +8315,7 @@ def determine_transformation_matrix(src_pts, dst_pts, **kwargs):
     start : string
         'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
     estimation : string
-        'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
+        'interval' (default) or 'count'. Returns a width of interval determined using search direction from above or total number of bins above half max (registration error histogram evaluation).
 
     Returns
     transform_matrix, kpts, error_abs_mean, iteration
@@ -8433,7 +8432,7 @@ def determine_transformations_files(params_dsf):
     start : string
         'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
     estimation : string
-        'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
+        'interval' (default) or 'count'. Returns a width of interval determined using search direction from above or total number of bins above half max (registration error histogram evaluation).
 
     Returns:
     transform_matrix, fnm_matches, kpts, error_abs_mean, error_FWHMx, error_FWHMy, iteration
@@ -8862,7 +8861,7 @@ def process_transformation_matrix_dataset(transformation_matrix, FOVtrend_x, FOV
 
 def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms_matches, **kwargs):
     '''
-    Calculates residual deformation fields for transformation IN ADDITION to that determied by transformation_matrix. ©G.Shtengel 01/2025 gleb.shtengel@gmail.com
+    Calculates residual deformation fields for transformation IN ADDITION to that determined by transformation_matrix. ©G.Shtengel 01/2025 gleb.shtengel@gmail.com
 
     Parameters
     ----------
@@ -9185,7 +9184,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     start : string
         'edges' (default) or 'center'. start of search.
     estimation : string
-        'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
+        'interval' (default) or 'count'. Returns a width of interval determined using search direction from above or total number of bins above half max
     memory_profiling : boolean
         If True will perfrom memory profiling. Default is False.
     use_existing_data : boolean
@@ -10912,7 +10911,7 @@ class FIBSEM_dataset:
         Calculate cumulative transformation matrix
 
     calculate_residual_deformation_fields(**kwargs):
-        Calculates residual deformation fields for transformation IN ADDITION to that determied by transformation_matrix (above)
+        Calculates residual deformation fields for transformation IN ADDITION to that determined by transformation_matrix (above)
 
     save_parameters(**kwargs):
         Save transformation attributes and parameters (including transformation matrices)
@@ -10938,7 +10937,7 @@ class FIBSEM_dataset:
 
     def __init__(self, fls, **kwargs):
         """
-        Initializes an instance of  FIBSEM_dataset object. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
+        Initializes (or recalls) an instance of  FIBSEM_dataset object. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
 
         Parameters:
         ----------
@@ -10949,6 +10948,10 @@ class FIBSEM_dataset:
         ---------
         ftype : int
             File type (0 - Shan Xu's .dat, 1 - tif).
+        recall_parameters : boolean
+            If True and dump_filename kwarg points to a valid binary file, will recall the dataset saved into that dump_filename. Default is False.
+        dump_filename : str
+            Filename (full path) to a binary dump file with saved dataset attributes. If dump_filename points to a valid binary file the data set saved in that file will be recalled. Default is empty string ''.
         data_dir : str
             Data directory (path).
         DASK_client_retries : int
@@ -10998,17 +11001,17 @@ class FIBSEM_dataset:
         save_matches : boolean
             If True, matches will be saved into individual files. Default is True.
         TransformType : object reference
-            Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
-            Choose from the following options:
+            Transformation model used for determining the transformation matrix from Key-Point pairs.
+            Choose from the following options (default is RegularizedAffineTransform):
                 ShiftTransform - only x-shift and y-shift
                 XScaleShiftTransform  -  x-scale, x-shift, y-shift
                 ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
                 AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
                 RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
         l2_matrix : 2D float array
-            Matrix of regularization (shrinkage) parameters.
+            Matrix of regularization (shrinkage) parameters (applicable only if RegularizedAffineTransform is used). Default is 1e-5.
         targ_vector = 1D float array
-            Target vector for regularization.
+            Target vector for regularization (applicable only if RegularizedAffineTransform is used). Default is [1, 0, 0, 0, 1, 0] for a target transformation that is shift only: Sxx=Syy=1, Sxy=Syx=0.
         solver : str
             Solver used for SIFT ('RANSAC' or 'LinReg'). Default is 'RANSAC'.
         RANSAC_initial_fraction : float
@@ -11016,8 +11019,9 @@ class FIBSEM_dataset:
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
             In the case of 'LinReg' - outlier threshold for iterative regression.
+            Default is 1.5.
         max_iter : int
-            Max number of iterations in the iterative procedure above (RANSAC or LinReg).
+            Max number of iterations in the iterative procedure above (RANSAC or LinReg). Default is 1000.
         zbin_factor : int
             Binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
         int_order : int
@@ -11055,6 +11059,8 @@ class FIBSEM_dataset:
                 'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
         deformation_sigma :  list of 1 or two floats.
             Gaussian width of smoothing (units of pixels). Default is 50.
+        eval_metrics : list of strings
+            List of metrics used for evaluation of registration (and resolution). Options are; 'NSAD', 'NCC', 'NMI', 'FSC'. Default is ['NSAD', 'NCC', 'NMI'].
         disp_res : boolean
             If False, the intermediate printouts will be suppressed. Default is True.
         save_res_png  : boolean
@@ -11112,12 +11118,12 @@ class FIBSEM_dataset:
         self.targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
         self.solver = kwargs.get("solver", 'RANSAC')
         self.RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
-        self.drmax = kwargs.get("drmax", 2.0)
+        self.drmax = kwargs.get("drmax", 1.5)
         self.max_iter = kwargs.get("max_iter", 1000)
 
         self.save_res_png  = kwargs.get("save_res_png", True)
         self.zbin_factor =  kwargs.get("zbin_factor", 1)         # binning factor in z-direction (milling direction). Data will be binned when saving the final result. Default is 1.
-        self.eval_metrics = kwargs.get('eval_metrics', ['NSAD', 'NCC', 'NMI', 'FSC'])
+        self.eval_metrics = kwargs.get('eval_metrics', ['NSAD', 'NCC', 'NMI'])
         self.fnm_types = kwargs.get("fnm_types", ['mrc'])
         self.flipY = kwargs.get("flipY", False)                     # If True, the registered data will be flipped along Y axis
         self.preserve_scales =  kwargs.get("preserve_scales", True) # If True, the transformation matrix will be adjusted using teh settings defined by fit_params below
@@ -11175,33 +11181,59 @@ class FIBSEM_dataset:
         Evaluate SIFT settings and perfromance of few test frames (eval_fls). ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
         
         Parameters:
-        eval_fls : array of str
-            filenames for the data frames to be used for SIFT evaluation
-        
-        kwargs
         ---------
-        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        eval_fls : array of str
+            filenames for the data frames to be used for SIFT evaluation.
+        
+        kwargs:
+        ---------
+        memory_profiling : boolean
+            If True, memory profiling will be performed. Default is False.
+        DASK_client : DASK client. If empty string '' (default), local computations are performed.
         DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails
+            Number of allowed automatic retries if a task fails. Default is object attribute.
         number_of_repeats : int
-            number of repeats of the calculations (under the same conditions). Default is 1.
+            Number of repeats of the calculations (under the same conditions). Default is 1. Used for debugging (consistency and determinism).
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         fnm_reg : str
-            filename for the final registed dataset
+            Filename for the final registered dataset. Default is object attribute.
         thr_min : float
-            CDF threshold for determining the minimum data value
+            CDF threshold for determining the minimum data value. Default is object attribute.
         thr_max : float
-            CDF threshold for determining the maximum data value
+            CDF threshold for determining the maximum data value. Default is object attribute.
         nbins : int
-            number of histogram bins for building the PDF and CDF
+            Number of histogram bins for building the PDF and CDF. Default is object attribute.
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for key-point extraction
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+        SIFT_nfeatures : int
+            The number of best features to retain. Default is object attribute. SIFT library default is 0 (all features retained).
+            The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
+        SIFT_nOctaveLayers : int
+            The number of layers in each octave. Default is object attribute. SIFT library default is 3.
+            3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
+        SIFT_contrastThreshold : double
+            The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions. Default is object attribute. SIFT library default is 0.04.
+            The larger the threshold, the less features are produced by the detector.
+            The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
+            When nOctaveLayers is set to default and if you want to use the value used in
+            D. Lowe paper (0.03), set this argument to 0.09.
+        SIFT_edgeThreshold : double
+            The threshold used to filter out edge-like features. Default is object attribute. SIFT library default is 10.
+            Note that its meaning is different from the contrastThreshold,
+            i.e. the larger the edgeThreshold, the less features are filtered out (more features are retained).
+        SIFT_sigma : double
+            The sigma of the Gaussian applied to the input image at the octave #0. Default is object attribute. SIFT library default is 1.6.
+            If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
+        BFMatcher : boolean
+            If True, the BF Matcher is used for Key-Point matching, otherwise FLANN will be used. Default is object attribute.
+        save_matches : boolean
+            If True, matches will be saved into individual files. Default is object attribute.
         TransformType : object reference
-            Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
+            Transformation model used for determining the transformation matrix from Key-Point pairs. Default is object attribute.
             Choose from the following options:
                 ShiftTransform - only x-shift and y-shift
                 XScaleShiftTransform  -  x-scale, x-shift, y-shift
@@ -11209,50 +11241,25 @@ class FIBSEM_dataset:
                 AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
                 RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
         l2_matrix : 2D float array
-            matrix of regularization (shrinkage) parameters
+           Matrix of regularization (shrinkage) parameters (applicable only if RegularizedAffineTransform is used). Default is object attribute.
         targ_vector = 1D float array
-            target vector for regularization
+            Target vector for regularization (applicable only if RegularizedAffineTransform is used). Default is object attribute.
         solver : str
-            Solver used for SIFT ('RANSAC' or 'LinReg')
+            Solver used for SIFT ('RANSAC' or 'LinReg'). Default is object attribute.
         RANSAC_initial_fraction : float
-            Fraction of data points for initial RANSAC iteration step. Default is 0.005.
+            Fraction of data points for initial RANSAC iteration step. Default is object attribute.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
-            In the case of 'LinReg' - outlier threshold for iterative regression
+            In the case of 'LinReg' - outlier threshold for iterative regression.
+            Default is object attribute.
         max_iter : int
-            Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-        BFMatcher : boolean
-            If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-        save_matches : boolean
-            If True, matches will be saved into individual files
-        SIFT_nfeatures : int
-            SIFT library default is 0. The number of best features to retain.
-            The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
-        SIFT_nOctaveLayers : int
-            SIFT library default  is 3. The number of layers in each octave.
-            3 is the value used in D. Lowe paper. The number of octaves is computed automatically from the image resolution.
-        SIFT_contrastThreshold : double
-            SIFT library default  is 0.04. The contrast threshold used to filter out weak features in semi-uniform (low-contrast) regions.
-            The larger the threshold, the less features are produced by the detector.
-            The contrast threshold will be divided by nOctaveLayers when the filtering is applied.
-            When nOctaveLayers is set to default and if you want to use the value used in
-            D. Lowe paper (0.03), set this argument to 0.09.
-        SIFT_edgeThreshold : double
-            SIFT library default  is 10. The threshold used to filter out edge-like features.
-            Note that the its meaning is different from the contrastThreshold,
-            i.e. the larger the edgeThreshold, the less features are filtered out
-            (more features are retained).
-        SIFT_sigma : double
-            SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
-            If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
+            Max number of iterations in the iterative procedure above (RANSAC or LinReg). Default is object attribute.
         save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check
+            Save PNG images of the intermediate processing statistics and final registration quality check. Default is object attribute.
         start : string
-            'edges' (default) or 'center'. start of search.
+            Start of search for determining FWHM of the error distributions. Options are 'edges' (default) or 'center'.
         estimation : string
-            'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max
-        memory_profiling : boolean
-            If True, memory profiling will be preformed. Default is False
+            Returns a width of interval determined using search direction from above or total number of bins above half max. Options are 'interval' (default) or 'count'.
     
         Returns:
         dmin, dmax, comp_time, transform_matrix, n_matches, iteration, kpts, error_FWHMx, error_FWHMy
@@ -11343,9 +11350,10 @@ class FIBSEM_dataset:
         '''
         Convert binary ".dat" files into ".tif" files.
         
-        kwargs
+        kwargs:
         ---------
-        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
+        DASK_client : DASK client.
+            If set to empty string '' (default), local computations are performed
         DASK_client_retries : int (default is 3)
             Number of allowed automatic retries if a task fails
         '''
@@ -11385,57 +11393,63 @@ class FIBSEM_dataset:
         kwargs:
         DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
         DASK_client_retries : int (default to 3)
-            Number of allowed automatic retries if a task fails
+            Number of allowed automatic retries if a task fails. Default is object attribute.
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         frame_inds : array
-            Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
+            Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames.
         data_dir : str
-            data directory (path)  for saving the data
+            Data directory (path). Default is object attribute.
         thr_min : float
-            CDF threshold for determining the minimum data value
+            CDF threshold for determining the minimum data value. Default is object attribute.
         thr_max : float
-            CDF threshold for determining the maximum data value
+            CDF threshold for determining the maximum data value. Default is object attribute.
         nbins : int
-            number of histogram bins for building the PDF and CDF
+            Number of histogram bins for building the PDF and CDF. Default is object attribute.
         sliding_minmax : boolean
-            if True - data min and max will be taken from data_min_sliding and data_max_sliding arrays
-            if False - same data_min_glob and data_max_glob will be used for all files
+            If True - data min and max will be taken from data_min_sliding and data_max_sliding arrays. Default is object attribute.
+            If False - same data_min_glob and data_max_glob will be used for all files.
         fit_params : list
             Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
+            Default is object attribute.
             Other options are:
                 ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
                 ['PF', 2]  - use polynomial fit (in this case of order 2)
         Mill_Volt_Rate_um_per_V : float
             Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
         FIBSEM_Data_xlsx : str
-            Filepath of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)
+            File path of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions).
         use_existing_data : boolean
             Default is False. If True and the data exists (saved inso XLSX), use that.            
         disp_res : boolean
             If True (default), intermediate messages and results will be displayed.
 
         Returns:
-        list of 9 parameters: FIBSEM_Data_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y
+        list of 12 parameters: FIBSEM_Data_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y, ScanRate, EHT, SEMSpecimenI
             FIBSEM_Data_xlsx : str
-                path to Excel file with the FIBSEM data
+                Path to Excel file with the FIBSEM data.
             data_min_glob : float   
-                min data value for I8 conversion (open CV SIFT requires I8)
+                Min data value for I8 conversion (open CV SIFT requires I8).
             data_man_glob : float   
-                max data value for I8 conversion (open CV SIFT requires I8)
+                Max data value for I8 conversion (open CV SIFT requires I8).
             data_min_sliding : float array
-                min data values (one per file) for I8 conversion
+                Min data values (one per file) for I8 conversion.
             data_max_sliding : float array
-                max data values (one per file) for I8 conversion
-            
+                Max data values (one per file) for I8 conversion.
             mill_rate_WD : float array
-                Milling rate calculated based on Working Distance (WD)
+                Milling rate calculated based on Working Distance (WD).
             mill_rate_MV : float array
-                Milling rate calculated based on Milling Y Voltage (MV)
+                Milling rate calculated based on Milling Y Voltage (MV).
             center_x : float array
-                FOV Center X-coordinate extrated from the header data
+                FOV Center X-coordinate extracted from the header data.
             center_y : float array
-                FOV Center Y-coordinate extrated from the header data
+                FOV Center Y-coordinate extracted from the header data.
+            ScanRate : float array
+                SEM Scan Rate (Hz).
+            EHT : float array
+                SEM EHT voltage (kV).
+            SEMSpecimenI : float array
+                SEM Specimen current (nA).
         '''
         DASK_client = kwargs.get('DASK_client', '')
         use_DASK, status_update_address = check_DASK(DASK_client)
@@ -11655,7 +11669,7 @@ class FIBSEM_dataset:
         start : string
             'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
         estimation : string
-            'interval' (default) or 'count'. Returns a width of interval determied using search direction from above or total number of bins above half max (registration error histogram evaluation).
+            'interval' (default) or 'count'. Returns a width of interval determined using search direction from above or total number of bins above half max (registration error histogram evaluation).
         use_existing_data : boolean
             Default is False. If True and this had already been performed, use existing results
     
@@ -11861,7 +11875,7 @@ class FIBSEM_dataset:
 
     def calculate_residual_deformation_fields(self, **kwargs):
         '''
-        Calculates residual deformation fields for transformation IN ADDITION to that determied by transformation_matrix. ©G.Shtengel 01/2025 gleb.shtengel@gmail.com
+        Calculates residual deformation fields for transformation IN ADDITION to that determined by transformation_matrix. ©G.Shtengel 01/2025 gleb.shtengel@gmail.com
 
         kwargs:
         ----------
