@@ -6219,7 +6219,7 @@ class FIBSEM_frame:
                 self.header = ''
                 self.EightBit = int(type(self.RawImageA[0,0])==np.uint8)
             try:
-                self.WD = tif_tags['helios_metadata']['EBeam']['WD']*1000.00 # working distance in mm
+                self.WD = tif_tags['helios_metadata']['EBeam']['WD']*1000.00 # Working Distance in mm
             except:
                 pass
             try:
@@ -6331,7 +6331,7 @@ class FIBSEM_frame:
                 self.DetD = (unpack('20s',self.header[720:740])[0]).decode("utf-8")     # Name of detector D
                 self.Mag = unpack('>d',self.header[408:416])[0]                         # Magnification
                 self.PixelSize = unpack('>d',self.header[416:424])[0]                   # Pixel size in nm
-                self.WD = unpack('>d',self.header[424:432])[0]                          # Working distance in mm
+                self.WD = unpack('>d',self.header[424:432])[0]                          # Working Distance in mm
                 self.EHT = unpack('>d',self.header[432:440])[0]                         # EHT in kV
                 self.SEMApr = unpack('b',self.header[440:441])[0]                       # SEM aperture number
                 self.HighCurrent = unpack('b',self.header[441:442])[0]                  # high current mode (1=on, 0=off)
@@ -6371,7 +6371,7 @@ class FIBSEM_frame:
                 self.DetD = (unpack('20s',self.header[430:450])[0]).decode("utf-8")     # Name of detector D
                 self.Mag = unpack('>f',self.header[460:464])[0]                         # Magnification
                 self.PixelSize = unpack('>f',self.header[464:468])[0]                   # Pixel size in nm
-                self.WD = unpack('>f',self.header[468:472])[0]                          # Working distance in mm
+                self.WD = unpack('>f',self.header[468:472])[0]                          # Working Distance in mm
                 self.EHT = unpack('>f',self.header[472:476])[0]                         # EHT in kV
                 self.SEMApr = unpack('b',self.header[480:481])[0]                       # SEM aperture number
                 self.HighCurrent = unpack('b',self.header[481:482])[0]                  # high current mode (1=on, 0=off)
@@ -8886,7 +8886,7 @@ def calculate_residual_deformation_fields_dataset(tr_matr_cum, image_shape, fnms
     data_dir : str
         data directory (path)
     fnm_reg : str
-        filename for the final registed dataset
+        filename for the final registered dataset
     verbose : boolean
 
     Returns deformation_fields, deformation_fields_bin_file
@@ -8959,7 +8959,7 @@ def SIFT_find_keypoints_dataset(fr, **kwargs):
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     fnm_reg : str
-        filename for the final registed dataset
+        filename for the final registered dataset
     thr_min : float
         CDF threshold for determining the minimum data value
     thr_max : float
@@ -9125,7 +9125,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     fnm_reg : str
-        filename for the final registed dataset
+        filename for the final registered dataset
     thr_min : float
         CDF threshold for determining the minimum data value
     thr_max : float
@@ -10121,7 +10121,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
     frame_inds : int array
         Array of frame indecis. If not set or set to np.array((-1)), all frames will be analyzed
     fnm_reg : str
-        filename for the final registed dataset
+        filename for the final registered dataset
     npts : array or list of int
         Numbers of Keypoints used for registration
     error_abs_mean : array or list of float
@@ -10435,7 +10435,7 @@ def save_data_stack(FIBSEMstack, **kwargs):
         data_dir : str
             data directory for saving the data
         fnm_reg : str
-            filename for the final registed dataset
+            filename for the final registered dataset
         fnm_types : list of strings
             File type(s) for output data. Options are: ['h5', 'mrc'].
             Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
@@ -10783,7 +10783,7 @@ class FIBSEM_dataset:
     Scaling : 2D array of floats
         scaling parameters allowing to convert I16 data into actual electron counts 
     fnm_reg : str
-        filename for the final registed dataset
+        filename for the final registered dataset
     use_DASK : boolean
         use python DASK package to parallelize the computation or not (False is used mostly for debug purposes).
     thr_min : float
@@ -11016,6 +11016,8 @@ class FIBSEM_dataset:
             Solver used for SIFT ('RANSAC' or 'LinReg'). Default is 'RANSAC'.
         RANSAC_initial_fraction : float
             Fraction of data points for initial RANSAC iteration step. Default is 0.005.
+        Lowe_Ratio_Threshold : float
+            Threshold for Lowe's Ratio Test. Default is 0.7.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
             In the case of 'LinReg' - outlier threshold for iterative regression.
@@ -11118,6 +11120,7 @@ class FIBSEM_dataset:
         self.targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
         self.solver = kwargs.get("solver", 'RANSAC')
         self.RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
+        self.Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)
         self.drmax = kwargs.get("drmax", 1.5)
         self.max_iter = kwargs.get("max_iter", 1000)
 
@@ -11248,6 +11251,8 @@ class FIBSEM_dataset:
             Solver used for SIFT ('RANSAC' or 'LinReg'). Default is object attribute.
         RANSAC_initial_fraction : float
             Fraction of data points for initial RANSAC iteration step. Default is object attribute.
+        Lowe_Ratio_Threshold : float
+            Threshold for Lowe's Ratio Test. Default is object attribute.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
             In the case of 'LinReg' - outlier threshold for iterative regression.
@@ -11292,8 +11297,10 @@ class FIBSEM_dataset:
         SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", self.SIFT_contrastThreshold)
         SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", self.SIFT_edgeThreshold)
         SIFT_sigma = kwargs.get("SIFT_sigma", self.SIFT_sigma)
-        Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)
-        BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
+        if hasattr(self, "Lowe_Ratio_Threshold"):
+            Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", self.Lowe_Ratio_Threshold)
+        else:
+            Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)
         save_matches = kwargs.get("save_matches", self.save_matches)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
@@ -11546,7 +11553,7 @@ class FIBSEM_dataset:
         data_dir : str
             Data directory (path). Default is object attribute.
         fnm_reg : str
-            filename for the final registed dataset
+            filename for the final registered dataset
         thr_min : float
             CDF threshold for determining the minimum data value. Default is object attribute.
         thr_max : float
@@ -11652,60 +11659,61 @@ class FIBSEM_dataset:
         '''
         Determine transformation matrices for sequential frame pairs. ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
         
-        kwargs
+        kwargs:
         ---------
-        DASK_client : DASK client. If set to empty string '' (default), local computations are performed
-        DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails
+        DASK_client : DASK client. If empty string '' (default), local computations are performed.
+        DASK_client_retries : int (default is 3).
+            Number of allowed automatic retries if a task fails. Default is object attribute.
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         TransformType : object reference
-                Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
-                Choose from the following options:
-                    ShiftTransform - only x-shift and y-shift
-                    XScaleShiftTransform  -  x-scale, x-shift, y-shift
-                    ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
-                    AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
-                    RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
+            Transformation model used for determining the transformation matrix from Key-Point pairs. Default is object attribute.
+            Choose from the following options:
+                ShiftTransform - only x-shift and y-shift
+                XScaleShiftTransform  -  x-scale, x-shift, y-shift
+                ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
+                AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
+                RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
         l2_matrix : 2D float array
-            matrix of regularization (shrinkage) parameters
+           Matrix of regularization (shrinkage) parameters (applicable only if RegularizedAffineTransform is used). Default is object attribute.
         targ_vector = 1D float array
-            target vector for regularization
+            Target vector for regularization (applicable only if RegularizedAffineTransform is used). Default is object attribute.
         solver : str
-            Solver used for SIFT ('RANSAC' or 'LinReg')
+            Solver used for SIFT ('RANSAC' or 'LinReg'). Default is object attribute.
         RANSAC_initial_fraction : float
-            Fraction of data points for initial RANSAC iteration step. Default is 0.005.
+            Fraction of data points for initial RANSAC iteration step. Default is object attribute.
+        Lowe_Ratio_Threshold : float
+            Threshold for Lowe's Ratio Test. Default is object attribute.
+        BFMatcher : boolean
+            If True, the BF Matcher is used for Key-Point matching, otherwise FLANN will be used. Default is object attribute.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
-            In the case of 'LinReg' - outlier threshold for iterative regression
+            In the case of 'LinReg' - outlier threshold for iterative regression.
+            Default is object attribute.
         max_iter : int
-            Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-        Lowe_Ratio_Threshold : float
-            threshold for Lowe's Ratio Test
-        BFMatcher : boolean
-            If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+            Max number of iterations in the iterative procedure above (RANSAC or LinReg). Default is object attribute.
         save_matches : boolean
-            If True, matches will be saved into individual files
+            If True, matches will be saved into individual files. Default is object attribute.
         save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check
+            Save PNG images of the intermediate processing statistics and final registration quality check. Default is object attribute.
         start : string
-            'edges' (default) or 'center'. Start of search (registration error histogram evaluation).
+            Start of search for determining FWHM of the error distributions. Options are 'edges' (default) or 'center'.
         estimation : string
-            'interval' (default) or 'count'. Returns a width of interval determined using search direction from above or total number of bins above half max (registration error histogram evaluation).
+            Returns a width of interval determined using search direction from above or total number of bins above half max. Options are 'interval' (default) or 'count'.
         use_existing_data : boolean
-            Default is False. If True and this had already been performed, use existing results
+            Default is False. If True and this had already been performed, use existing results.
     
         Returns:
         results_s4 : array of lists containing the results:
-            results_s4 = [transformation_matrix, fnm_matches, npt, error_abs_mean, error_FWHMx, error_FWHMy, iteration]
+            [transformation_matrix, fnm_matches, npt, error_abs_mean, error_FWHMx, error_FWHMy, iteration]
             transformation_matrix : 2D float array
-                transformation matrix for each sequential frame pair
+                Transformation matrix for each sequential frame pair.
             fnm_matches : str
-                filename containing the matches used to determin the transformation for the par of frames
+                Filename containing the matches used to determine the transformation for the pair of frames.
             npts : int
-                number of matches
+                Number of matches.
             error_abs_mean : float
-                mean abs error of registration for all matched Key-Points
+                Mean abs error of registration for all matched Key-Points.
         '''
         if len(self.fnms) == 0:
             print('No data on individual key-point data files, peform key-point search')
@@ -11777,54 +11785,59 @@ class FIBSEM_dataset:
         '''
         Calculate cumulative transformation matrix
         
-        kwargs
+        kwargs:
         ---------
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
         fnm_reg : str
-            filename for the final registed dataset
+            Filename for the final registered dataset. Default is object attribute.
         Sample_ID : str
-            Sample ID
+            Sample ID. Default is object attribute.
         TransformType : object reference
-                Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
-                Choose from the following options:
-                    ShiftTransform - only x-shift and y-shift
-                    XScaleShiftTransform  -  x-scale, x-shift, y-shift
-                    ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
-                    AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
-                    RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
+            Transformation model used for determining the transformation matrix from Key-Point pairs. Default is object attribute.
+            Choose from the following options:
+                ShiftTransform - only x-shift and y-shift
+                XScaleShiftTransform  -  x-scale, x-shift, y-shift
+                ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
+                AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
+                RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
         l2_matrix : 2D float array
-            matrix of regularization (shrinkage) parameters
+           Matrix of regularization (shrinkage) parameters (applicable only if RegularizedAffineTransform is used). Default is object attribute.
         targ_vector = 1D float array
-            target vector for regularization
+            Target vector for regularization (applicable only if RegularizedAffineTransform is used). Default is object attribute.
         solver : str
-            Solver used for SIFT ('RANSAC' or 'LinReg')
+            Solver used for SIFT ('RANSAC' or 'LinReg'). Default is object attribute.
+        BFMatcher : boolean
+            If True, the BF Matcher is used for Key-Point matching, otherwise FLANN will be used. Default is object attribute.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
-            In the case of 'LinReg' - outlier threshold for iterative regression
+            In the case of 'LinReg' - outlier threshold for iterative regression.
+            Default is object attribute.
         max_iter : int
-            Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-        BFMatcher : boolean
-            If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+            Max number of iterations in the iterative procedure above (RANSAC or LinReg). Default is object attribute.
         save_matches : boolean
-            If True, matches will be saved into individual files
+            If True, matches will be saved into individual files. Default is object attribute.
         save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check
+            Save PNG images of the intermediate processing statistics and final registration quality check. Default is object attribute.
         preserve_scales : boolean
-            If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
+            If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params above. Default is object attribute.
         fit_params : list
             Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
+            Default is object attribute.
             Other options are:
                 ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
                 ['PF', 2]  - use polynomial fit (in this case of order 2)
         subtract_linear_fit : [boolean, boolean]
-            List of two Boolean values for two directions: X- and Y-.
+            List of two Boolean values for two directions: X- and Y-. Default is object attribute.
             If True, the linear slopes along X- and Y- directions (respectively)
             will be subtracted from the cumulative shifts.
             This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
+        subtract_FOVtrend_from_fit : [boolean, boolean]
+            If True, FOV trends (image shifts performed during imaging) will be subtracted first, so they do not bias the linear trends in the line above.
+            Default is object attribute.
         pad_edges : boolean
-            If True, the data will be padded before transformation to avoid clipping.
-    
+            If True, the data will be padded before transformation to avoid clipping. Default is object attribute.
+
         Returns:
         tr_matr_cum_residual, tr_matr_cum_xlsx_file : list of 2D arrays of float and the filename of the XLSX file with the transf matrix results
             Cumulative transformation matrices
@@ -11902,25 +11915,28 @@ class FIBSEM_dataset:
         kwargs:
         ----------
         tr_matr_cum_residual : transformation matrix
+            Default is object attribute.
         image_shape : target image shape
+            Default is object attribute.
         fnms_matches : files with point matches
+            Default is object attribute.
         deformation_type : str
-            Options are:
+            Type of Deformation. Default is object attribute. Options are:
                 'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
                 'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
                 'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
                 'prior_1DX' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
                 'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
                 'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
-        deformation_sigma :  list of 1 or two floats.
-            Gaussian width of smoothing (units of pixels). Default is 50.
+        deformation_sigma :  list of 1 or two floats.   Gaussian width of smoothing (units of pixels). Used during calculation of the deformation. Default is 50.
         zero_mean : boolean
-            If True (Default), mean value of the deformation field is subtracted for each frame
+            If True (Default), mean value of the deformation field is subtracted for each frame.
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
         fnm_reg : str
-            filename for the final registed dataset
+            Filename for the final registered dataset. Default is object attribute.
         verbose : boolean
+            Display intermediate results. Default is False.
 
         Returns deformation_fields, deformation_fields_bin_file
         '''
@@ -11958,8 +11974,7 @@ class FIBSEM_dataset:
         kwargs:
         -------
         dump_filename : string
-            String containing the name of the binary dump for saving all attributes of the current istance of the FIBSEM_dataset object.
-
+            String containing the name of the binary dump for saving all attributes of the current instance of the FIBSEM_dataset object.
 
         Returns:
         dump_filename : string
@@ -12001,7 +12016,7 @@ class FIBSEM_dataset:
         data_dir : str
             data directory (path)
         fnm_reg : str
-            filename for the final registed dataset
+            filename for the final registered dataset
         Sample_ID : str
             Sample ID
         TransformType : object reference
@@ -12142,7 +12157,7 @@ class FIBSEM_dataset:
             File type(s) for output data. Options are: ['h5', 'mrc'].
             Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
         fnm_reg : str
-            filename for the final registed dataset
+            filename for the final registered dataset
         ImgB_fraction : float
             fractional ratio of Image B to be used for constructing the fuksed image:
             ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
@@ -12475,7 +12490,7 @@ class FIBSEM_dataset:
         data_dir : str
             data directory (path)
         fnm_reg : str
-            filename for the final registed dataset
+            filename for the final registered dataset
         Sample_ID : str
             Sample ID
         int_order : int
