@@ -11303,6 +11303,7 @@ class FIBSEM_dataset:
             Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", self.Lowe_Ratio_Threshold)
         else:
             Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)
+        BFMatcher = kwargs.get("BFMatcher", self.BFMatcher)
         save_matches = kwargs.get("save_matches", self.save_matches)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
