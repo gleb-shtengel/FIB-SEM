@@ -538,6 +538,8 @@ def find_autocorrelation_peak(ind_acr, mag_acr, **kwargs):
         in case of 'LDR' (Levinson-Durbin recusrsion) nlags is the recursion order (a number of lags)
     aperture : int
         total number of points for gaussian interpolation
+    edge_fraction : float
+        Fraction of the full auto-correlation  range used to calculate the "zero value" (default is 0.10).
 
 
     [1]. K. s. Sim, M. s. Lim, Z. x. Yeap, Performance of signal-to-noise ratio estimation for scanning electron microscope using autocorrelation Levinson–Durbin recursion model. J. Microsc. 263, 64–77 (2016).
@@ -611,7 +613,7 @@ def Single_Image_SNR(img, **kwargs):
     kwargs:
     ----------
     edge_fraction : float
-        Fraction of the full auto-correlation  range used to calculate the "mean value" (default is 0.10).
+        Fraction of the full auto-correlation  range used to calculate the "zero value" (default is 0.10).
     extrapolate_signal : str
         Extrapolation method to find signal auto-correlation at 0-point (“Noise-Free Autocorrelation”). 
         Options are (default is 'parabolic'):
@@ -2029,8 +2031,8 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
     kwargs:
     ---------
     DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
-    DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails.
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames.
     invert_data : boolean
@@ -2671,8 +2673,8 @@ def bin_crop_mrc_stack(mrc_filename, **kwargs):
     kwargs:
     ---------
         DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
-        DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails.
+        DASK_client_retries : int
+            Number of allowed automatic retries if a task fails. Default is 3.
         max_futures : int
             max number of running futures. Default is 5000.
         fnm_types : list of strings.
@@ -2925,8 +2927,8 @@ def merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
             list of tiff file names (full paths) to be merged
     **kwargs:
         DASK_client : DASK client. If set to empty string '' (default), local computations are performed
-        DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails
+        DASK_client_retries : int
+            Number of allowed automatic retries if a task fails. Default is 3.
         max_futures : int
             max number of running futures. Default is 5000.
         fnm_types : list of strings.
@@ -3179,8 +3181,8 @@ def destreak_mrc_stack_with_kernel(mrc_filename, destreak_kernel, data_min, data
     kwargs:
     ---------
     DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
-    DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails.
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     max_futures : int
         max number of running futures. Default is 5000.
     frame_inds : array
@@ -3412,8 +3414,8 @@ def smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max
     kwargs:
     ---------
     DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
-    DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails.
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     max_futures : int
         max number of running futures. Default is 5000.
     frame_inds : array
@@ -3613,8 +3615,8 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     kwargs:
     ---------
     DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
-    DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails.
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     frame_inds : list of int
         List of frame indices to use to display the evaluation box.
         Default are [nfrs//10, nfrs//2, nfrs//10*9]
@@ -3651,7 +3653,7 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     subset_size : int
         Subset size (pixels) for blob / transition analysis. Default is 16.
     bounds : lists
-        List of of transition limits Default is [0.37, 0.63].
+        List of transition limits Default is [0.37, 0.63].
         Example of multiple lists: [[0.33, 0.67], [0.20, 0.80]].
     bands : list of 3 ints
         List of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
@@ -3899,7 +3901,7 @@ def select_blobs_LoG_analyze_transitions_2D_mrc_stack(params):
     subset_size : int
         subset size (pixels) for blob / transition analysis
     bounds : lists
-        List of of transition limits.
+        List of transition limits.
     bands : list of 3 ints
         list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
     min_thr : float
@@ -4413,8 +4415,8 @@ def analyze_tif_stack_registration(tif_filename, **kwargs):
 
     kwargs:
     DASK_client : DASK client. If set to empty string '' (default), local computations are performed
-    DASK_client_retries : int (default is 3)
-        Number of allowed automatic retries if a task fails
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     frame_inds : array
         Array of frames to be used for evaluation. If not provided, evaluzation will be performed on all frames
     invert_data : boolean
@@ -6927,7 +6929,7 @@ class FIBSEM_frame:
         '''
         Calculates the data range of the EM data. ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
 
-        Calculates histogram of pixel intensities of of the loaded image
+        Calculates histogram of pixel intensities of the loaded image
         with number of bins determined by parameter nbins (default = 256)
         and normalizes it to get the probability distribution function (PDF),
         from which a cumulative distribution function (CDF) is calculated.
@@ -7429,7 +7431,7 @@ class FIBSEM_frame:
         zero_mean: boolean
             If True (default), auto-correlation is zero-mean.
         edge_fraction : float
-            Fraction of the full auto-correlation range used to calculate the "mean value" (default is 0.10).
+            Fraction of the full auto-correlation  range used to calculate the "zero value" (default is 0.10).
         extrapolate_signal : str
             Extrapolation method to find signal auto-correlation at 0-point (“Noise-free Autocorrelation”). 
             Options are (default is 'parabolic'):
@@ -7845,7 +7847,7 @@ def evaluate_FIBSEM_frame(params):
     '''
     Evaluates single FIB-SEM frame and extract parameters: data min/max, milling rate, FOV center.
     1. Calculates the data range of the EM data ©G.Shtengel 04/2022 gleb.shtengel@gmail.com
-    Calculates histogram of pixel intensities of of the loaded image
+    Calculates histogram of pixel intensities of the loaded image
     with number of bins determined by parameter nbins (default = 256)
     and normalizes it to get the probability distribution function (PDF),
     from which a cumulative distribution function (CDF) is calculated.
@@ -7953,8 +7955,8 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
     kwargs:
     use_DASK : boolean
         perform remote DASK computations
-    DASK_client_retries : int (default to 0)
-        Number of allowed automatic retries if a task fails
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     frame_inds : array
@@ -9115,8 +9117,8 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     kwargs
     ---------
     DASK_client : DASK client. If set to empty string '' (default), local computations are performed
-    DASK_client_retries : int (default to 3)
-        Number of allowed automatic retries if a task fails
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     use_DASK : boolean
     number_of_repeats : int
             number of repeats of the calculations (under the same conditions). Default is 1.
@@ -10112,8 +10114,8 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
     ---------
     use_DASK : boolean
         perform remote DASK computations
-    DASK_client_retries : int (default to 0)
-        Number of allowed automatic retries if a task fails
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     save_registration_summary : boolean
         If True (default), the rgistration analysis will be saved
     data_dir : str
@@ -10263,8 +10265,8 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     ---------
     use_DASK : boolean
         perform remote DASK computations
-    DASK_client_retries : int (default to 3)
-        Number of allowed automatic retries if a task fails
+    DASK_client_retries : int
+        Number of allowed automatic retries if a task fails. Default is 3.
     ftype : int
         file type (0 - Shan Xu's .dat, 1 - tif)
     data_dir : str
@@ -10629,7 +10631,7 @@ def select_blobs_LoG_analyze_transitions_2D_dataset(params):
     subset_size : int
         subset size (pixels) for blob / transition analysis
     bounds : lists
-        List of of transition limits.
+        List of transition limits.
     bands : list of 3 ints
         list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
     min_thr : float
@@ -10955,7 +10957,7 @@ class FIBSEM_dataset:
         data_dir : str
             Data directory (path).
         DASK_client_retries : int
-            Number of allowed automatic retries if a task fails. Default is 3.
+            Number of allowed automatic retries if a task fails. Default is 3. Default is 3.
         Sample_ID : str
             Sample ID.
         PixelSize : float
@@ -11193,7 +11195,7 @@ class FIBSEM_dataset:
         memory_profiling : boolean
             If True, memory profiling will be performed. Default is False.
         DASK_client : DASK client. If empty string '' (default), local computations are performed.
-        DASK_client_retries : int (default is 3)
+        DASK_client_retries : int
             Number of allowed automatic retries if a task fails. Default is object attribute.
         number_of_repeats : int
             Number of repeats of the calculations (under the same conditions). Default is 1. Used for debugging (consistency and determinism).
@@ -11361,8 +11363,8 @@ class FIBSEM_dataset:
         ---------
         DASK_client : DASK client.
             If set to empty string '' (default), local computations are performed
-        DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails
+        DASK_client_retries : int
+            Number of allowed automatic retries if a task fails. Default is object attribute.
         '''
         DASK_client = kwargs.get('DASK_client', '')
         use_DASK, status_update_address = check_DASK(DASK_client)
@@ -11544,7 +11546,7 @@ class FIBSEM_dataset:
         kwargs:
         ---------
         DASK_client : DASK client. DASK client. If empty string '' (Default), local computations are performed.
-        DASK_client_retries : int (default to 3)
+        DASK_client_retries : int
             Number of allowed automatic retries if a task fails. Default is object attribute.
         ftype : int
             File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
@@ -11662,7 +11664,7 @@ class FIBSEM_dataset:
         kwargs:
         ---------
         DASK_client : DASK client. If empty string '' (default), local computations are performed.
-        DASK_client_retries : int (default is 3).
+        DASK_client_retries : int
             Number of allowed automatic retries if a task fails. Default is object attribute.
         ftype : int
             File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
@@ -12668,7 +12670,7 @@ class FIBSEM_dataset:
         frame_inds : list of int
             Array or list of frame indices to use to display the evaluation box. Default is [nfrs//10, nfrs//2, nfrs//10*9].
         zero_mean: boolean
-            If True (default), auto-correlation is zero-mean.
+            If True (default), auto-correlation is zero-mean. Default is True.
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
             If evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
@@ -12691,6 +12693,15 @@ class FIBSEM_dataset:
             If not provided, the value determined from rSNR ratios will be used.
         perform_transformation : boolean
             If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed. Default is False.
+        int_order : int
+            The order of interpolation (when transforming the data). Default is object attribute.
+                The order has to be in the range 0-5:
+                    0: Nearest-neighbor
+                    1: Bi-linear (default)
+                    2: Bi-quadratic
+                    3: Bi-cubic
+                    4: Bi-quartic
+                    5: Bi-quintic
         invert_data : boolean
             If True - the data is inverted. Default is object attribute.
         flipY : boolean
@@ -12705,12 +12716,14 @@ class FIBSEM_dataset:
                 'gaussian'  - gaussian interpolation with number of points = aperture
                 'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
             Default is 'parabolic'.
+        edge_fraction : float
+            Fraction of the full auto-correlation  range used to calculate the "zero value" (default is 0.10).
         nlags : int
             In case of 'LDR' (Levinson-Durbin recursion) nlags is the recursion order (a number of lags). Default is min(xsize/4, ysize/4).
         aperture : int
             Total number of points for gaussian interpolation. Default is 6.
         save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check.
+            Save PNG images of the intermediate processing statistics and final registration quality check. Default is False.
 
         Returns:
             ImgB_fraction_xSNR, ImgB_fraction_ySNR, ImgB_fraction_rSNR
@@ -12720,6 +12733,7 @@ class FIBSEM_dataset:
         nfrs = len(fls)
         default_indices = [nfrs//10, nfrs//2, nfrs//10*9]
         frame_inds = kwargs.get("frame_inds", default_indices)
+        zero_mean = kwargs.get('zero_mean', True)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
         start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
@@ -12728,19 +12742,18 @@ class FIBSEM_dataset:
         data_dir = kwargs.get("data_dir", self.data_dir)
         fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
-        int_order = kwargs.get("int_order", self.int_order) 
-        invert_data =  kwargs.get("invert_data", False)
-        save_res_png  = kwargs.get("save_res_png", False )
         ImgB_fraction = kwargs.get("ImgB_fraction", 0.00 )
-        flipY = kwargs.get("flipY", False)
-        pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         perform_transformation =  kwargs.get("perform_transformation", False) and hasattr(self, 'tr_matr_cum_residual')
+        int_order = kwargs.get("int_order", self.int_order)
+        invert_data =  kwargs.get("invert_data", self.invert_data)
+        flipY = kwargs.get("flipY", self.flipY)
+        pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
         edge_fraction = kwargs.get("edge_fraction", 0.10)
-        aperture = kwargs.get("aperture", 6)
-        zero_mean = kwargs.get('zero_mean', True)
         shape = [self.YResolution, self.XResolution]
         nlags = kwargs.get("nlags", np.min(shape)//4)
+        aperture = kwargs.get("aperture", 6)
+        save_res_png  = kwargs.get("save_res_png", False )
         if pad_edges and perform_transformation:
             xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
             #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
@@ -12827,6 +12840,9 @@ class FIBSEM_dataset:
             ImageA_xSNR, ImageA_ySNR, ImageA_rSNR= Single_Image_SNR(frame_imgA_eval,
                                                                     zero_mean = zero_mean,
                                                                     extrapolate_signal=extrapolate_signal,
+                                                                    edge_fraction = edge_fraction,
+                                                                    aperture = aperture,
+                                                                    nlags = nlags,
                                                                     save_res_png=save_res_png,
                                                                     res_fname = SNR_png_fname.replace('.png', '_ImgA_SNR.png'),
                                                                     img_label='Image A, frame={:d}'.format(frame_ind))
@@ -12842,6 +12858,9 @@ class FIBSEM_dataset:
                 ImageB_xSNR, ImageB_ySNR, ImageB_rSNR = Single_Image_SNR(frame_imgB_eval,
                                                                         zero_mean = zero_mean,
                                                                         extrapolate_signal=extrapolate_signal,
+                                                                        edge_fraction = edge_fraction,
+                                                                        aperture = aperture,
+                                                                        nlags = nlags,
                                                                         save_res_png=save_res_png,
                                                                         res_fname = SNR_png_fname.replace('.png', '_ImgB_SNR.png'),
                                                                         img_label='Image B, frame={:d}'.format(frame_ind))
@@ -12916,6 +12935,9 @@ class FIBSEM_dataset:
                 ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval,
                                                                         zero_mean = zero_mean,
                                                                         extrapolate_signal=extrapolate_signal,
+                                                                        edge_fraction = edge_fraction,
+                                                                        aperture = aperture,
+                                                                        nlags = nlags,
                                                                         save_res_png=save_res_png,
                                                                         res_fname = SNR_png_fname.replace('.png', '_ImgB_fr{:.3f}_SNR.png'.format(ImgB_fraction)),
                                                                         img_label='Fused, ImB_fr={:.4f}, frame={:d}'.format(ImgB_fraction, frame_ind))
@@ -12947,53 +12969,74 @@ class FIBSEM_dataset:
         '''
         Calculate NCC and SNR vs Image B fraction over a set of frames.
 
+        Parameters:
+        ---------
         ImgB_fractions : list
-            List of fractions to estimate the NCC and SNR
+            List of fractions to estimate the NCC and SNR.
         frame_inds : int array
-            array of frame indices to perform NCC / SNR evaluation
+            List or array array of frame indices to perform NCC / SNR evaluation.
         
-        kwargs
+        kwargs:
         ---------
         DASK_client : DASK client
-            Default is '' and not using DASK
-        DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails
+            If set to empty string '' (default), local computations are performed.
+        DASK_client_retries : int 
+            Number of allowed automatic retries if a task fails. Default is object attribute.
+        zero_mean: boolean
+            If True (default), auto-correlation is zero-mean. Default is True.
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
             if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
         extrapolate_signal : str
-            extrapolate to find signal autocorrelationb to 0-point (without noise). 
-            Options are:
-                    'nearest'  - nearest point (1 pixel away from center)
-                    'linear'   - linear interpolation of 2-points next to center
-                    'parabolic' - parabolic interpolation of 2 point left and 2 points right 
+            Extrapolation method to find signal auto-correlation at 0-point (“Noise-Free Autocorrelation”). Options are:
+                'nearest'  - nearest point (1 pixel away from center, same as NN in [1]).
+                'linear'   - linear interpolation of 2-points next to center (same as FO in [1]).
+                'parabolic' - parabolic interpolation of 2 point left and 2 points right (for 4-point interpolation this is the same as NN+FO in [1]).
+                'gaussian'  - gaussian interpolation with number of points = aperture
+                'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
             Default is 'parabolic'.
+        edge_fraction : float
+            Fraction of the full auto-correlation  range used to calculate the "zero value" (default is 0.10).
+        nlags : int
+            In case of 'LDR' (Levinson-Durbin recursion) nlags is the recursion order (a number of lags). Default is min(xsize/4, ysize/4).
+        aperture : int
+            Total number of points for gaussian interpolation. Default is 6.
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
         Sample_ID : str
-            Sample ID
-        
+            Sample ID. Default is object attribute.
         invert_data : boolean
-            If True - the data is inverted
-        save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check
+            If True - the data is inverted. Default is object attribute.
+        flipY : boolean
+            If True, the data will be flipped along Y-axis. Default is object attribute.
         pad_edges : boolean
-            If True, the data will be padded before transformation to avoid clipping.
-        
+            If True, the frame will be padded to account for frame position and/or size changes. Default is object attribute.
+        save_res_png  : boolean
+            Save PNG images of the intermediate processing statistics and final registration quality check.
 
-        Returns
-        SNRimpr_max_position, SNRimpr_max, ImgB_fractions, SNRs
+        Returns:
+            SNRimpr_max_position, SNRimpr_max, ImgB_fractions, SNRs
         '''
-        data_dir = kwargs.get("data_dir", self.data_dir)
-        fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
+        
         DASK_client = kwargs.get('DASK_client', '')
         use_DASK, status_update_address = check_DASK(DASK_client)
         if hasattr(self, "DASK_client_retries"):
             DASK_client_retries = kwargs.get("DASK_client_retries", self.DASK_client_retries)
         else:
             DASK_client_retries = kwargs.get("DASK_client_retries", 3)
+
+        zero_mean = kwargs.get('zero_mean', True)
+        evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
+        edge_fraction = kwargs.get("edge_fraction", 0.10)
+        aperture = kwargs.get("aperture", 6)
+        shape = [self.YResolution, self.XResolution]
+        nlags = kwargs.get("nlags", np.min(shape)//4)
+        ftype = kwargs.get("ftype", self.ftype)
+        data_dir = kwargs.get("data_dir", self.data_dir)
+        fnm_reg = kwargs.get("fnm_reg", self.fnm_reg)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
         if hasattr(self, 'invert_data'):
             invert_data = kwargs.get("invert_data", self.invert_data)
@@ -13005,9 +13048,9 @@ class FIBSEM_dataset:
             flipY = kwargs.get("flipY", flipY)
         flatten_image = kwargs.get("flatten_image", False)
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
-        evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
+        
         save_sample_frames_png = kwargs.get("save_sample_frames_png", False )
-        extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
+        
 
         nbr = len(ImgB_fractions)
         kwargs_local ={'zbin_factor' : 1}
@@ -13045,10 +13088,10 @@ class FIBSEM_dataset:
             kwargs_local['disp_res'] = False
             kwargs_local['flatten_image'] = flatten_image
             br_res, br_res_xlsx = self.transform_and_save(DASK_client = DASK_client,
+                                                            ftype = ftype,
                                                             save_transformed_dataset=False,
                                                             save_registration_summary=False,
                                                             frame_inds=frame_inds,
-                                                            use_DASK=use_DASK,
                                                             save_sample_frames_png=False,
                                                             eval_metrics = ['NCC'],
                                                             **kwargs_local)
@@ -13079,7 +13122,11 @@ class FIBSEM_dataset:
 
             frame_imgF_eval = frame_imgA_eval * (1.0 - ImgB_fraction) + frame_imgB_eval * ImgB_fraction
             ImageF_xSNR, ImageF_ySNR, ImageF_rSNR = Single_Image_SNR(frame_imgF_eval,
+                                                                    zero_mean=zero_mean,
                                                                     extrapolate_signal=extrapolate_signal,
+                                                                    edge_fraction = edge_fraction,
+                                                                    aperture = aperture,
+                                                                    nlags = nlags,
                                                                     disp_res=False,
                                                                     save_res_png=False,
                                                                     res_fname = '',
@@ -13156,11 +13203,9 @@ class FIBSEM_dataset:
         axs[1].grid(True)
         axs[1].set_ylabel('Frame-to-Frame SNR Improvement', fontsize=fs)
         axs[1].set_xlabel('Frame', fontsize=fs)
-
         axs[2].plot(ImgB_fractions, rSNRFs, 'rd', label='Data (auto-correlation)')
         axs[2].grid(True)
         axs[2].set_ylabel('Auto-Corr SNR', fontsize=fs)
-        
         axs[3].plot(ImgB_fractions, SNRimpr_cc, 'cs', label='Data (cross-corr.)')
         axs[3].plot(ImgB_fr_fit_cc, SNRimpr_cc_fit, 'b', label='Fit (cross-corr.)')
         axs[3].plot(SNRimpr_cc_max_position, SNRimpr_cc_max, 'bx', markersize=10, label='Max SNR Impr. (cc)')
@@ -13171,7 +13216,6 @@ class FIBSEM_dataset:
         axs[3].plot(SNRimpr_ac_max_position, SNRimpr_ac_max, 'mx', markersize=10, label='Max SNR Impr. (ac)')
         axs[3].text(0.4, 0.15, 'Max AC SNR Improvement={:.3f}'.format(SNRimpr_ac_max), transform=axs[3].transAxes, fontsize=fs)
         axs[3].text(0.4, 0.05, '@ Img B Fraction ={:.3f}'.format(SNRimpr_ac_max_position), transform=axs[3].transAxes, fontsize=fs)
-
         axs[3].legend(fontsize=fs-2, loc='upper left')
         axs[3].grid(True)
         axs[3].set_ylabel('Mean SNR improvement', fontsize=fs)
@@ -13188,79 +13232,86 @@ class FIBSEM_dataset:
         '''
         Estimate transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs). gleb.shtengel@gmail.com  06/2023 
 
-        kwargs
+        kwargs:
         ---------
         DASK_client : DASK client. If set to empty string '' (default), local computations are performed
-        DASK_client_retries : int (default is 3)
-            Number of allowed automatic retries if a task fails
+        DASK_client_retries : int
+            Number of allowed automatic retries if a task fails. Default is 3.
         image_name : str
-            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
+            Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'.
         frame_inds : list of int
-            List of frame indices to use to display the evaluation box.
-            Default are [nfrs//10, nfrs//2, nfrs//10*9]
+            Array or list of frame indices to use to display the evaluation box. Default is [nfrs//10, nfrs//2, nfrs//10*9].
         evaluation_box : list of 4 int
-            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
-            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
+            If evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
         sliding_evaluation_box : boolean
-            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box.
         start_evaluation_box : list of 4 int
-            see above
+            see above.
         stop_evaluation_box : list of 4 int
-            see above
+            see above.
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
         Sample_ID : str
-            Sample ID
-        invert_data : boolean
-            If True - the data is inverted
+            Sample ID. Default is object attribute.
         perform_transformation : boolean
-            If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed
-        pad_edges : boolean
-            If True, the data will be padded before transformation to avoid clipping.
+            If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed. Default is False.
+        int_order : int
+            The order of interpolation (when transforming the data). Default is object attribute.
+                The order has to be in the range 0-5:
+                    0: Nearest-neighbor
+                    1: Bi-linear (default)
+                    2: Bi-quadratic
+                    3: Bi-cubic
+                    4: Bi-quartic
+                    5: Bi-quintic
+        invert_data : boolean
+            If True - the data is inverted. Default is object attribute.
         flipY : boolean
-            If True, the data will be flipped along Y-axis. Default is False.
+            If True, the data will be flipped along Y-axis. Default is object attribute.
+        pad_edges : boolean
+            If True, the frame will be padded to account for frame position and/or size changes. Default is object attribute.
         zbin_factor : int
-        
+            Binning factor along Z-axis. Default is object attribute.
         min_sigma : float
-            min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.0
+            Min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.0.
         max_sigma : float
-            min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.5
+            Max sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.5.
         threshold : float
-            threshold for LoG search. Default is 0.005. The absolute lower bound for scale space maxima. Local maxima smaller
-            than threshold are ignored. Reduce this to detect blobs with less intensities. 
+            Threshold for LoG search. Default is 0.005. The absolute lower bound for scale space maxima.
+            Local maxima smaller than threshold are ignored. Reduce this to detect blobs with less intensities. 
         overlap : float
             A value between 0 and 1. Defaults is 0.1. If the area of two blobs overlaps by a
-            fraction greater than 'overlap', the smaller blob is eliminated.    
+            fraction greater than 'overlap', the smaller blob is eliminated.
         pixel_size : float
-            pixel size in nm. Default is 4.0
+            Pixel size in nm. Default is the value of object attribute PixelSize. 
         subset_size : int
-            subset size (pixels) for blob / transition analysis
-            Default is 16.
+            Subset size (pixels) for blob / transition analysis. Default is 16.
         bounds : lists
-            List of of transition limits Default is [0.37, 0.63].
+            List of transition limits Default is [0.37, 0.63].
             Example of multiple lists: [[0.33, 0.67], [0.20, 0.80]].
         bands : list of 3 ints
-            list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
+            List of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
             Default is [5 ,3, 5].
         min_thr : float
-            threshold for identifying a 'good' transition (bottom < min_thr* top)
+            Threshold for identifying a 'good' transition (bottom < min_thr* top).
         transition_low_limit : float
-            error flag is incremented by 4 if the determined transition distance is below this value. Default is 0.0
+            Error flag is incremented by 4 if the determined transition distance is below this value. Default is 0.0.
         transition_high_limit : float
-            error flag is incremented by 8 if the determined transition distance is above this value. Default is 10.0
+            Error flag is incremented by 8 if the determined transition distance is above this value. Default is 10.0.
         verbose : boolean
-            print the outputs. Default is False
+            Print intermediate outputs. Default is False.
         disp_res : boolean
-            display results. Default is False
+            Display results. Default is False.
         title : str
-            title.
+            Title string.
         nbins : int
-            bins for histogram
+            Number of bins for histogram. Default is 64.
         save_data_xlsx : boolean
-            save the data into Excel workbook. Default is True.
-        results_file_xlsx : file name for Excel workbook to save the results
+            Save the data into Excel workbook. Default is True.
+        results_file_xlsx : file name for Excel workbook to save the results. Default is derived from self.fnm_reg +'_2D_blob_analysis_results.xlsx'
             
         Returns: XY_transitions ; array[len(frame_inds), 4]
             array consists of lines - one line for each frame in frame_inds
@@ -13278,26 +13329,7 @@ class FIBSEM_dataset:
         ftype = kwargs.get("ftype", self.ftype)
         data_dir = kwargs.get("data_dir", self.data_dir)
         Sample_ID = kwargs.get("Sample_ID", self.Sample_ID)
-        if hasattr(self, 'invert_data'):
-            invert_data = kwargs.get("invert_data", self.invert_data)
-        else:
-            invert_data = kwargs.get("invert_data", False)
-        kwargs['invert_data'] = invert_data
-        if hasattr(self, 'flipY'):
-            flipY = kwargs.get("flipY", self.flipY)
-        else:
-            flipY = kwargs.get("flipY", False)
-        kwargs['flipY'] = flipY
-        if hasattr(self, 'zbin_factor'):
-            zbin_factor = kwargs.get("zbin_factor", self.zbin_factor)
-        else:
-            zbin_factor = kwargs.get("zbin_factor", 1)
-        kwargs['zbin_factor'] = zbin_factor
-        if hasattr(self, 'pad_edges'):
-            pad_edges = kwargs.get("pad_edges", self.pad_edges)
-        else:
-            pad_edges = kwargs.get("pad_edges", False)
-        kwargs['pad_edges'] = pad_edges
+        
         if hasattr(self, 'perform_transformation'):
             perform_transformation = kwargs.get("perform_transformation", self.perform_transformation)
         else:
@@ -13308,6 +13340,29 @@ class FIBSEM_dataset:
         else:
             int_order = kwargs.get("int_order", 1)
         kwargs['int_order'] = int_order
+        if hasattr(self, 'invert_data'):
+            invert_data = kwargs.get("invert_data", self.invert_data)
+        else:
+            invert_data = kwargs.get("invert_data", False)
+        kwargs['invert_data'] = invert_data
+        if hasattr(self, 'flipY'):
+            flipY = kwargs.get("flipY", self.flipY)
+        else:
+            flipY = kwargs.get("flipY", False)
+        kwargs['flipY'] = flipY
+        if hasattr(self, 'pad_edges'):
+            pad_edges = kwargs.get("pad_edges", self.pad_edges)
+        else:
+            pad_edges = kwargs.get("pad_edges", False)
+        kwargs['pad_edges'] = pad_edges
+        if hasattr(self, 'zbin_factor'):
+            zbin_factor = kwargs.get("zbin_factor", self.zbin_factor)
+        else:
+            zbin_factor = kwargs.get("zbin_factor", 1)
+        kwargs['zbin_factor'] = zbin_factor
+        
+        
+        
         
         min_sigma = kwargs.get('min_sigma', 1.0)
         max_sigma = kwargs.get('max_sigma', 1.0)
@@ -13315,7 +13370,7 @@ class FIBSEM_dataset:
         overlap = kwargs.get('overlap', 0.1)
         subset_size = kwargs.get('subset_size', 16)     # blob analysis window size in pixels
         dx2=subset_size//2
-        pixel_size = kwargs.get('pixel_size', 4.0)
+        pixel_size = kwargs.get('pixel_size', self.PixelSize)
         bounds = kwargs.get('bounds', [0.37, 0.63])
         bands = kwargs.get('bands', [5, 5, 5])        # bands for finding left minimum, mid (peak), and right minimum
         min_thr = kwargs.get('min_thr', 0.4)        #threshold for identifying 'good' transition (bottom < min_thr* top)
