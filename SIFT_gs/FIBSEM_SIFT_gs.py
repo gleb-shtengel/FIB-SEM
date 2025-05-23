@@ -3616,7 +3616,7 @@ def mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
     DASK_client_retries : int (default is 3)
         Number of allowed automatic retries if a task fails.
     frame_inds : list of int
-        List oif frame indecis to use to display the evaluation box.
+        List of frame indices to use to display the evaluation box.
         Default are [nfrs//10, nfrs//2, nfrs//10*9]
     evaluation_box : list of 4 int
         evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
@@ -5758,7 +5758,7 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
 
     kwargs:
     frame_inds : array or list of int
-        Array or list oif frame indecis to use to azalyze the data.
+        Array or list of frame indices to use to azalyze the data.
     save_res_png : boolean
         If True, the PNG's of summary plots as well as summary Excel notebook are saved.
     save_filename : str
@@ -7430,14 +7430,14 @@ class FIBSEM_frame:
             If True (default), auto-correlation is zero-mean.
         edge_fraction : float
             Fraction of the full auto-correlation range used to calculate the "mean value" (default is 0.10).
-            extrapolate_signal : str
-        Extrapolation method to find signal auto-correlation at 0-point (“Noise-free Autocorrelation”). 
-        Options are (default is 'parabolic'):
-            'nearest'  - nearest point (1 pixel away from center)
-            'linear'   - linear interpolation of 2-points next to center
-            'parabolic' - parabolic interpolation of 2 points left and 2 points right 
-            'gaussian'  - gaussian interpolation with number of points = aperture
-            'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
+        extrapolate_signal : str
+            Extrapolation method to find signal auto-correlation at 0-point (“Noise-free Autocorrelation”). 
+            Options are (default is 'parabolic'):
+                'nearest'  - nearest point (1 pixel away from center)
+                'linear'   - linear interpolation of 2-points next to center
+                'parabolic' - parabolic interpolation of 2 points left and 2 points right 
+                'gaussian'  - gaussian interpolation with number of points = aperture
+                'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
         nlags : int
             In case of 'LDR' (Levinson-Durbin recursion) nlags is the recursion order (a number of lags). Default is min(xsize/4, ysize/4).
         aperture : int
@@ -10119,7 +10119,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
     data_dir : str
         data directory (path)
     frame_inds : int array
-        Array of frame indecis. If not set or set to np.array((-1)), all frames will be analyzed
+        Array of frame indices. If not set or set to np.array((-1)), all frames will be analyzed
     fnm_reg : str
         filename for the final registered dataset
     npts : array or list of int
@@ -10133,7 +10133,7 @@ def analyze_registration_frames(DASK_client, frame_filenames, **kwargs):
     save_sample_frames_png : boolean
         If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
     sample_frame_inds : list of int
-        list of sample frame indecis
+        list of sample frame indices
     save_registration_summary : boolean
         If True, the registration summary is saved into XLSX file
     disp_res : boolean
@@ -10253,7 +10253,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     Parameters
     DASK_client : DASK client
     frame_inds : int array
-        Array of frame indecis. If not set or set to np.array((-1)), all frames will be transformed
+        Array of frame indices. If not set or set to np.array((-1)), all frames will be transformed
     fls : array of strings
         full array of filenames
     tr_matr_cum_residual : array
@@ -10270,7 +10270,7 @@ def transform_and_save_frames(DASK_client, frame_inds, fls, tr_matr_cum_residual
     data_dir : str
         data directory (path)
     ImgB_fraction : float
-        fractional ratio of Image B to be used for constructing the fuksed image:
+        fractional ratio of Image B to be used for constructing the fused image:
         ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
     pad_edges : boolean
         If True, the data will be padded before transformation to avoid clipping.
@@ -10884,7 +10884,7 @@ class FIBSEM_dataset:
     deformation_sigma :  list of 1 or two floats.
         Gaussian width of smoothing (units of pixels). Default is 50.
     ImgB_fraction : float
-            fractional ratio of Image B to be used for constructing the fuksed image:
+            fractional ratio of Image B to be used for constructing the fused image:
             ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
     evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
@@ -12004,60 +12004,64 @@ class FIBSEM_dataset:
 
     def check_for_nomatch_frames(self, thr_npt, **kwargs):
         '''
-        Calculate cumulative transformation matrix
+        Check if there are frames with low number of matches. If yes, exclude them and re-calculate the transformation matrices.
 
         Parameters:
         -----------
         thr_npt : int
-            minimum number of matches. If the pair has less than this - it is reported as "suspicious" and is excluded.
-
+            Minimum number of matches. If the pair has less than this - it is reported as "suspicious" and is excluded.
         kwargs
         ---------
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
         fnm_reg : str
-            filename for the final registered dataset
+            Filename for the final registered dataset. Default is object attribute.
         Sample_ID : str
-            Sample ID
+            Sample ID. Default is object attribute.
         TransformType : object reference
-                Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
-                Choose from the following options:
-                    ShiftTransform - only x-shift and y-shift
-                    XScaleShiftTransform  -  x-scale, x-shift, y-shift
-                    ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
-                    AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
-                    RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
+            Transformation model used for determining the transformation matrix from Key-Point pairs. Default is object attribute.
+            Choose from the following options:
+                ShiftTransform - only x-shift and y-shift
+                XScaleShiftTransform  -  x-scale, x-shift, y-shift
+                ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
+                AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
+                RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
         l2_matrix : 2D float array
-            matrix of regularization (shrinkage) parameters
+           Matrix of regularization (shrinkage) parameters (applicable only if RegularizedAffineTransform is used). Default is object attribute.
         targ_vector = 1D float array
-            target vector for regularization
+            Target vector for regularization (applicable only if RegularizedAffineTransform is used). Default is object attribute.
         solver : str
-            Solver used for SIFT ('RANSAC' or 'LinReg')
+            Solver used for SIFT ('RANSAC' or 'LinReg'). Default is object attribute.
+        BFMatcher : boolean
+            If True, the BF Matcher is used for Key-Point matching, otherwise FLANN will be used. Default is object attribute.
         drmax : float
             In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
-            In the case of 'LinReg' - outlier threshold for iterative regression
+            In the case of 'LinReg' - outlier threshold for iterative regression.
+            Default is object attribute.
         max_iter : int
-            Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-        BFMatcher : boolean
-            If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
+            Max number of iterations in the iterative procedure above (RANSAC or LinReg). Default is object attribute.
         save_matches : boolean
-            If True, matches will be saved into individual files
+            If True, matches will be saved into individual files. Default is object attribute.
         save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check
+            Save PNG images of the intermediate processing statistics and final registration quality check. Default is object attribute.
         preserve_scales : boolean
-            If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params below.
+            If True, the cumulative transformation matrix will be adjusted using the settings defined by fit_params above. Default is object attribute.
         fit_params : list
             Example: ['SG', 501, 3]  - perform the above adjustment using Savitzky-Golay (SG) filter with parameters - window size 501, polynomial order 3.
+            Default is object attribute.
             Other options are:
                 ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
                 ['PF', 2]  - use polynomial fit (in this case of order 2)
         subtract_linear_fit : [boolean, boolean]
-            List of two Boolean values for two directions: X- and Y-.
+            List of two Boolean values for two directions: X- and Y-. Default is object attribute.
             If True, the linear slopes along X- and Y- directions (respectively)
             will be subtracted from the cumulative shifts.
             This is performed after the optimal frame-to-frame shifts are recalculated for preserve_scales = True.
+        subtract_FOVtrend_from_fit : [boolean, boolean]
+            If True, FOV trends (image shifts performed during imaging) will be subtracted first, so they do not bias the linear trends in the line above.
+            Default is object attribute.
         pad_edges : boolean
-            If True, the data will be padded before transformation to avoid clipping.
+            If True, the data will be padded before transformation to avoid clipping. Default is object attribute.
 
         Returns:
         tr_matr_cum_residual : list of 2D arrays of float
@@ -12138,33 +12142,33 @@ class FIBSEM_dataset:
         '''
         Transform the frames using the cumulative transformation matrix and save the data set into .mrc and/or .h5 file
         
-        kwargs
+        kwargs:
         ---------
-        DASK_client : DASK client. If set to empty string '' (default), local computations are performed.
-        DASK_client_retries : int (default to 3)
-            Number of allowed automatic retries if a task fails
+        DASK_client : If empty string ' ' (Default), local computations are performed.
+        DASK_client_retries : int
+            Number of allowed automatic retries if a task fails. Default is object attribute.
         save_transformed_dataset : boolean
-            If True (default), the transformed data set will be saved into MRC file
+            If True (default), the transformed data set will be saved into MRC  and/or .h5 file.
         save_registration_summary : boolean
-            If True (default()), the registration analysis data will be saved into XLSX file
+            If True (default), the registration analysis data will be saved into XLSX file.
         frame_inds : int array (or list)
-            Array of frame indecis. Default is all frames (to be transformed).
+            Array of frame indices. Default is all frames (to be transformed).
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
+        fnm_reg : str
+            Filename for the final registered dataset. Default is object attribute.
         fnm_types : list of strings
             File type(s) for output data. Options are: ['h5', 'mrc'].
             Defauls is 'mrc'. 'h5' is BigDataViewer HDF5 format, uses npy2bdv package. Use empty list if do not want to save the data.
-        fnm_reg : str
-            filename for the final registered dataset
         ImgB_fraction : float
-            fractional ratio of Image B to be used for constructing the fuksed image:
+            Fractional ratio of Image B to be used for constructing the fused image:
             ImageFused = ImageA * (1.0-ImgB_fraction) + ImageB * ImgB_fraction
         add_offset : boolean
-            If True - the Dark Count offset will be added before saving to make values positive (set True if saving into BigDataViewer HDF5 - it uses UI16 data format)
+            If True - the Dark Count offset will be added before saving to make values positive (set True if saving into BigDataViewer HDF5 - it uses UI16 data format).
         offset : float
-            Offset to be subtracted (see above). Default is Scaling[1, 0]*(1.0-ImgB_fraction) + Scaling[1, 1]*ImgB_fraction
+            Offset to be subtracted (see above). Default is Scaling[1, 0]*(1.0-ImgB_fraction) + Scaling[1, 1]*ImgB_fraction.
         save_res_png  : boolean
             Save PNG images of the intermediate processing statistics and final registration quality check
         perform_transformation : boolean
@@ -12174,9 +12178,9 @@ class FIBSEM_dataset:
         invert_data : boolean
             If True - the data is inverted.
         perform_deformation : boolean
-            If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below
+            If True - the data is deformed (in addition to tyransformation defined above) using the deformation field data defined below.
         deformation_type : str
-            Options are:
+            Type of Deformation. Default is object attribute. Options are:
                 'post_1DY'  - Default. Deformation is performed AFTER the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
                 'prior_1DY' - Deformation is performed PRIOR to the matrix transformation using 1D deformation field with only Y-coordinate components (all pixels along X-axis are deformed the same way).
                 'post_1DX'  - Deformation is performed AFTER the matrix transformation using 1D deformation field with only X-coordinate components (all pixels along Y-axis are deformed the same way).
@@ -12184,43 +12188,55 @@ class FIBSEM_dataset:
                 'post_2D'   - Deformation is performed AFTER the matrix transformation using 2D deformation field.
                 'prior_2D'  - Deformation is performed PRIOR to the matrix transformation using 2D deformation field.
         deformation_fields : float array
+            Deformation Field Array (for deformation set above).
         flatten_image : boolean
-            perform image flattening
+            Perform image flattening. Default is object attribute.
         image_correction_file : str
-            full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array)
+            Full path to a binary filename that contains source name (image_correction_source) and correction array (img_correction_array).
         image_scales : array of floats
-            image multipliers for image rescaling: I = (I-image_offset)*image_scale + image_offset
+            Image multipliers for image rescaling: I = (I-image_offset)*image_scale + image_offset.
         image_offsets : array of floats
-            image offset for image rescaling: I = (I-image_offset)*image_scale + image_offset
+            Image offsets for image rescaling: I = (I-image_offset)*image_scale + image_offset.
         flipY : boolean
-            If True, the data will be flipped along Y-axis. Default is False.
+            If True, the data will be flipped along Y-axis. Default is object attribute.
         zbin_factor : int
-            binning factor along Z-axis
+            Binning factor along Z-axis. Default is object attribute.
+        int_order : int
+            The order of interpolation (when transforming the data). Default is object attribute.
+                The order has to be in the range 0-5:
+                    0: Nearest-neighbor
+                    1: Bi-linear (default)
+                    2: Bi-quadratic
+                    3: Bi-cubic
+                    4: Bi-quartic
+                    5: Bi-quintic
+        dtp : Data Type
+            Python data type for saving. Default is np.int16.
         eval_metrics : list of str
-            list of evaluation metrics to use. default is ['NSAD', 'NCC', 'NMI', 'FSC']
+            List of evaluation metrics to use. Default is object attribute.
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
-            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+            If evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
         sliding_evaluation_box : boolean
-            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box.
         start_evaluation_box : list of 4 int
-            see above
+            see above.
         stop_evaluation_box : list of 4 int
-            see above
+            see above.
         save_sample_frames_png : boolean
-            If True, sample frames with superimposed eval box and registration analysis data will be saved into png files
+            If True, sample frames with superimposed eval box and registration analysis data will be saved into png files.
         dtp  : dtype
             Python data type for saving. Default is int16, the other option currently is np.uint8.
         fill_value : float
             Fill value for padding. Default is zero.
         remove_intermediate_frames : boolean
-            If True (Default), intermediate frames (TIFF files) will be removed
+            If True (default), intermediate frames (TIFF files) will be removed
         disp_res : boolean
             If True (default), intermediate messages and results will be displayed.
         chunked_mrc_write : boolean
-            if True, the MRC stack is written in chunks, otherwise (False, Default) frame-by-frame
+            if True, the MRC stack is written in chunks, otherwise (False, Default) frame-by-frame.
         chunk_length : int
-            length of MRC write chunk. Default is 32
+            length of MRC write chunk. Default is 32.
         
         Returns:
         reg_summary, reg_summary_xlsx
@@ -12469,32 +12485,32 @@ class FIBSEM_dataset:
 
     def show_eval_box(self, **kwargs):
         '''
-        Show the box used for evaluating the registration quality
+        Show the box used for evaluating the registration quality.
 
-        kwargs
+        kwargs:
         ---------
         frame_inds : array or list of int
-            Array or list oif frame indecis to use to display the evaluation box.
-            Default are [nfrs//10, nfrs//2, nfrs//10*9]
+            Array or list of frame indices to use to display the evaluation box.
+            Default is [nfrs//10, nfrs//2, nfrs//10*9].
         evaluation_box : list of 4 int
-            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
-            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
+            If evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
         sliding_evaluation_box : boolean
-            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box.
         start_evaluation_box : list of 4 int
-            see above
+            see above.
         stop_evaluation_box : list of 4 int
-            see above
+            see above.
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
         fnm_reg : str
-            filename for the final registered dataset
+            Filename for the final registered dataset. Default is object attribute.
         Sample_ID : str
-            Sample ID
+            Sample ID. Default is object attribute.
         int_order : int
-            The order of interpolation (when transforming the data).
+            The order of interpolation (when transforming the data). Default is object attribute.
                 The order has to be in the range 0-5:
                     0: Nearest-neighbor
                     1: Bi-linear (default)
@@ -12503,23 +12519,23 @@ class FIBSEM_dataset:
                     4: Bi-quartic
                     5: Bi-quintic
         perform_transformation : boolean
-            If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed
+            If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed.
         invert_data : boolean
-            If True - the data is inverted
+            If True - the data is inverted.
         box_linewidth : float
-            linewidth for the box outline. Default is 1.0
+            Linewidth for the box outline. Default is 1.0.
         box_color : color
-            color for the box outline. Default is yellow
+            Color for the box outline. Default is 'yellow'.
         save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check
+            Save PNG images of the intermediate processing statistics and final registration quality check.
         pad_edges : boolean
             If True, the data will be padded before transformation to avoid clipping.
         flipY : boolean
             If True, the data will be flipped along Y-axis. Default is False.
         fill_value : float
-            fill value for padding. Default is zero
+            Fill value for padding. Default is 0.
         verbose : boolean
-            Desplay intermediate comments / results. Default is False
+            Display intermediate comments / results. Default is False.
         
         '''
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
@@ -12542,8 +12558,8 @@ class FIBSEM_dataset:
         save_res_png  = kwargs.get("save_res_png", self.save_res_png )
         fls = self.fls
         nfrs = len(fls)
-        default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
-        frame_inds = kwargs.get("frame_inds", default_indecis)
+        default_indices = [nfrs//10, nfrs//2, nfrs//10*9]
+        frame_inds = kwargs.get("frame_inds", default_indices)
         verbose = kwargs.get("verbose", False)
 
         shape = [self.YResolution, self.XResolution]        
@@ -12645,54 +12661,65 @@ class FIBSEM_dataset:
 
     def estimate_SNRs(self, **kwargs):
         '''
-        Estimate SNRs in Image A and Image B based on single-image SNR calculation.  
+        Estimate SNRs in Image A and Image B based on single-image SNR calculation using Auto-Correlation.  
 
-        kwargs
+        kwargs:
         ---------
         frame_inds : list of int
-            List oif frame indecis to use to display the evaluation box.
-            Default are [nfrs//10, nfrs//2, nfrs//10*9]
+            Array or list of frame indices to use to display the evaluation box. Default is [nfrs//10, nfrs//2, nfrs//10*9].
         zero_mean: boolean
-            if True (default), auto-correlation is zero-mean
+            If True (default), auto-correlation is zero-mean.
         evaluation_box : list of 4 int
-            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
-            if evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
+            evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration.
+            If evaluation_box is not set or evaluation_box = [0, 0, 0, 0], the entire image is used.
         sliding_evaluation_box : boolean
-            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box
+            if True, then the evaluation box will be linearly interpolated between sliding_evaluation_box and stop_evaluation_box.
         start_evaluation_box : list of 4 int
-            see above
+            see above.
         stop_evaluation_box : list of 4 int
-            see above
+            see above.
         ftype : int
-            file type (0 - Shan Xu's .dat, 1 - tif)
+            File type (0 - Shan Xu's .dat, 1 - tif). Default is object attribute.
         data_dir : str
-            data directory (path)
+            Data directory (path). Default is object attribute.
+        fnm_reg : str
+            Filename for the final registered dataset. Default is object attribute.
         Sample_ID : str
-            Sample ID
+            Sample ID. Default is object attribute.
         ImgB_fraction : float
             Optional fractional weight of Image B to use for constructing the fused image: FusedImage = ImageA*(1.0-ImgB_fraction) + ImageB*ImgB_fraction
             If not provided, the value determined from rSNR ratios will be used.
-        invert_data : boolean
-            If True - the data is inverted
         perform_transformation : boolean
-            If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed
-        pad_edges : boolean
-            If True, the data will be padded before transformation to avoid clipping.
-        extrapolate_signal : str
-            extrapolate to find signal autocorrelationb to 0-point (without noise). 
-            Options are:
-                    'nearest'  - nearest point (1 pixel away from center)
-                    'linear'   - linear interpolation of 2-points next to center
-                    'parabolic' - parabolic interpolation of 2 point left and 2 points right 
-            Default is 'parabolic'.
-        save_res_png  : boolean
-            Save PNG images of the intermediate processing statistics and final registration quality check
-        pad_edges : boolean
-            If True, the data will be padded before transformation to avoid clipping.
+            If True - the data is transformed using existing cumulative transformation matrix. If False - the data is not transformed. Default is False.
+        invert_data : boolean
+            If True - the data is inverted. Default is object attribute.
         flipY : boolean
-            If True, the data will be flipped along Y-axis. Default is False.
+            If True, the data will be flipped along Y-axis. Default is object attribute.
+        pad_edges : boolean
+            If True, the frame will be padded to account for frame position and/or size changes. Default is object attribute.
+        extrapolate_signal : str
+            Extrapolation method to find signal auto-correlation at 0-point (“Noise-Free Autocorrelation”). Options are:
+                'nearest'  - nearest point (1 pixel away from center, same as NN in [1]).
+                'linear'   - linear interpolation of 2-points next to center (same as FO in [1]).
+                'parabolic' - parabolic interpolation of 2 point left and 2 points right (for 4-point interpolation this is the same as NN+FO in [1]).
+                'gaussian'  - gaussian interpolation with number of points = aperture
+                'LDR' - use Levinson-Durbin recusrsion (ACLDR in [1]).
+            Default is 'parabolic'.
+        nlags : int
+            In case of 'LDR' (Levinson-Durbin recursion) nlags is the recursion order (a number of lags). Default is min(xsize/4, ysize/4).
+        aperture : int
+            Total number of points for gaussian interpolation. Default is 6.
+        save_res_png  : boolean
+            Save PNG images of the intermediate processing statistics and final registration quality check.
+
+        Returns:
+            ImgB_fraction_xSNR, ImgB_fraction_ySNR, ImgB_fraction_rSNR
         
         '''
+        fls = self.fls
+        nfrs = len(fls)
+        default_indices = [nfrs//10, nfrs//2, nfrs//10*9]
+        frame_inds = kwargs.get("frame_inds", default_indices)
         evaluation_box = kwargs.get("evaluation_box", [0, 0, 0, 0])
         sliding_evaluation_box = kwargs.get("sliding_evaluation_box", False)
         start_evaluation_box = kwargs.get("start_evaluation_box", [0, 0, 0, 0])
@@ -12709,14 +12736,11 @@ class FIBSEM_dataset:
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         perform_transformation =  kwargs.get("perform_transformation", False) and hasattr(self, 'tr_matr_cum_residual')
         extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
+        edge_fraction = kwargs.get("edge_fraction", 0.10)
+        aperture = kwargs.get("aperture", 6)
         zero_mean = kwargs.get('zero_mean', True)
-
-        fls = self.fls
-        nfrs = len(fls)
-        default_indecis = [nfrs//10, nfrs//2, nfrs//10*9]
-        frame_inds = kwargs.get("frame_inds", default_indecis)
-
         shape = [self.YResolution, self.XResolution]
+        nlags = kwargs.get("nlags", np.min(shape)//4)
         if pad_edges and perform_transformation:
             xi, yi, padx, pady = determine_pad_offsets(shape, self.tr_matr_cum_residual)
             #xmn, xmx, ymn, ymx = determine_pad_offsets(shape, self.tr_matr_cum_residual)
@@ -13172,7 +13196,7 @@ class FIBSEM_dataset:
         image_name : str
             Options are: 'RawImageA' (default), 'RawImageB', 'ImageA', 'ImageB'
         frame_inds : list of int
-            List oif frame indecis to use to display the evaluation box.
+            List of frame indices to use to display the evaluation box.
             Default are [nfrs//10, nfrs//2, nfrs//10*9]
         evaluation_box : list of 4 int
             evaluation_box = [top, height, left, width] boundaries of the box used for evaluating the image registration
@@ -13317,8 +13341,8 @@ class FIBSEM_dataset:
 
         fls = np.array(self.fls)
         nfrs = len(fls)
-        default_indecis = np.arange(nfrs)
-        frame_inds = kwargs.get("frame_inds", default_indecis)
+        default_indices = np.arange(nfrs)
+        frame_inds = kwargs.get("frame_inds", default_indices)
         if verbose:
             print('Will analyze frames with inds:', frame_inds)
             print('Frame files:', np.array(fls)[frame_inds])
