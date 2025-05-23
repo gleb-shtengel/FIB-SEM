@@ -306,44 +306,45 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
     Finds blobs in the given grayscale image using Laplasian of Gaussians (LoG). gleb.shtengel@gmail.com 06/2023
     
     Parameters:
+    ---------
     image : 2D image
     
-    kwargs :
+    kwargs:
+    ---------
     min_sigma : float
-        min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.0
+        Min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.0.
     max_sigma : float
-        min sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.5
+        Max sigma (in pixel units) for Gaussian kernel in LoG search. Default is 1.5.
     threshold : float
-        threshold for LoG search. Default is 0.005. The absolute lower bound for scale space maxima. Local maxima smaller
-        than threshold are ignored. Reduce this to detect blobs with less intensities. 
+        Threshold for LoG search. Default is 0.005. The absolute lower bound for scale space maxima.
+        Local maxima smaller than threshold are ignored. Reduce this to detect blobs with less intensities. 
     overlap : float
         A value between 0 and 1. Defaults is 0.1. If the area of two blobs overlaps by a
-        fraction greater than 'overlap', the smaller blob is eliminated.    
+        fraction greater than 'overlap', the smaller blob is eliminated.
     pixel_size : float
-        pixel size in nm. Default is 4.0
+        Pixel size in nm. Default is 4.0. 
     subset_size : int
-        subset size (pixels) for blob / transition analysis
-        Default is 16.
+        Subset size (pixels) for blob / transition analysis. Default is 16.
     bounds : lists
-        List of of transition limits Deafault is [0.37, 0.63].
+        List of transition limits Default is [0.37, 0.63].
         Example of multiple lists: [[0.33, 0.67], [0.20, 0.80]].
     bands : list of 3 ints
-        list of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
-        Deafault is [5 ,3, 5].
+        List of three ints for the averaging bands for determining the left min, peak, and right min of the cross-section profile.
+        Default is [5 ,3, 5].
     min_thr : float
-        threshold for identifying a 'good' transition (bottom < min_thr* top)
+        Threshold for identifying a 'good' transition (bottom < min_thr* top).
     transition_low_limit : float
-        error flag is incremented by 4 if the determined transition distance is below this value. Default is 0.0
+        Error flag is incremented by 4 if the determined transition distance is below this value. Default is 0.0.
     transition_high_limit : float
-        error flag is incremented by 8 if the determined transition distance is above this value. Default is 10.0
+        Error flag is incremented by 8 if the determined transition distance is above this value. Default is 10.0.
     verbose : boolean
-        print the outputs. Default is True
+        Print intermediate outputs. Default is False.
     disp_res : boolean
-        display results. Default is True
+        Display results. Default is False.
     title : str
-        title.
+        Title string.
     nbins : int
-        bins for histogram
+        Number of bins for histogram. Default is 64.
     save_data_xlsx : boolean
     	save the data into Excel workbook. Default is True.
     results_file_xlsx : file name for Excel workbook to save the results
