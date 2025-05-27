@@ -7980,13 +7980,13 @@ def evaluate_FIBSEM_frames_dataset(fls, DASK_client, **kwargs):
             ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
             ['PF', 2]  - use polynomial fit (in this case of order 2)
     Mill_Volt_Rate_um_per_V : float
-        Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+        Milling Voltage to Z conversion (µm/V). Default is 31.235258870176065.
     FIBSEM_Data_xlsx : str
         Filepath of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions)
     disp_res : boolean
         If True (default), intermediate messages and results will be displayed.
     use_existing_data : boolean
-        Default is False. If True and the data exists (saved inso XLSX), use that.   
+        Default is False. If True and the data exists (saved into XLSX), use that.   
 
     Returns:
     list of 12 parameters: FIBSEM_Data_xlsx, data_min_glob, data_max_glob, data_min_sliding, data_max_sliding, mill_rate_WD, mill_rate_MV, center_x, center_y, ScanRate, EHT, SEMSpecimenI
@@ -11427,11 +11427,11 @@ class FIBSEM_dataset:
                 ['LF'] - use linear fit with forces start points Sxx and Syy = 1 and Sxy and Syx = 0
                 ['PF', 2]  - use polynomial fit (in this case of order 2)
         Mill_Volt_Rate_um_per_V : float
-            Milling Voltage to Z conversion (µm/V). Defaul is 31.235258870176065.
+            Milling Voltage to Z conversion (µm/V). Default is 31.235258870176065.
         FIBSEM_Data_xlsx : str
             File path of the Excell file for the FIBSEM data set data to be saved (Data Min/Max, Working Distance, Milling Y Voltage, FOV center positions).
         use_existing_data : boolean
-            Default is False. If True and the data exists (saved inso XLSX), use that.            
+            Default is False. If True and the data exists (saved into XLSX), use that.            
         disp_res : boolean
             If True (default), intermediate messages and results will be displayed.
 
@@ -12704,7 +12704,7 @@ class FIBSEM_dataset:
                     4: Bi-quartic
                     5: Bi-quintic
         invert_data : boolean
-            If True - the data is inverted. Default is object attribute.
+            If True - the data is inverted. Default is object attribute or False.
         flipY : boolean
             If True, the data will be flipped along Y-axis. Default is object attribute.
         pad_edges : boolean
@@ -12746,7 +12746,10 @@ class FIBSEM_dataset:
         ImgB_fraction = kwargs.get("ImgB_fraction", 0.00 )
         perform_transformation =  kwargs.get("perform_transformation", False) and hasattr(self, 'tr_matr_cum_residual')
         int_order = kwargs.get("int_order", self.int_order)
-        invert_data =  kwargs.get("invert_data", self.invert_data)
+        if hasattr(self, 'invert_data'):
+            invert_data =  kwargs.get("invert_data", self.invert_data)
+        else:
+            invert_data =  kwargs.get("invert_data", False)
         flipY = kwargs.get("flipY", self.flipY)
         pad_edges =  kwargs.get("pad_edges", self.pad_edges)
         extrapolate_signal = kwargs.get('extrapolate_signal', 'parabolic')
