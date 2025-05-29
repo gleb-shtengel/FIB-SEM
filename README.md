@@ -120,7 +120,7 @@ Depending on your distribution, you may need to install these as well :
     smooth_mrc_stack_with_kernel(mrc_filename, smooth_kernel, data_min, data_max, **kwargs)
         Read MRC stack, smooth the data by performing 2D-convolution with smooth_kernel, and save the data.
     merge_tiff_files_mrc_stack(fls_tiff, **kwargs):
-        Bins and crops a stack tiff files (frames) along X-, Y-, or Z-directions and saves it into MRC or HDF5 format.
+        Bins and crops a stack tiff files (frames) along X-, Y-, or Z-directions and saves them into MRC or HDF5 file.
     mrc_stack_estimate_resolution_blobs_2D(mrc_filename, **kwargs):
         Estimate transitions in the images inside mrc_stack, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs).
     mrc_stack_plot_2D_blob_examples(results_xlsx, **kwargs):
@@ -205,7 +205,7 @@ Depending on your distribution, you may need to install these as well :
     RawImageA_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
         Convert the Image A into 8-bit array.
     RawImageB_8bit_thresholds(thr_min = 1.0e-3, thr_max = 1.0e-3, data_min = -1, data_max = -1, nbins=256):
-            Convert the Image B into 8-bit array.
+        Convert the Image B into 8-bit array.
     save_snapshot(**kwargs):
         Builds an image that contains both the Detector A and Detector B (if present) images as well as a table with important FIB-SEM parameters.
     analyze_noise_ROIs(Noise_ROIs, Hist_ROI ,**kwargs):
@@ -341,7 +341,7 @@ Depending on your distribution, you may need to install these as well :
     Methods
     -------
     SIFT_evaluation(eval_fls = [], **kwargs)
-        Evaluate SIFT settings and perfromance of few test frames (eval_fls).
+        Evaluate SIFT settings and perfromance of few test frames (eval_fls = [], **kwargs).
     convert_raw_data_to_tif_files(**kwargs)
         Convert binary ".dat" files into ".tif" files
     evaluate_FIBSEM_statistics(**kwargs)
@@ -365,6 +365,6 @@ Depending on your distribution, you may need to install these as well :
     evaluate_ImgB_fractions(ImgB_fractions, frame_inds, **kwargs)
         Calculate NCC and SNR vs Image B fraction over a set of frames.
     estimate_resolution_blobs_2D(**kwargs)
-        Estimate transitions in the image, uses select_blobs_LoG_analyze_transitions(frame_eval, **kwargs).
+        Estimate transitions in the image, uses select_blobs_LoG_analyze_transitions(**kwargs).
 
 
