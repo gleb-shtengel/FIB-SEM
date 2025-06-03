@@ -9111,6 +9111,7 @@ def SIFT_evaluation_dataset(fs, **kwargs):
     Evaluate SIFT settings and perfromance of few test frames (fs). ©G.Shtengel 10/2021 gleb.shtengel@gmail.com
     
     Parameters:
+    ---------
     fs : array of str
         filenames for the data frames to be used for SIFT evaluation
     
@@ -9533,39 +9534,18 @@ def check_registration(img0, img1, **kwargs):
     Debugging tool. Perform SIFT registration check on two images. Will perform SIFT, and then report Residual Errors and plot residual error histograms
     
     Parameters:
+    ---------
     img0 : 2D array
     img1 : 2D array
     
     kwargs:
+    ---------
     thr_min : float
-        CDF threshold for determining the minimum data value
+        CDF threshold for determining the minimum data value.
     thr_max : float
-        CDF threshold for determining the maximum data value
-    TransformType : object reference
-        Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
-        Choose from the following options:
-            ShiftTransform - only x-shift and y-shift
-            XScaleShiftTransform  -  x-scale, x-shift, y-shift
-            ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
-            AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
-            RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
-    l2_matrix : 2D float array
-        matrix of regularization (shrinkage) parameters
-    targ_vector = 1D float array
-        target vector for regularization
-    solver : str
-        Solver used for SIFT ('RANSAC' or 'LinReg')
-    RANSAC_initial_fraction : float
-        Fraction of data points for initial RANSAC iteration step. Default is 0.005.
-    drmax : float
-        In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
-        In the case of 'LinReg' - outlier threshold for iterative regression
-    max_iter : int
-        Max number of iterations in the iterative procedure above (RANSAC or LinReg)
-    BFMatcher : boolean
-        If True, the BF Matcher is used for keypont matching, otherwise FLANN will be used
-    save_matches : boolean
-        If True, matches will be saved into individual files
+        CDF threshold for determining the maximum data value.
+    nbins : int
+        Number of histogram bins for building the PDF and CDF. Default is 256.
     SIFT_nfeatures : int
         SIFT library default is 0. The number of best features to retain.
         The features are ranked by their scores (measured in SIFT algorithm as the local contrast)
@@ -9586,21 +9566,57 @@ def check_registration(img0, img1, **kwargs):
     SIFT_sigma : double
         SIFT library default is 1.6.  The sigma of the Gaussian applied to the input image at the octave #0.
         If your image is captured with a weak camera with soft lenses, you might want to reduce the number.
+    TransformType : object reference
+        Transformation model used by SIFT for determining the transformation matrix from Key-Point pairs.
+        Choose from the following options:
+            ShiftTransform - only x-shift and y-shift
+            XScaleShiftTransform  -  x-scale, x-shift, y-shift
+            ScaleShiftTransform - x-scale, y-scale, x-shift, y-shift
+            AffineTransform -  full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift)
+            RegularizedAffineTransform - full Affine (x-scale, y-scale, rotation, shear, x-shift, y-shift) with regularization on deviation from ShiftTransform
+    l2_matrix : 2D float array
+        matrix of regularization (shrinkage) parameters
+    targ_vector = 1D float array
+        target vector for regularization
+    solver : str
+        Solver used for SIFT ('RANSAC' or 'LinReg')
+    RANSAC_initial_fraction : float
+        Fraction of data points for initial RANSAC iteration step. Default is 0.005.
+    Lowe_Ratio_Threshold : float
+        Threshold for Lowe's Ratio Test. Default is 0.7.
+    drmax : float
+        In the case of 'RANSAC' - Maximum distance for a data point to be classified as an inlier.
+        In the case of 'LinReg' - outlier threshold for iterative regression.
+    max_iter : int
+        Max number of iterations in the iterative procedure above (RANSAC or LinReg). Default is 1000.
     save_res_png  : boolean
-        Save PNG images of the intermediate processing statistics and final registration quality check
+        Save PNG images of the intermediate processing statistics and final registration quality check.
     save_filename : string
-        Filename for saving the images
+        Filename for saving the images.
     dpi : int
-        DPI for PNG output. Default is 300
+        DPI for PNG output. Default is 300.
+    Sample_ID : string
+        Sample_ID. Used for comment in the PNG output.
+    filename : String
+        Filename. Used for comment in the PNG output.
     verbose : boolean
-        If True, outputs will be printed
+        If True, outputs will be printed.
     fontsize : int
-        Fontsize
-    
+        Fontsize. Default is 12.
+    fsize_text : int
+        Secondary Fontsize. Default is 6.
+    Returns:
+        return error_FWHMx, error_FWHMy
     '''
     thr_min = kwargs.get("thr_min", 1e-3)
     thr_max = kwargs.get("thr_max", 1e-3)
-    nbins = kwargs.get('nbins', 64)
+    nbins = kwargs.get('nbins', 256)
+    SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
+    SIFT_nOctaveLayers = kwargs.get('SIFT_nOctaveLayers', 3)
+    SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10.0)
+    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.025)
+    SIFT_sigma = kwargs.get('SIFT_sigma', 1.6)
+
     TransformType = kwargs.get("TransformType", RegularizedAffineTransform)
     l2_param_default = 1e-5                                  # regularization strength (shrinkage parameter)
     l2_matrix_default = np.eye(6)*l2_param_default                   # initially set equal shrinkage on all coefficients
@@ -9610,18 +9626,13 @@ def check_registration(img0, img1, **kwargs):
     targ_vector = kwargs.get("targ_vector", np.array([1, 0, 0, 0, 1, 0]))   # target transformation is shift only: Sxx=Syy=1, Sxy=Syx=0
     solver = kwargs.get("solver", 'RANSAC')
     RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.005)  # fraction of data points for initial RANSAC iteration step.
+    Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     drmax = kwargs.get("drmax", 1.5)
     max_iter = kwargs.get("max_iter", 2500)
-    Lowe_Ratio_Threshold = kwargs.get("Lowe_Ratio_Threshold", 0.7)   # threshold for Lowe's Ratio Test
     save_res_png  = kwargs.get("save_res_png", True)
     save_filename = kwargs.get('save_filename', 'check_registration_output.png')
     dpi = kwargs.get('dpi', 300)
-    SIFT_nfeatures = kwargs.get("SIFT_nfeatures", 0)
-    SIFT_nOctaveLayers = kwargs.get('SIFT_nOctaveLayers', 3)
-    SIFT_edgeThreshold = kwargs.get("SIFT_edgeThreshold", 10.0)
-    SIFT_contrastThreshold = kwargs.get("SIFT_contrastThreshold", 0.025)
-    SIFT_sigma = kwargs.get('SIFT_sigma', 1.6)
-    RANSAC_initial_fraction = kwargs.get("RANSAC_initial_fraction", 0.010)  # fraction of data points for initial RANSAC iteration step.
+    
     Sample_ID = kwargs.get('Sample_ID', '')
     filename = kwargs.get('filename', '') 
     verbose = kwargs.get('verbose', True)
@@ -9647,7 +9658,6 @@ def check_registration(img0, img1, **kwargs):
         'RANSAC_initial_fraction' : RANSAC_initial_fraction,
         'drmax' : drmax,
         'max_iter' : max_iter}
-    
     
     d0, d1 = get_min_max_thresholds(img0, thr_min=thr_min, thr_max=thr_max, disp_res=False)
     img0_uint8 = np.clip(255*(img0-d0)/(d1-d0), 0, 255).astype(np.uint8)
