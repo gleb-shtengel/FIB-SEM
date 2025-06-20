@@ -6898,7 +6898,7 @@ class FIBSEM_frame:
                 else:
                     fname_jpg = os.path.splitext(self.fname)[0] + 'DetB.jpg'
                 Img = self.RawImageB_8bit_thresholds()[0]
-                if invert:
+                if invert_data:
                     Img =  np.uint8(255) - Img
                 PILImage.fromarray(Img).save(fname_jpg)
         except:
