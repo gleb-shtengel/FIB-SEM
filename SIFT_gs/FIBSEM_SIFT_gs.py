@@ -101,6 +101,11 @@ try:
 except:
     raise RuntimeError("Unable to load FIBSEM_resolution_gs")
 
+try:
+    from SIFT_gs.FIBSEM_streak_analysis_gs import *
+except:
+    raise RuntimeError("Unable to load FIBSEM_streak_analysis_gs")
+
 
 ################################################
 # The two functions below are a patch on skimage.measure.ransac
