@@ -509,6 +509,9 @@ def levinson_durbin(s, nlags=10, isacov=False):
 def gauss_with_offset(x, a, x0, b, sigma):
     return (a*np.exp(-(x-x0)**2/(2*sigma**2)) + b)
 
+def gauss_without_offset(x, a, x0, sigma):
+    return a*np.exp(-(x-x0)**2/(2*sigma**2))
+
 ################################################
 #      Single Frame Image Processing Functions
 ################################################
@@ -10693,7 +10696,6 @@ def select_blobs_LoG_analyze_transitions_2D_dataset(params):
     if verbose:
         print(time.strftime('%Y/%m/%d  %H:%M:%S')+'   Will analyze a subset of ', image_name)
 
-
     for j in np.arange(zbin_factor):
         if j>0:
             frame = FIBSEM_frame(fls[frame_ind+j], ftype=ftype, calculate_scaled_images=calculate_scaled_images)
@@ -13375,9 +13377,6 @@ class FIBSEM_dataset:
             zbin_factor = kwargs.get("zbin_factor", 1)
         kwargs['zbin_factor'] = zbin_factor
         
-        
-        
-        
         min_sigma = kwargs.get('min_sigma', 1.0)
         max_sigma = kwargs.get('max_sigma', 1.0)
         
@@ -13542,11 +13541,14 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     nbins : int
         Number of bins for histogram. Default is 64.
     verbose : boolean
-        Print the outputs. Default is False
+        Print the outputs. Default is False.
+    title : str
+        Title. Default is 'Blobs determined by Laplasian of Gaussians'.
     '''
     save_png = kwargs.get('save_png', False)
     save_fname = kwargs.get('save_fname', results_xlsx.replace('.xlsx', '_2D_blob_analysis_results.png'))
     nbins = kwargs.get('nbins', 64)
+    title = kwargs.get('title', 'Blobs determined by Laplasian of Gaussians')
 
     saved_kwargs = read_kwargs_xlsx(results_xlsx, 'kwargs Info')
     pixel_size = saved_kwargs.get("pixel_size", 0.0)
@@ -13586,7 +13588,7 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     fig, axs = plt.subplots(2, 1, figsize=(xs,ys))
     fig.subplots_adjust(left=0.1, bottom=0.08, right=0.98, top=0.97, wspace=0.02, hspace=0.12)
     ax1, ax2 = axs
-    ax1.set_title('Blobs determined by Laplasian of Gaussians', fontsize=text_fs)
+    ax1.set_title(title, fontsize=text_fs)
     ax1.text(0.6, 0.55, '# of blobs: {:d}'.format(len(Xpt1)), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
     ax1.text(0.6, 0.50, '{:.0f}% - {:.0f}% Transitions'.format(bounds[0]*100, bounds[1]*100), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
     ax1.text(0.6, 0.45, 'Pixel Size (nm): {:.3f}'.format(pixel_size), transform=ax1.transAxes, color=text_col, fontsize=text_fs)
