@@ -760,7 +760,7 @@ def add_scale_bar(ax, **kwargs):
         width of the scale bar. Defalt is 3.0
     bar_color : color
         color of the scale bar. Defalt is 'white'
-    label : string
+    bar_label : string
         scale bar label. Default is length in um.
     label_color : color
         color of the scale bar label. Defalt is the same as bar_color.
