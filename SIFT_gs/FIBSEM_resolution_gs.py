@@ -341,12 +341,14 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
         Print intermediate outputs. Default is False.
     disp_res : boolean
         Display results. Default is False.
+    disp_all_blobs : boolean
+        Display only good blobs. If True (Default) - all blobs are displayed. Usufull when there are too many bad blobs.
     title : str
         Title string.
     nbins : int
         Number of bins for histogram. Default is 64.
     save_data_xlsx : boolean
-    	save the data into Excel workbook. Default is True.
+        save the data into Excel workbook. Default is True.
     results_file_xlsx : file name for Excel workbook to save the results
         
     Returns: results_file_xlsx, blobs_LoG, error_flags, tr_results, hst_datas
@@ -365,9 +367,9 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
         tr_results : list of lists
             [tr_xs_pts, tr_ys_pts, tr_xs_slp, tr_ys_slp]
         hst_datas : list of arrays of stats results
-        	rows: X- and Y- transitions, X-transitions, Y-transitions
-        	columns: Hist.Peak, Median, Mean, STD.
-        	For example, X-Y hist median is hst_data[0,1]
+            rows: X- and Y- transitions, X-transitions, Y-transitions
+            columns: Hist.Peak, Median, Mean, STD.
+            For example, X-Y hist median is hst_data[0,1]
     '''
     min_sigma = kwargs.get('min_sigma', 1.0)
     max_sigma = kwargs.get('max_sigma', 1.0)
@@ -383,12 +385,13 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
     transition_high_limit = kwargs.get('transition_high_limit', 10.0)
     verbose = kwargs.get('verbose', True)
     disp_res = kwargs.get('disp_res', True)
+    disp_all_blobs = kwargs.get('disp_all_blobs', True)
     title = kwargs.get('title', '')
     nbins = kwargs.get('nbins', 64)
     save_data_xlsx = kwargs.get('save_data_xlsx', True)
     results_file_xlsx = kwargs.get('results_file_xlsx', 'results.xlsx')
     if not save_data_xlsx:
-    	results_file_xlsx = 'Data not saved'
+        results_file_xlsx = 'Data not saved'
     
     kwargs['min_sigma'] = min_sigma
     kwargs['max_sigma'] = max_sigma
@@ -405,7 +408,9 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
     kwargs['title'] = title
     kwargs['nbins'] = nbins
     kwargs['results_file_xlsx'] = results_file_xlsx
-    
+    if verbose:
+        print('Step1: Searching for Blobs using Laplasian of Gaussians using kwargs:')
+        print(kwargs)
     blobs_LoG = blob_log(image, min_sigma = min_sigma, max_sigma=max_sigma, threshold=threshold, overlap=overlap)
     if verbose:
         print('Step1: Search Blobs using Laplasian of Gaussians, found {:d} blobs'.format(len(blobs_LoG)))
@@ -592,14 +597,19 @@ def select_blobs_LoG_analyze_transitions(image, **kwargs):
             y, x, r = blob
             if error_flag == 0:
                 colr = 'lime'
+                c = plt.Circle((x, y), r*3, color=colr, linewidth=0.5, fill=False)
+                ax.add_patch(c)
             else:
                 colr = 'blue'
-            c = plt.Circle((x, y), r*3, color=colr, linewidth=0.5, fill=False)
-            ax.add_patch(c)
+                if disp_all_blobs:
+                    c = plt.Circle((x, y), r*3, color=colr, linewidth=0.5, fill=False)
+                    ax.add_patch(c)
         ax.set_title(title)
-        ax.text(0.02,0.97, 'o  All Blobs', color = 'blue', fontsize = 12, transform=ax.transAxes)
+        if disp_all_blobs:
+            ax.text(0.02,0.97, 'o  All Blobs', color = 'blue', fontsize = 12, transform=ax.transAxes)
         ax.text(0.02,0.95, 'o  Good Blobs', color = 'lime', fontsize = 12, transform=ax.transAxes)
     return results_file_xlsx, blobs_LoG, error_flags, tr_results, hst_datas
+
 
 ############################################
 #
