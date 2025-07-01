@@ -13560,6 +13560,8 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     top_text = saved_kwargs.get("top_text", '')
     bounds = saved_kwargs.get("bounds", [0.0, 0.0])
     perform_transformation =  saved_kwargs.get("perform_transformation", False)
+    transition_low_limit = saved_kwargs.get("transition_low_limit", 0.0)
+    transition_high_limit = saved_kwargs.get("transition_high_limit", 10.0)
         
     xs=7.0
     ys = xs*1.5
@@ -13606,8 +13608,8 @@ def plot_2D_blob_results(results_xlsx, **kwargs):
     fexts =['_{:.0f}{:.0f}pts'.format(bounds[0]*100, bounds[1]*100), '_{:.0f}{:.0f}slp'.format(bounds[0]*100, bounds[1]*100)]
     xaxis_labels = ['{:.0f}%-{:.0f}% Transition (pts) (nm)'.format(bounds[0]*100, bounds[1]*100),
         '{:.0f}%-{:.0f}% Transition (slope) (nm)'.format(bounds[0]*100, bounds[1]*100)]
-    hranges = [(0, 10.0), 
-           (0, 10.0)]  # histogram range for the transition distance (in nm))
+    hranges = [(transition_low_limit, transition_high_limit), 
+           (transition_low_limit, transition_high_limit)]  # histogram range for the transition distance (in nm))
        
     for [tr_xs, tr_ys], fext, xaxis_label, hrange, axloc in zip(tr_sets, fexts, xaxis_labels, hranges,  [ax1, ax2]):
         trs = np.squeeze(np.array((tr_xs, tr_ys)).flatten())
