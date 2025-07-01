@@ -24,6 +24,8 @@ except:
 
 from scipy.signal import savgol_filter
 
+from SIFT_gs.FIBSEM_SIFT_gs import get_min_max_thresholds
+
 
 def extract_FFT(fl):
     imga = FIBSEM_frame(fl).RawImageA.astype(float)[0:1250, 0:1250]
