@@ -46,6 +46,7 @@ You will also need to have these packages installed:
 -   mrcfile
 -   xlsxwriter
 -   npy2bdv (used to save the data into Big Data Viewer – compatible HDF5 format)
+-   astropy
 
 Depending on your distribution, you may need to install these as well :
 -   openpyxl
