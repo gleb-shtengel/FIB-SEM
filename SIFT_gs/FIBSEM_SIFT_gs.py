@@ -82,7 +82,10 @@ EPS = np.finfo(float).eps
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', category=np.RankWarning)
+try:
+    warnings.filterwarnings('ignore', category=np.RankWarning)
+except:
+    warnings.filterwarnings('ignore', category=np.exceptions.RankWarning)
 
 #import SIFT_gs
 #print('SIFT_gs version: ', SIFT_gs.__version__)

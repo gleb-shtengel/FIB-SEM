@@ -429,7 +429,7 @@ def analyze_tiled_FFT_map(FFT_map, **kwargs):
     return_all = kwargs.get('return_all', False)
     
     if verbose:
-        print('Splitting FFT_map intp tiles')
+        print('Splitting FFT_map into tiles')
     FFT_tiled = np.moveaxis(FFT_map.reshape((ntiles_y, fsy_tile, ntiles_x, fsx_tile)), 2,1).reshape(ntiles_y * ntiles_x, fsy_tile, fsx_tile)
         
     if fsx_tile == fsy_tile:

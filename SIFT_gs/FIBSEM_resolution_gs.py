@@ -58,7 +58,10 @@ except:
 
 import warnings
 warnings.filterwarnings('ignore', category=DeprecationWarning)
-warnings.filterwarnings('ignore', category=np.RankWarning)
+try:
+    warnings.filterwarnings('ignore', category=np.RankWarning)
+except:
+    warnings.filterwarnings('ignore', category=np.exceptions.RankWarning)
 
 
 
