@@ -2012,7 +2012,7 @@ def evaluate_registration_two_frames(params_mrc):
         yshape, xshape = fr_img.shape
         fig, ax = plt.subplots(1,1, figsize=(3.0*xshape/yshape, 3))
         fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
-        dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+        dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
         if invert_data:
             ax.imshow(fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
         else:
@@ -2245,7 +2245,7 @@ def analyze_mrc_stack_registration(mrc_filename, **kwargs):
                 yshape, xshape = fr_img.shape
                 fig, ax = plt.subplots(1,1, figsize=(3.0*xshape/yshape, 3))
                 fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
-                dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval])
+                dmin, dmax = get_min_max_thresholds(fr_img[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
                 if invert_data:
                     ax.imshow(fr_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
                 else:
@@ -4397,7 +4397,7 @@ def evaluate_registration_two_frames_tif(params_tif):
         yshape, xshape = frame0.shape
         fig, ax = plt.subplots(1,1, figsize=(3.0*xshape/yshape, 3))
         fig.subplots_adjust(left=0.0, bottom=0.00, right=1.0, top=1.0)
-        dmin, dmax = get_min_max_thresholds(frame0[yi_eval:ya_eval, xi_eval:xa_eval])
+        dmin, dmax = get_min_max_thresholds(frame0[yi_eval:ya_eval, xi_eval:xa_eval], disp_res=False)
         if invert_data:
             ax.imshow(frame0, cmap='Greys_r', vmin=dmin, vmax=dmax)
         else:
@@ -5711,7 +5711,7 @@ def generate_report_from_xls_registration_summary(file_xlsx, **kwargs):
                 #print(eval_ind, np.shape(frame_img), yi_evals[eval_ind], ya_evals[eval_ind], xi_evals[eval_ind], xa_evals[eval_ind])
                 if use_raw_data:
                     eval_ind = eval_ind//zbin_factor
-                dmin, dmax = get_min_max_thresholds(frame_img[yi_evals[eval_ind]:ya_evals[eval_ind], xi_evals[eval_ind]:xa_evals[eval_ind]])
+                dmin, dmax = get_min_max_thresholds(frame_img[yi_evals[eval_ind]:ya_evals[eval_ind], xi_evals[eval_ind]:xa_evals[eval_ind]], disp_res=False)
                 if invert_data:
                     ax.imshow(frame_img, cmap='Greys_r', vmin=dmin, vmax=dmax)
                 else:
@@ -5810,7 +5810,6 @@ def plot_registrtion_quality_xlsx(data_files, labels, **kwargs):
         # data = pd.read_csv(fl)
         data = pd.read_excel(data_file, sheet_name='Registration Quality Statistics')
         reg_datas.append(data)
-
 
     lw0 = 0.5
     lw1 = 1
