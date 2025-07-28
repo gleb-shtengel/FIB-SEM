@@ -6930,11 +6930,17 @@ class FIBSEM_frame:
         if self.ftype == 0:
             if images_to_save == 'Both' or images_to_save == 'A':
                 fnameA = os.path.splitext(self.fname)[0] + '_' + self.DetA.strip('\x00') + '.tif'
-                tiff.imsave(fnameA, self.RawImageA)
+                try:
+                    tiff.imsave(fnameA, self.RawImageA)
+                except:
+                    tiff.imwrite(fnameA, self.RawImageA)
             if self.DetB != 'None':
                 if images_to_save == 'Both' or images_to_save == 'B':
                     fnameB = os.path.splitext(self.fname)[0] + '_' + self.DetB.strip('\x00') + '.tif'
-                    tiff.imsave(fnameB, self.RawImageB)
+                    try:
+                        tiff.imsave(fnameB, self.RawImageB)
+                    except:
+                        tiff.imwrite(fnameB, self.RawImageB)
         else:
             print('original File is already in TIF format')
         
@@ -10119,7 +10125,10 @@ def transform_and_save_chunk_of_frames(chunk_of_frame_parametrs):
     if flipY:
         transformed_img = np.flip(transformed_img, axis=0)
 
-    tiff.imsave(save_filename, transformed_img.astype(dtp))
+    try:
+        tiff.imsave(save_filename, transformed_img.astype(dtp))
+    except:
+        tiff.imwrite(save_filename, transformed_img.astype(dtp))
 
     return save_filename
 
