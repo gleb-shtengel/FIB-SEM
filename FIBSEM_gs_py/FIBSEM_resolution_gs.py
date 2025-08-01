@@ -52,7 +52,7 @@ from IPython.display import IFrame
 EPS = np.finfo(float).eps
 
 try:
-    from SIFT_gs.FIBSEM_help_functions_gs import *
+    from FIBSEM_gs_py.FIBSEM_help_functions_gs import *
 except:
     raise RuntimeError("Unable to load FIBSEM_help_functions_gs")
 

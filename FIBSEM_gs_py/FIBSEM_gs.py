@@ -80,25 +80,25 @@ try:
 except:
     warnings.filterwarnings('ignore', category=np.exceptions.RankWarning)
 
-#import SIFT_gs
-#print('SIFT_gs version: ', SIFT_gs.__version__)
+#import FIBSEM_gs_py
+#print('FIBSEM_gs_py version: ', FIBSEM_gs_py.__version__)
 try:
-    from SIFT_gs.FIBSEM_help_functions_gs import *
+    from FIBSEM_gs_py.FIBSEM_help_functions_gs import *
 except:
     raise RuntimeError("Unable to load FIBSEM_help_functions_gs")
 
 try:
-    from SIFT_gs.FIBSEM_custom_transforms_gs import *
+    from FIBSEM_gs_py.FIBSEM_custom_transforms_gs import *
 except:
     raise RuntimeError("Unable to load FIBSEM_custom_transforms_gs")
 
 try:
-    from SIFT_gs.FIBSEM_resolution_gs import *
+    from FIBSEM_gs_py.FIBSEM_resolution_gs import *
 except:
     raise RuntimeError("Unable to load FIBSEM_resolution_gs")
 
 try:
-    from SIFT_gs.FIBSEM_streak_analysis_gs import *
+    from FIBSEM_gs_py.FIBSEM_streak_analysis_gs import *
 except:
     raise RuntimeError("Unable to load FIBSEM_streak_analysis_gs")
 

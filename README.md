@@ -34,28 +34,10 @@ Then install the contrib version of OpenCV:
 pip install opencv-contrib-python
 ```
 
-Finally, you need to have Git installed, you get it here:
-https://git-scm.com/download/win
-
 Then use pip to install the repository directly
 ```bash
-pip install git+https://github.com/gleb-shtengel/FIB-SEM.git#egg=FIBSEM_gs
+pip install --index-url https://test.pypi.org/simple/ FIBSEM_gs_py
 ```
-
-You will also need to have these packages installed:
--   mrcfile
--   xlsxwriter
--   npy2bdv (used to save the data into Big Data Viewer – compatible HDF5 format)
--   astropy
-
-Depending on your distribution, you may need to install these as well :
--   openpyxl
--   DASK
--   pickle
--   webbrowser
--   IPython
--   ClusterWrap (If you want to use Janelia LSF cluster as a DASK client)
-
 
 ## General Help Functions
     get_spread(data, window=501, porder=3)

@@ -30,7 +30,7 @@ import warnings
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 try:
-    from SIFT_gs.FIBSEM_custom_transforms_gs import *
+    from FIBSEM_gs_py.FIBSEM_custom_transforms_gs import *
 except:
     raise RuntimeError("Unable to load FIBSEM_custom_transforms_gs")
 
