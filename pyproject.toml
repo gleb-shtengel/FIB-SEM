@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "FIBSEM_gs_py"
+version = "4.1.0"
+description = "Python library for processing and analysis of FIB-SEM data"
+requires-python = ">=3.8"
+dependencies = [
+    "numpy>=1.24.0,<2.0.0",
+    "pandas>=2.0.0,<3.0.0",
+    "dask>=2023.5.0",
+    "matplotlib>=3.7.0",
+    "scikit-image>=0.21.0",
+    "scikit-learn>=1.2.0",
+    "scipy>=1.10.0",
+    "tifffile>=2023.7.0",
+    "mrcfile>=1.4.0",
+    "h5py>=3.8.0",
+    "npy2bdv>=0.2.0",
+    "astropy>=5.2.0",
+    "xlsxwriter>=3.0.0",
+    "openpyxl>=3.1.0",
+    "ipython>=8.10.0",
+    "clusterwrap>=0.2.0",
+    "pillow>=9.4.0"
+]
+
+authors = [
+  {name = "Gleb Shtengel", email = "gleb.shtengel@gmail.com"}
+]
+
+license = "BSD 3"
+license-files = ["license.md"]
+keywords = ["FIBSEM", "FIB-SEM"]
+readme = "README.md"
+
+classifiers=[
+    "Development Status :: 3 - Alpha",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://github.com/gleb-shtengel/FIBSEM_gs_py"
+Documentation = "https://github.com/gleb-shtengel/FIB-SEM/README.md"
+Repository = "https://github.com/gleb-shtengel/FIBSEM_gs_py"
+Issues = "https://github.com/gleb-shtengel/FIBSEM_gs_py/issues"
