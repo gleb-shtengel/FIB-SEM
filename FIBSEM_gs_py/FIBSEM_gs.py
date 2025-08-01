@@ -80,8 +80,6 @@ try:
 except:
     warnings.filterwarnings('ignore', category=np.exceptions.RankWarning)
 
-#import FIBSEM_gs_py
-#print('FIBSEM_gs_py version: ', FIBSEM_gs_py.__version__)
 try:
     from FIBSEM_gs_py.FIBSEM_help_functions_gs import *
 except:
@@ -101,7 +99,6 @@ try:
     from FIBSEM_gs_py.FIBSEM_streak_analysis_gs import *
 except:
     raise RuntimeError("Unable to load FIBSEM_streak_analysis_gs")
-
 
 ################################################
 # The two functions below are a patch on skimage.measure.ransac
