@@ -31,7 +31,6 @@ authors = [
   {name = "Gleb Shtengel", email = "gleb.shtengel@gmail.com"}
 ]
 
-license = "BSD 3"
 license-files = ["license.md"]
 keywords = ["FIBSEM", "FIB-SEM"]
 readme = "README.md"
@@ -39,7 +38,6 @@ readme = "README.md"
 classifiers=[
     "Development Status :: 3 - Alpha",
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: BSD License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Topic :: Scientific/Engineering",
